@@ -1,0 +1,39 @@
+name: CMake
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+  #Allows you to start workflow manually from the actions tab in the interface github.com
+  workflow_dispatch:
+
+jobs:
+  #ESP32 Build
+  build-esp-idf-component:
+    name: ESP-IDF ${{ matrix.idf_ver }}/${{ matrix.idf_target }}/${{ matrix.board }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The version names here correspond to the versions of espressif/idf Docker image.
+        # See https://hub.docker.com/r/espressif/idf/tags and
+        # https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-docker-image.html
+        # for details.
+        idf_ver: ["release-v5.5"]
+        idf_target: ["esp32-c6"]
+        board: ["BOARD_AETHER_ESP32_C6", "BOARD_M5STACK_ATOM_LITE", "BOARD_NANO_ESP32_C6"]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          submodules: "recursive"
+
+      - name: Build Application
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: ${{ matrix.idf_ver }}
+          target: ${{ matrix.idf_target }}
+          command: idf.py build -DWIFI_SSID=test -DWIFI_PASSWORD=test -DBOARD=${{
+            matrix.board }}
