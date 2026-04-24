@@ -28,7 +28,7 @@
 #    include <freertos/FreeRTOS.h>
 #    include <freertos/task.h>
 
-#    include "BME68x_SensorAPI/bme68x.h"
+#    include "third-party/BME68x_SensorAPI/bme68x.h"
 
 #    include "sensors/sensors.h"
 #    include "sensors/utils.h"
@@ -40,15 +40,15 @@
 #    endif
 
 // Constants
-#define I2C_TRANS_TIMEOUT_CYCLES 5000
-#define I2C_TRANS_WAIT_FOREVER   -1
+#    define I2C_TRANS_TIMEOUT_CYCLES 5000
+#    define I2C_TRANS_WAIT_FOREVER -1
 
 // --- SAFER Interface Functions ---
 static BME68X_INTF_RET_TYPE bme_i2c_read(uint8_t reg_addr, uint8_t* reg_data,
                                          uint32_t len, void* intf_ptr) {
   uint8_t dev_addr = *(uint8_t*)intf_ptr;
-  esp_err_t err =
-      i2c_write_read(BME_I2C_NUM, dev_addr, &reg_addr, 1, reg_data, len, I2C_TRANS_TIMEOUT_CYCLES);
+  esp_err_t err = i2c_write_read(BME_I2C_NUM, dev_addr, &reg_addr, 1, reg_data,
+                                 len, I2C_TRANS_TIMEOUT_CYCLES);
   return (err == ESP_OK) ? BME68X_OK : BME68X_E_COM_FAIL;
 }
 

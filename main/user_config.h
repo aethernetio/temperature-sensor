@@ -53,7 +53,9 @@
 #  define BOARD_WROVER_ESP32 3
 #  define BOARD_M5STACK_ATOM_LITE 4
 
-#  define BOARD BOARD_NANO_ESP32_C6
+#  ifndef BOARD
+#    define BOARD BOARD_NANO_ESP32_C6
+#  endif
 
 #  if BOARD == BOARD_AETHER_ESP32_C6
 #    include "boards/aether_esp32_c6.h"

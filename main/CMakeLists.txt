@@ -19,8 +19,8 @@ list(APPEND src_list
   "controller.cpp"
 )
 
-list(APPEND esp_src_list
-  "BME68x_SensorAPI/bme68x.c"
+list(APPEND bme68x_srcs
+  "../third-party/BME68x_SensorAPI/bme68x.c"
 )
 
 list(APPEND sleeping_src
@@ -45,15 +45,17 @@ if(NOT CM_PLATFORM)
 
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
   target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
   target_link_libraries(${PROJECT_NAME} PRIVATE aether)
 else()
   if(CM_PLATFORM STREQUAL "ESP32")
     set(WIFI_SSID "" CACHE STRING "WiFi SSID")
     set(WIFI_PASSWORD "" CACHE STRING "WiFi Password")
+    set(BOARD "" CACHE STRING "Selected board - see user_config.h")
 
     #ESP32 CMake
-    idf_component_register(SRCS ${src_list} ${esp_src_list} ${sleeping_src} ${sensors_src}
-      INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+    idf_component_register(SRCS ${src_list} ${bme68x_srcs} ${sleeping_src} ${sensors_src}
+      INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/.."
       REQUIRES soc ulp
       PRIV_REQUIRES
         aether
@@ -74,6 +76,9 @@ else()
     endif()
     if (NOT "${WIFI_PASSWORD}" STREQUAL "")
       target_compile_definitions(${TARGET_NAME} PRIVATE "WIFI_PASSWORD=\"${WIFI_PASSWORD}\"")
+    endif()
+    if (NOT "${BOARD}" STREQUAL "")
+      target_compile_definitions(${TARGET_NAME} PRIVATE "BOARD=${BOARD}")
     endif()
 
   else()
