@@ -21,10 +21,11 @@
 #if THREAD_SLEEP == 1
 #  include <thread>
 
-extern void setup();
+extern void UpdateSensors();
+
 int DeepSleep(time_point soft_sleep_tp, time_point, std::int16_t) {
   std::this_thread::sleep_until(soft_sleep_tp);
-  // TODO: how to restart the app, use execv ?
+  UpdateSensors();
   return 0;
 }
 
