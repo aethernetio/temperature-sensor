@@ -21,10 +21,6 @@
 #include "sensors/sensors.h"
 #include "sleeping/sleeping.h"
 
-// timeouts
-// kMaxWaitTime is used to limit the wait time to prevent blocking other tasks
-static constexpr auto kMaxWaitTime = std::chrono::seconds{1};
-
 /**
  * Standard uid for test application.
  * This is intended to use only for testing purposes due to its limitations.
@@ -37,7 +33,7 @@ static constexpr auto kParentUid =
  * TODO: add actual uid
  */
 static constexpr auto kServiceUid =
-    ae::Uid::FromString("629bf907-293a-4b2b-bbc6-5e1bd6c89ffd");
+    ae::Uid::FromString("3d63930c-2e86-4e25-ba53-e745f5abb24b");
 
 #ifdef ESP_PLATFORM
 static const auto kWifiCreds = ae::WifiCreds{
@@ -63,6 +59,9 @@ static ae::RcPtr<ae::AetherApp> aether_app;
 static ae::RcPtr<ae::P2pStream> message_stream;
 
 void setup() {
+  std::cout << ae::Format("Setup {:%Y-%m-%d %H:%M:%S}") << ae::Now()
+            << std::endl;
+
   aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
 #if AE_DISTILLATION
@@ -104,27 +103,27 @@ void setup() {
   aether_app->aether()->uap->sleep_event().Subscribe(GoToSleep);
 
   // select controller's client
-  auto select_client =
+  auto& select_client =
       aether_app->aether()->SelectClient(kParentUid, "Controller");
 
-  select_client->StatusEvent().Subscribe(ae::ActionHandler{
-      ae::OnResult{[](auto& action) {
-        ae::Client::ptr client = action.client();
-        client.WithLoaded([](auto const& c) {
-          // open message stream to aether service client
-          message_stream =
-              c->message_stream_manager().CreateStream(kServiceUid);
-          message_stream->out_data_event().Subscribe(MessageReceived);
+  select_client.result_event().Subscribe(
+      [&](ae::Result<ae::Client::ptr, int>&& res) {
+        if (res) {
+          ae::Client::ptr client = std::move(res).value();
+          client.WithLoaded([](auto const& c) {
+            // open message stream to aether service client
+            message_stream =
+                c->message_stream_manager().CreateStream(kServiceUid);
+            message_stream->out_data_event().Subscribe(MessageReceived);
 
-          // measure temperature and send updated value
-          UpdateSensors();
-        });
-      }},
-      ae::OnError{[]() {
-        std::cerr << " !!! Client selection error";
-        aether_app->Exit(1);
-      }},
-  });
+            // measure temperature and send updated value
+            UpdateSensors();
+          });
+        } else {
+          std::cerr << " !!! Client selection error";
+          aether_app->Exit(1);
+        }
+      });
 }
 
 void loop() {
@@ -134,7 +133,7 @@ void loop() {
   if (!aether_app->IsExited()) {
     // run aether update loop
     auto new_time = aether_app->Update(ae::Now());
-    aether_app->WaitUntil(std::min(new_time, ae::Now() + kMaxWaitTime));
+    aether_app->WaitUntil(new_time);
   } else {
     // cleanup resources
     message_stream.Reset();
@@ -162,18 +161,25 @@ void SendValue(std::int16_t temperature) {
     return;
   }
 
+  struct Header {
+    std::uint8_t const root_code = 0x3;
+    std::uint8_t const size = sizeof(std::uint8_t) + sizeof(std::int16_t);
+    std::uint8_t const dev_code = 0x10;
+    AE_REFLECT_MEMBERS(root_code, size, dev_code)
+  };
+  static constexpr auto header = Header{};
+
   auto message = ae::DataBuffer{};
-  message.reserve(2);
+  message.reserve(sizeof(header) + 2);
   {
     auto writer = ae::VectorWriter<>{message};
     auto stream = ae::omstream{writer};
-    // write message code and
+    // write message header and temperature value
     // temperature in range -100.0 to 100.0 x100 (-10000 to 10000)
-    stream << std::uint8_t{0x03} << temperature;
+    stream << header << temperature;
   }
 
-  auto write_action = message_stream->Write(std::move(message));
-  write_action->StatusEvent().Subscribe([](auto) {
+  message_stream->Write(std::move(message)).status_event().Subscribe([](auto) {
     // with any result ready to sleep
     aether_app->aether()->uap->SleepReady();
   });
@@ -193,8 +199,9 @@ void GoToSleep(ae::Uap::Timer uap_timer) {
   aether_app->aether().Save();
   // Go to sleep
   auto sleep_until = interval.until();
-  std::cout << ae::Format(" >>> Sleep until {:%Y-%m-%d %H:%M:%S}...\n",
-                          sleep_until);
+  std::cout << ae::Format(
+      " >>> Sleep from {:%Y-%m-%d %H:%M:%S} until {:%Y-%m-%d %H:%M:%S}...\n",
+      ae::Now(), sleep_until);
   // TODO: add separate sleep duration
   DeepSleep(interval.until(), interval.until(),
             3000);  // wait till time or 30 deegrees
