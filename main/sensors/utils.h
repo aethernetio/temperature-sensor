@@ -24,7 +24,7 @@
 extern "C" {
 #  endif
 
-esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin);
+esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin, int i2c_speed);
 
 esp_err_t i2c_write(i2c_port_t port, uint8_t address, uint8_t const* data,
                     uint8_t len, int32_t ms_dur);

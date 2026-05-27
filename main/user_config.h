@@ -54,7 +54,7 @@
 #  define BOARD_M5STACK_ATOM_LITE 4
 
 #  ifndef BOARD
-#    define BOARD BOARD_NANO_ESP32_C6
+#    define BOARD BOARD_AETHER_ESP32_C6
 #  endif
 
 #  if BOARD == BOARD_AETHER_ESP32_C6
@@ -76,10 +76,16 @@
 
 #if BOARD_HAS_ULP == 1
 #  define ULP_SLEEP 1
+#  define THREAD_SLEEP 0
+#  define ESP_MAIN_SLEEP 0
 #elif defined ESP_PLATFORM
+#  define ULP_SLEEP 0
+#  define THREAD_SLEEP 0
 #  define ESP_MAIN_SLEEP 1
 #else
+#  define ULP_SLEEP 0
 #  define THREAD_SLEEP 1
+#  define ESP_MAIN_SLEEP 0
 #endif
 
 #if defined IS_ULP_COCPU

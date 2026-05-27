@@ -24,7 +24,7 @@
 #  include "ulp_lp_core_i2c.h"
 #  include "ulp_lp_core_utils.h"
 
-esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin) { return ESP_OK; }
+esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin, int i2c_speed) { return ESP_OK; }
 
 esp_err_t i2c_write(i2c_port_t port, uint8_t address, uint8_t const* data,
                     uint8_t len, int32_t ms_dur) {

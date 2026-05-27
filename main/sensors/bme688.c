@@ -84,7 +84,7 @@ uint8_t dev_addr = BME68X_I2C_ADDR_LOW;
 
 bool Init() {
   // 1. INSTALL I2C DRIVER
-  if (i2c_init(BME_I2C_NUM, SENSOR_SDA_PIN, SENSOR_SCL_PIN) != ESP_OK) {
+  if (i2c_init(BME_I2C_NUM, SENSOR_SDA_PIN, SENSOR_SCL_PIN, 400000) != ESP_OK) {
     return false;
   }
 

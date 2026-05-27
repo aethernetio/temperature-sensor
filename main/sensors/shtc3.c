@@ -69,7 +69,7 @@ static void send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
 
 bool Init() {
   // 1. INSTALL I2C DRIVER
-  if (i2c_init(SHTC3_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN) != ESP_OK) {
+  if (i2c_init(SHTC3_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, 400000) != ESP_OK) {
     return false;
   }
 return true;

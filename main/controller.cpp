@@ -41,7 +41,7 @@ static constexpr auto kServiceUid =
 
 #ifdef ESP_PLATFORM
 static const auto kWifiCreds = ae::WifiCreds{
-    /* .ssid*/ std::string{WIFI_SSID},
+    /* .ssid*/ std::string{{WIFI_SSID},
     /* .password*/ std::string{WIFI_PASSWORD},
 };
 static const auto kWifiInit = ae::WiFiInit{
@@ -145,8 +145,12 @@ void loop() {
 // implemented in sensors/
 void UpdateSensors() {
   std::int16_t temperature = {};
-  ReadSensors(&temperature, nullptr, nullptr, nullptr, nullptr);
+  std::uint32_t humidity = {};
+  std::uint32_t co2 = {};
+  ReadSensors(&temperature, &humidity, nullptr, &co2, nullptr);
   std::cout << ae::Format(" >>> Temperature: [{}]\n", temperature);
+  std::cout << ae::Format(" >>> Humidity: [{}]\n", humidity);
+  std::cout << ae::Format(" >>> Co2: [{}]\n", co2);
   // TODO: add check if wakeup cause is ulp then send value
   SendValue(temperature);
 }
