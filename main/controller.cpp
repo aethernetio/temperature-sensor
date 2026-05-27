@@ -41,7 +41,7 @@ static constexpr auto kServiceUid =
 
 #ifdef ESP_PLATFORM
 static const auto kWifiCreds = ae::WifiCreds{
-    /* .ssid*/ std::string{{WIFI_SSID},
+    /* .ssid*/ std::string{WIFI_SSID},
     /* .password*/ std::string{WIFI_PASSWORD},
 };
 static const auto kWifiInit = ae::WiFiInit{
