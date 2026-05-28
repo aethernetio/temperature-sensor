@@ -24,7 +24,7 @@
 #include "soc/gpio_num.h"
 
 #ifndef BOARD_HAS_ULP
-#  define BOARD_HAS_ULP 1
+#  define BOARD_HAS_ULP 0
 #endif
 #ifndef BOARD_HAS_LED
 #  define BOARD_HAS_LED 1
@@ -44,8 +44,8 @@
 #endif
 // --- Sensors ---
 #define BOARD_HAS_SHTC3 0
-#define BOARD_HAS_SHT45 0
-#define BOARD_HAS_STCC4 1
+#define BOARD_HAS_SHT45 1
+#define BOARD_HAS_STCC4 0
 #define BOARD_HAS_BME688 0
 // --- Hardware Settings ---
 #define SENSOR_SDA_PIN GPIO_NUM_6
