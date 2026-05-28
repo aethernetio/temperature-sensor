@@ -29,8 +29,14 @@
 #ifndef BOARD_HAS_LED
 #  define BOARD_HAS_LED 1
 #endif
+#ifndef BOARD_HAS_PWR_ON
+#  define BOARD_HAS_PWR_ON 0
+#endif
 #ifndef STATUS_LED_PIN
 #  define STATUS_LED_PIN GPIO_NUM_8
+#endif
+#ifndef PWR_ON_GPIO
+#  define PWR_ON_GPIO -1
 #endif
 #ifndef RESET_BUTTON_PIN
 #  define RESET_BUTTON_PIN GPIO_NUM_9

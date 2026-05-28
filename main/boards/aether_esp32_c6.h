@@ -21,6 +21,7 @@
 #endif
 
 #include "hal/i2c_types.h"
+#include "soc/gpio_num.h"
 
 #ifndef BOARD_HAS_ULP
 #  define BOARD_HAS_ULP 0
@@ -28,8 +29,15 @@
 #ifndef BOARD_HAS_LED
 #  define BOARD_HAS_LED 1
 #endif
+#ifndef BOARD_HAS_PWR_ON
+#  define BOARD_HAS_PWR_ON 1
+#endif
 #ifndef STATUS_LED_PIN
 #  define STATUS_LED_PIN GPIO_NUM_7
+#endif
+#ifndef PWR_ON_GPIO
+#  define PWR_ON_GPIO GPIO_NUM_14
+#  define LP_PWR_ON_GPIO LP_IO_NUM_14
 #endif
 #ifndef RESET_BUTTON_PIN
 #  define RESET_BUTTON_PIN GPIO_NUM_9

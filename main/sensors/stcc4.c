@@ -23,6 +23,12 @@
 #  include <stdint.h>
 #  include <stdbool.h>
 
+#  ifdef IS_ULP_COCPU
+#    include "ulp_lp_core_gpio.h"
+#  else
+#    include "driver/gpio.h"
+#  endif
+
 #  include "sensors/sensors.h"
 #  include "sensors/utils.h"
 
@@ -69,8 +75,16 @@ static esp_err_t send_command_16bit(uint16_t cmd, uint8_t slave_addr) {
 
 bool Init() {
   // 1. power ON
-  gpio_set_direction((gpio_num_t)GPIO_NUM_14, GPIO_MODE_OUTPUT);
-  gpio_set_level((gpio_num_t)GPIO_NUM_14, 1);
+#if BOARD_HAS_PWR_ON == 1
+#  ifdef IS_ULP_COCPU
+  ulp_lp_core_gpio_init(LP_PWR_ON_GPIO);
+  ulp_lp_core_gpio_output_enable(LP_PWR_ON_GPIO);
+  ulp_lp_core_gpio_set_level(LP_PWR_ON_GPIO, 1);
+#  else
+  gpio_set_direction((gpio_num_t)PWR_ON_GPIO, GPIO_MODE_OUTPUT);
+  gpio_set_level((gpio_num_t)PWR_ON_GPIO, 1);
+#  endif
+#endif
   // 2. Install I2C driver
   if (i2c_init(STCC4_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, 100000) != ESP_OK) {
     return false;
