@@ -54,6 +54,7 @@
 #  define BOARD_M5STACK_ATOM_LITE 4
 
 #  ifndef BOARD
+//#    define BOARD BOARD_AETHER_ESP32_C6
 #    define BOARD BOARD_AETHER_ESP32_C6
 #  endif
 

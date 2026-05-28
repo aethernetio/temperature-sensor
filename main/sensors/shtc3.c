@@ -97,7 +97,7 @@ void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
 
   // Read 6 bytes: [TempMSB, TempLSB, TempCRC, HumMSB, HumLSB, HumCRC]
   // In this example, we ignore CRC for simplicity.
-  ret = i2c_write_read(SHTC3_I2C_NUM_0, SHTC3_SLAVE_ADDR, data_rd,
+  ret = i2c_read(SHTC3_I2C_NUM_0, SHTC3_SLAVE_ADDR, data_rd,
                        sizeof(data_rd), LP_I2C_TRANS_TIMEOUT_CYCLES);
   if (ret == ESP_OK) {
     // 5. Raw values
