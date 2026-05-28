@@ -24,7 +24,7 @@
 #include "soc/gpio_num.h"
 
 #ifndef BOARD_HAS_ULP
-#  define BOARD_HAS_ULP 0
+#  define BOARD_HAS_ULP 1
 #endif
 #ifndef BOARD_HAS_LED
 #  define BOARD_HAS_LED 1
