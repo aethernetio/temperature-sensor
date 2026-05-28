@@ -44,8 +44,8 @@
 #endif
 // --- Sensors ---
 #define BOARD_HAS_SHTC3 0
-#define BOARD_HAS_SHT45 1
-#define BOARD_HAS_STCC4 0
+#define BOARD_HAS_SHT45 0
+#define BOARD_HAS_STCC4 1
 #define BOARD_HAS_BME688 0
 // --- Hardware Settings ---
 #define SENSOR_SDA_PIN GPIO_NUM_6
