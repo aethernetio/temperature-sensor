@@ -37,6 +37,7 @@
 #endif
 #ifndef PWR_ON_GPIO
 #  define PWR_ON_GPIO -1
+#  define LP_PWR_ON_GPIO -1
 #endif
 #ifndef RESET_BUTTON_PIN
 #  define RESET_BUTTON_PIN GPIO_NUM_41
