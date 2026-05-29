@@ -33,7 +33,11 @@ static constexpr auto kParentUid =
  * TODO: add actual uid
  */
 static constexpr auto kServiceUid =
-    ae::Uid::FromString("3d63930c-2e86-4e25-ba53-e745f5abb24b");
+#ifdef SERVICE_UID
+    ae::Uid::FromString(SERVICE_UID);
+#else
+    ae::Uid::FromString("e839f1a9-e0ec-4ff6-b85c-d49efaabf24f");
+#endif
 
 #ifdef ESP_PLATFORM
 static const auto kWifiCreds = ae::WifiCreds{
@@ -111,6 +115,11 @@ void setup() {
         if (res) {
           ae::Client::ptr client = std::move(res).value();
           client.WithLoaded([](auto const& c) {
+            std::cout << Format(
+                "\n\n>>>>>>>\n>>>>>>> Client Loaded UID:{} \n>>>>>>> Visit "
+                "https://aethernet.io/smarthub.html?uuid={} \n<<<<<\n\n",
+                c->uid(), kServiceUid);
+
             // open message stream to aether service client
             message_stream =
                 c->message_stream_manager().CreateStream(kServiceUid);
