@@ -38,7 +38,7 @@ add_compile_definitions(ESP_PLATFORM)
 add_compile_definitions(BME68X_DO_NOT_USE_FPU)
 
 if (NOT "${BOARD}" STREQUAL "")
-  target_compile_definitions(${TARGET_NAME} PRIVATE "BOARD=${BOARD}")
+  target_compile_definitions(${ULP_APP_NAME} PRIVATE "BOARD=${BOARD}")
 endif()
 
 # Import the ULP project helper functions
