@@ -37,10 +37,6 @@ add_executable(${ULP_APP_NAME} ${main_src} ${sensors_src})
 add_compile_definitions(ESP_PLATFORM)
 add_compile_definitions(BME68X_DO_NOT_USE_FPU)
 
-if (NOT "${BOARD}" STREQUAL "")
-  target_compile_definitions(${ULP_APP_NAME} PRIVATE "BOARD=${BOARD}")
-endif()
-
 # Import the ULP project helper functions
 include(IDFULPProject)
 
@@ -56,3 +52,26 @@ ulp_add_build_binary_targets(${ULP_APP_NAME})
 target_include_directories(${ULP_APP_NAME} PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../main" "${CMAKE_CURRENT_LIST_DIR}/../aether-client-cpp/")
 
 target_compile_definitions(${ULP_APP_NAME} PRIVATE "ULP_MODE=1")
+
+# Calculate where the build folder of the main project is located
+# ExternalProject is usually built inside build/ulp_main-prefix/src/ulp_main-build
+# We need to go up to the root of the build folder
+set(MAIN_BUILD_DIR "${CMAKE_BINARY_DIR}/../../..")
+set(ULP_BOARD_FILE "${MAIN_BUILD_DIR}/ulp_board_config.cmake")
+
+# If the configuration file exists, connect it
+if(EXISTS "${ULP_BOARD_FILE}")
+    include("${ULP_BOARD_FILE}")
+endif()
+
+# Проверяем, появилось ли значение переменной BOARD после инклуда
+if(NOT "${BOARD}" STREQUAL "")
+    message(STATUS "--------------------------------------------------")
+    message(STATUS "ULP Project SUCCESS! Board loaded from file: ${BOARD}")
+    message(STATUS "--------------------------------------------------")
+    
+    # Checking if the BOARD variable has been included
+    add_compile_definitions(BOARD=${BOARD})
+else()
+    message(WARNING "ULP Project: BOARD is not defined!")
+endif()

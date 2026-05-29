@@ -68,8 +68,6 @@ else()
         esp_hw_support
         driver)
 
-    ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
-
     set(TARGET_NAME "${COMPONENT_LIB}")
     if (NOT "${WIFI_SSID}" STREQUAL "")
       target_compile_definitions(${TARGET_NAME} PRIVATE "WIFI_SSID=\"${WIFI_SSID}\"")
@@ -81,6 +79,19 @@ else()
       target_compile_definitions(${TARGET_NAME} PRIVATE "BOARD=${BOARD}")
     endif()
 
+    # Define the path to the board configuration file in the build folder
+    set(ULP_BOARD_FILE "${CMAKE_BINARY_DIR}/ulp_board_config.cmake")
+
+    # Write the value of the BOARD variable to this file
+    if(NOT "${BOARD}" STREQUAL "")
+      file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"${BOARD}\")\n")
+    else()
+      file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"\")\n")
+    endif()
+
+    # We call the project addition as usual
+    ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
+    
   else()
     #Other platforms
     message(FATAL_ERROR "Platform ${CM_PLATFORM} is not supported")
