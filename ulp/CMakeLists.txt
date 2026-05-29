@@ -37,6 +37,10 @@ add_executable(${ULP_APP_NAME} ${main_src} ${sensors_src})
 add_compile_definitions(ESP_PLATFORM)
 add_compile_definitions(BME68X_DO_NOT_USE_FPU)
 
+if (NOT "${BOARD}" STREQUAL "")
+  target_compile_definitions(${TARGET_NAME} PRIVATE "BOARD=${BOARD}")
+endif()
+
 # Import the ULP project helper functions
 include(IDFULPProject)
 
