@@ -27,6 +27,7 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+
 set(AE_FILTRATION On CACHE BOOL "Set filtration mode by default" FORCE)
 
 # add user provided config wich will be included as regular .h file
@@ -39,15 +40,12 @@ if (CM_PLATFORM STREQUAL "ESP32")
   idf_build_set_property(CM_PLATFORM "ESP32")
   add_compile_definitions(CM_ESP32)
 
-  list(APPEND EXTRA_COMPONENT_DIRS
-    # "./main"
-    "./aether-client-cpp/aether")
+  list(APPEND EXTRA_COMPONENT_DIRS "./main")
 
   project(temperature_sensor LANGUAGES CXX C ASM)
 else()
   project(temperature_sensor LANGUAGES CXX C ASM)
 
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-  add_subdirectory("./aether-client-cpp/aether" "aether")
   add_subdirectory("./main" "temperature-sensor")
 endif()

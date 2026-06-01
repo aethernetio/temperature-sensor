@@ -45,6 +45,10 @@ set(SERVICE_UID "" CACHE STRING "Service for collecting data UUID")
 if(NOT CM_PLATFORM)
   project("temperature-sensor-app" VERSION "1.0.0" LANGUAGES C CXX)
 
+  include(../cmake/CPM.cmake)
+
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#438-new-task-system")
+
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
   set(TARGET_NAME ${PROJECT_NAME})
   target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -61,7 +65,6 @@ else()
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/.."
       REQUIRES soc ulp
       PRIV_REQUIRES
-        aether
         esp_driver_tsens
         esp_driver_gpio
         esp_http_server
@@ -71,9 +74,15 @@ else()
         esp_hw_support
         driver)
 
+    set(TARGET_NAME "${COMPONENT_LIB}")
+
+    include(../cmake/CPM.cmake)
+    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#438-new-task-system")
+
+    target_link_libraries(${TARGET_NAME} PRIVATE aether)
+
     ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
 
-    set(TARGET_NAME "${COMPONENT_LIB}")
     if (NOT "${WIFI_SSID}" STREQUAL "")
       target_compile_definitions(${TARGET_NAME} PRIVATE "WIFI_SSID=\"${WIFI_SSID}\"")
     endif()
