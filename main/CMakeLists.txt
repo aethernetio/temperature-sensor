@@ -47,7 +47,7 @@ if(NOT CM_PLATFORM)
 
   include(../cmake/CPM.cmake)
 
-  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#438-new-task-system")
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
 
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
   set(TARGET_NAME ${PROJECT_NAME})
@@ -77,7 +77,7 @@ else()
     set(TARGET_NAME "${COMPONENT_LIB}")
 
     include(../cmake/CPM.cmake)
-    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#438-new-task-system")
+    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
 
     target_link_libraries(${TARGET_NAME} PRIVATE aether)
 
