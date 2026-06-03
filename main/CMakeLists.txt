@@ -40,13 +40,20 @@ list(APPEND sensors_src
   "sensors/ulp_saved_val.c"
 )
 
+set(SERVICE_UID "" CACHE STRING "Service for collecting data UUID")
+
 if(NOT CM_PLATFORM)
   project("temperature-sensor-app" VERSION "1.0.0" LANGUAGES C CXX)
 
+  include(../cmake/CPM.cmake)
+
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
-  target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-  target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
-  target_link_libraries(${PROJECT_NAME} PRIVATE aether)
+  set(TARGET_NAME ${PROJECT_NAME})
+  target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  target_link_libraries(${TARGET_NAME} PRIVATE aether)
 else()
   if(CM_PLATFORM STREQUAL "ESP32")
     set(WIFI_SSID "" CACHE STRING "WiFi SSID")
@@ -58,7 +65,6 @@ else()
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/.."
       REQUIRES soc ulp
       PRIV_REQUIRES
-        aether
         esp_driver_tsens
         esp_driver_gpio
         esp_http_server
@@ -69,6 +75,11 @@ else()
         driver)
 
     set(TARGET_NAME "${COMPONENT_LIB}")
+    include(../cmake/CPM.cmake)
+    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+
+    target_link_libraries(${TARGET_NAME} PRIVATE aether)
+
     if (NOT "${WIFI_SSID}" STREQUAL "")
       target_compile_definitions(${TARGET_NAME} PRIVATE "WIFI_SSID=\"${WIFI_SSID}\"")
     endif()
@@ -96,4 +107,8 @@ else()
     #Other platforms
     message(FATAL_ERROR "Platform ${CM_PLATFORM} is not supported")
   endif()
+endif()
+
+if (NOT "${SERVICE_UID}" STREQUAL "")
+  target_compile_definitions(${TARGET_NAME} PRIVATE "SERVICE_UID=\"${SERVICE_UID}\"")
 endif()

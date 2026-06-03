@@ -49,7 +49,13 @@ ulp_apply_default_sources(${ULP_APP_NAME})
 # Add targets for building the binary, as well as the linkerscript which exports ULP shared variables to the main app
 ulp_add_build_binary_targets(${ULP_APP_NAME})
 
-target_include_directories(${ULP_APP_NAME} PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../main" "${CMAKE_CURRENT_LIST_DIR}/../aether-client-cpp/")
+target_include_directories(${ULP_APP_NAME} PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../main")
+
+include(../cmake/CPM.cmake)
+CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+
+# not link but only setup include directory for aether/config_consts.h
+target_include_directories(${ULP_APP_NAME} PUBLIC "${aether-client-cpp_SOURCE_DIR}")
 
 target_compile_definitions(${ULP_APP_NAME} PRIVATE "ULP_MODE=1")
 
