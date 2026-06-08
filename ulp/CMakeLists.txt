@@ -70,7 +70,7 @@ if(EXISTS "${ULP_BOARD_FILE}")
     include("${ULP_BOARD_FILE}")
 endif()
 
-# Проверяем, появилось ли значение переменной BOARD после инклуда
+# Checking if the BOARD variable value appears after including
 if(NOT "${BOARD}" STREQUAL "")
     message(STATUS "--------------------------------------------------")
     message(STATUS "ULP Project SUCCESS! Board loaded from file: ${BOARD}")
