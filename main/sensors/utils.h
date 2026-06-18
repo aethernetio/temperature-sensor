@@ -16,14 +16,21 @@
 
 #if defined ESP_PLATFORM
 
+#include "user_config.h"
+
 #  include <esp_err.h>
-#  include <driver/i2c.h>
 #  include <esp_log.h>
+#  if ULP_COMP == 1
+#    include <ulp_lp_core_i2c.h>
+#  else
+#    include <driver/i2c_master.h>
+#  endif
 
 #  ifdef __cplusplus
 extern "C" {
 #  endif
 
+#  if ULP_COMP == 1
 esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin, int i2c_speed);
 
 esp_err_t i2c_write(i2c_port_t port, uint8_t address, uint8_t const* data,
@@ -33,6 +40,18 @@ esp_err_t i2c_read(i2c_port_t port, uint8_t address, uint8_t* data, uint8_t len,
 esp_err_t i2c_write_read(i2c_port_t port, uint8_t address,
                          uint8_t const* write_data, uint8_t write_len,
                          uint8_t* read_data, uint8_t read_len, int32_t ms_dur);
+#  else
+esp_err_t i2c_init(i2c_master_bus_handle_t *bus_handle, i2c_port_t port, int sda_pin, int scl_pin, int i2c_speed);
+
+esp_err_t i2c_write(i2c_master_dev_handle_t dev_handle, uint8_t address, uint8_t const* data,
+                    uint8_t len, int32_t ms_dur);
+esp_err_t i2c_read(i2c_master_dev_handle_t dev_handle, uint8_t address, uint8_t* data, uint8_t len,
+                   int32_t ms_dur);
+esp_err_t i2c_write_read(i2c_master_dev_handle_t dev_handle, uint8_t address,
+                         uint8_t const* write_data, uint8_t write_len,
+                         uint8_t* read_data, uint8_t read_len, int32_t ms_dur);
+#  endif
+
 void wait_for(int32_t us_dur);
 
 #  ifdef __cplusplus

@@ -40,6 +40,11 @@
 // I2C Buffers
 static uint8_t data_wr[2];
 static uint8_t data_rd[6];
+static bool initialized = false;
+#  if ULP_COMP == 0
+static i2c_master_bus_handle_t bus_handle;
+static i2c_master_dev_handle_t dev_handle_shtc3;
+#  endif
 
 #ifdef IS_ULP_COCPU
 #  define SHTC3_I2C_NUM_0 LP_I2C_NUM_0
@@ -47,31 +52,62 @@ static uint8_t data_rd[6];
 #  define SHTC3_I2C_NUM_0 I2C_NUM_0
 #endif
 
-bool initialized = false;
 
 // Helper function to send a 16-bit command
-static void send_command_16bit(uint16_t cmd, uint8_t slave_addr) {
+static esp_err_t send_command_16bit(uint16_t cmd, uint8_t slave_addr) {
   data_wr[0] = (cmd >> 8) & 0xFF;  // High byte
   data_wr[1] = cmd & 0xFF;         // Low byte
-  esp_err_t ret = i2c_write(SHTC3_I2C_NUM_0, slave_addr, data_wr,
+#if ULP_COMP == 1
+  esp_err_t err = i2c_write(SHTC3_I2C_NUM_0, slave_addr, data_wr,
                             sizeof(data_wr), LP_I2C_TRANS_WAIT_FOREVER);
-  if (ret != ESP_OK) {
+#elif ULP_COMP == 0
+  esp_err_t err = i2c_write(dev_handle_shtc3, slave_addr, data_wr,
+                            sizeof(data_wr), LP_I2C_TRANS_WAIT_FOREVER);
+#endif
+
+  if (err != ESP_OK) {
     // Bail and try again
-    return;
+    return err;
   }
+
+  return ESP_OK;
 }
 
 // Helper function to send an 8-bit command
 static void send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
   data_wr[0] = cmd;
-  i2c_write(SHTC3_I2C_NUM_0, slave_addr, data_wr, 1, LP_I2C_TRANS_WAIT_FOREVER);
+  #if ULP_COMP == 1
+  esp_err_t err = i2c_write(SHTC3_I2C_NUM_0, slave_addr, data_wr,
+                            1, LP_I2C_TRANS_WAIT_FOREVER);
+#elif ULP_COMP == 0
+  esp_err_t err = i2c_write(dev_handle_shtc3, slave_addr, data_wr,
+                            1, LP_I2C_TRANS_WAIT_FOREVER);
+#endif
 }
 
 bool Init() {
-  // 1. INSTALL I2C DRIVER
+#  if ULP_COMP == 1
+  // 2. Install I2C driver
   if (i2c_init(SHTC3_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, 400000) != ESP_OK) {
     return false;
   }
+#elif ULP_COMP == 0
+  // 2. Install I2C driver
+  if (i2c_init(&bus_handle, SHTC3_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, 400000) != ESP_OK) {
+    return false;
+  }
+
+  // Configuration of a specific device on the bus
+  i2c_device_config_t dev_cfg_shtc3 = {};
+  dev_cfg_shtc3.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+  dev_cfg_shtc3.device_address = SHTC3_SLAVE_ADDR;  // Address SHTC3
+  dev_cfg_shtc3.scl_speed_hz = 400000;  // 400 KHz
+
+  if(i2c_master_bus_add_device(bus_handle, &dev_cfg_shtc3, &dev_handle_shtc3) != ESP_OK){
+    return false;
+  }
+#endif
+
 return true;
 }
 
@@ -97,8 +133,14 @@ void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
 
   // Read 6 bytes: [TempMSB, TempLSB, TempCRC, HumMSB, HumLSB, HumCRC]
   // In this example, we ignore CRC for simplicity.
-  ret = i2c_read(SHTC3_I2C_NUM_0, SHTC3_SLAVE_ADDR, data_rd,
-                       sizeof(data_rd), LP_I2C_TRANS_TIMEOUT_CYCLES);
+#if ULP_COMP == 1
+  ret = i2c_read(SHTC3_I2C_NUM_0, SHTC3_SLAVE_ADDR, data_rd, sizeof(data_rd),
+                 LP_I2C_TRANS_TIMEOUT_CYCLES);
+#elif ULP_COMP == 0
+  ret = i2c_read(dev_handle_shtc3, SHTC3_SLAVE_ADDR, data_rd, sizeof(data_rd),
+                 LP_I2C_TRANS_TIMEOUT_CYCLES);
+#endif
+
   if (ret == ESP_OK) {
     // 5. Raw values
     uint16_t raw_temp = (data_rd[0] << 8) | data_rd[1];

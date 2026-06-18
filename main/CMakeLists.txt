@@ -65,14 +65,15 @@ else()
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/.."
       REQUIRES soc ulp
       PRIV_REQUIRES
-        esp_driver_tsens
-        esp_driver_gpio
-        esp_http_server
-        esp_event
-        esp_timer
-        esp_netif
-        esp_hw_support
-        driver)
+        idf::driver
+        idf::esp_driver_i2c
+        idf::esp_driver_tsens
+        idf::esp_driver_gpio
+        idf::esp_http_server
+        idf::esp_event
+        idf::esp_timer
+        idf::esp_netif
+        idf::esp_hw_support)
 
     set(TARGET_NAME "${COMPONENT_LIB}")
     include(../cmake/CPM.cmake)
