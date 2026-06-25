@@ -28,30 +28,9 @@ static const char *TAG_I2C = "I2C";
 esp_err_t i2c_init(i2c_master_bus_handle_t *bus_handle, i2c_port_t port, int sda_pin, int scl_pin, int i2c_speed) {
   esp_err_t err;
 
-#  if ULP_COMP == 1
-i2c_config_t conf = {
-      .mode = I2C_MODE_MASTER,
-      .sda_io_num = sda_pin,
-      .scl_io_num = scl_pin,
-      .sda_pullup_en = GPIO_PULLUP_DISABLE,
-      .scl_pullup_en = GPIO_PULLUP_DISABLE,
-      .master = {.clk_speed = i2c_speed},
-      .clk_flags = I2C_SCLK_SRC_FLAG_FOR_NOMAL,
-  };
-  ESP_LOGI(TAG_I2C, "Init i2c");
-  port = I2C_NUM_0;
-  err = i2c_param_config(port, &conf);
-  if (err != ESP_OK) {
-    ESP_LOGE(TAG_I2C, "Failed to configure I2C! Error: %s", esp_err_to_name(err));
-    return ESP_ERR_INVALID_STATE;
-  }
-  err = i2c_driver_install(port, conf.mode, 0, 0, 0);
-  if (err != ESP_OK) {
-    ESP_LOGE(TAG_I2C, "Failed to install the i2c driver! Error: %s", esp_err_to_name(err));
-    return ESP_ERR_INVALID_STATE;
-  }
-#  elif ULP_COMP == 0
   i2c_master_bus_config_t bus_cfg = {};
+
+  ESP_LOGI(TAG_I2C, "Init ESP i2c");
   bus_cfg.i2c_port = port;
   bus_cfg.sda_io_num = sda_pin;
   bus_cfg.scl_io_num = scl_pin;
@@ -66,8 +45,7 @@ i2c_config_t conf = {
     ESP_LOGE(TAG_I2C, "Failed to install the i2c driver! Error: %s", esp_err_to_name(err));
     return ESP_ERR_INVALID_STATE;
   }
-#  endif
- 
+
   return ESP_OK;
 }
 

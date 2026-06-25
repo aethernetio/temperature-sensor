@@ -32,11 +32,12 @@
 #  define BOARD_HAS_PWR_ON 1
 #endif
 #ifndef STATUS_LED_PIN
-#  define STATUS_LED_PIN GPIO_NUM_7
+#  define STATUS_LED_ON_PIN GPIO_NUM_17
+#  define STATUS_LED_PIN    GPIO_NUM_18
 #endif
 #ifndef PWR_ON_GPIO
-#  define PWR_ON_GPIO GPIO_NUM_14
-#  define LP_PWR_ON_GPIO LP_IO_NUM_4
+#  define PWR_ON_GPIO GPIO_NUM_2
+#  define LP_PWR_ON_GPIO LP_IO_NUM_2
 #endif
 #ifndef RESET_BUTTON_PIN
 #  define RESET_BUTTON_PIN GPIO_NUM_9
@@ -47,8 +48,8 @@
 #define BOARD_HAS_STCC4 1
 #define BOARD_HAS_BME688 0
 // --- Hardware Settings ---
-#define SENSOR_SDA_PIN GPIO_NUM_19
-#define SENSOR_SCL_PIN GPIO_NUM_18
+#define SENSOR_SDA_PIN GPIO_NUM_6
+#define SENSOR_SCL_PIN GPIO_NUM_7
 // FIX 1: Use a Fixed Buffer instead of VLA (Variable Length Array) to prevent
 // stack smash
 #define MAX_I2C_BUFFER 64

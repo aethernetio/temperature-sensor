@@ -16,7 +16,7 @@
 
 #include "user_config.h"
 
-#if ULP_COMP == 1
+#if defined ESP_PLATFORM && ULP_COMP == 1
 
 #  include "utils.h"
 
