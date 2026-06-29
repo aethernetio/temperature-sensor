@@ -20,6 +20,7 @@
 #include "aether/all.h"
 #include "sensors/sensors.h"
 #include "sleeping/sleeping.h"
+#include "prepared_send/prepared_send.h"
 
 /**
  * Standard uid for test application.
@@ -62,9 +63,46 @@ void GoToSleep(ae::Uap::Timer uap_timer);
 static ae::RcPtr<ae::AetherApp> aether_app;
 static ae::RcPtr<ae::P2pStream> message_stream;
 
+#ifndef AETHER_PREPARED_HOT_SLEEP_SECONDS
+#  define AETHER_PREPARED_HOT_SLEEP_SECONDS 600
+#endif
+
+static constexpr auto kPreparedHotSleepSeconds =
+    std::chrono::seconds{AETHER_PREPARED_HOT_SLEEP_SECONDS};
+
+static constexpr std::size_t kPreparedNonceReserve =
+#ifdef AETHER_PREPARED_NONCE_RESERVE
+    AETHER_PREPARED_NONCE_RESERVE;
+#else
+    32;
+#endif
+
+
 void setup() {
   std::cout << ae::Format("Setup {:%Y-%m-%d %H:%M:%S}") << ae::Now()
             << std::endl;
+
+#if defined(ESP_PLATFORM)
+  // Prepared-send hot path: try to send current temperature without creating
+  // full AetherApp. Any error falls back to the normal full boot below.
+  {
+    std::int16_t hot_temperature = {};
+    ReadSensors(&hot_temperature, nullptr, nullptr, nullptr, nullptr);
+
+    auto hot_status =
+        temp_sensor::prepared_send::TryHotWakePreparedSend(hot_temperature);
+
+    std::cout << ae::Format(" >>> Prepared hot path status: {}\n",
+                            temp_sensor::prepared_send::ToString(hot_status));
+
+    if (hot_status == temp_sensor::prepared_send::HotSendStatus::kSent) {
+      auto sleep_until = std::chrono::system_clock::now() +
+                         kPreparedHotSleepSeconds;
+      DeepSleep(sleep_until, sleep_until, 3000);
+      return;
+    }
+  }
+#endif
 
   aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
@@ -170,25 +208,16 @@ void SendValue(std::int16_t temperature) {
     return;
   }
 
-  struct Header {
-    std::uint8_t const root_code = 0x3;
-    std::uint8_t const size = sizeof(std::uint8_t) + sizeof(std::int16_t);
-    std::uint8_t const dev_code = 0x10;
-    AE_REFLECT_MEMBERS(root_code, size, dev_code)
-  };
-  static constexpr auto header = Header{};
-
-  auto message = ae::DataBuffer{};
-  message.reserve(sizeof(header) + 2);
-  {
-    auto writer = ae::VectorWriter<>{message};
-    auto stream = ae::omstream{writer};
-    // write message header and temperature value
-    // temperature in range -100.0 to 100.0 x100 (-10000 to 10000)
-    stream << header << temperature;
-  }
+  auto message = temp_sensor::prepared_send::MakeTemperaturePayload(temperature);
 
   message_stream->Write(std::move(message)).status_event().Subscribe([](auto) {
+    // Export/refresh prepared block after the full send path has a valid stream.
+    // If export fails, keep normal behavior and just sleep.
+    if (aether_app && message_stream) {
+      temp_sensor::prepared_send::ExportPreparedSendBlock(
+          *aether_app, *message_stream, kPreparedNonceReserve);
+    }
+
     // with any result ready to sleep
     aether_app->aether()->uap->SleepReady();
   });
