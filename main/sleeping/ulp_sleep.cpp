@@ -33,6 +33,8 @@
 #  include <lp_core_i2c.h>
 #  include "ulp_main.h"
 
+#  define I2C_BUS_SPEED 100000 // 100 KHz
+
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
@@ -73,7 +75,7 @@ static void lp_i2c_init(void) {
   lp_core_i2c_cfg_t i2c_cfg{};
   lp_core_i2c_timing_cfg_t i2c_timing_cfg{};
 
-  i2c_timing_cfg.clk_speed_hz = 400000;
+  i2c_timing_cfg.clk_speed_hz = I2C_BUS_SPEED;
 
   i2c_cfg.i2c_pin_cfg.sda_io_num = LP_I2C_SDA_IO;
   i2c_cfg.i2c_pin_cfg.scl_io_num = LP_I2C_SCL_IO;

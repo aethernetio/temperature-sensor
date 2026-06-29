@@ -45,6 +45,7 @@
 // Constants
 #  define LP_I2C_TRANS_TIMEOUT_CYCLES 5000
 #  define LP_I2C_TRANS_WAIT_FOREVER -1
+#  define I2C_BUS_SPEED 100000 // 100 KHz
 
 // I2C Buffers
 static uint8_t data_wr[2];
@@ -99,20 +100,20 @@ bool Init() {
 
 #  if ULP_COMP == 1
   // 2. Install I2C driver
-  if (i2c_init(STCC4_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, 100000) != ESP_OK) {
+  if (i2c_init(STCC4_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
     return false;
   }
 #elif ULP_COMP == 0
   // 2. Install I2C driver
-  if (i2c_init(&bus_handle, STCC4_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, 100000) != ESP_OK) {
+  if (i2c_init(&bus_handle, STCC4_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
     return false;
   }
 
   // Configuration of a specific device on the bus
   i2c_device_config_t dev_cfg_stcc4 = {};
   dev_cfg_stcc4.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-  dev_cfg_stcc4.device_address = STCC4_SLAVE_ADDR;  // Address STCC4
-  dev_cfg_stcc4.scl_speed_hz = 100000;  // 100 KHz
+  dev_cfg_stcc4.device_address = STCC4_SLAVE_ADDR;
+  dev_cfg_stcc4.scl_speed_hz = I2C_BUS_SPEED;
 
   if(i2c_master_bus_add_device(bus_handle, &dev_cfg_stcc4, &dev_handle_stcc4) != ESP_OK){
     return false;
@@ -144,7 +145,7 @@ void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
     return;
   }
   // Wait for measurement completion (according to STCC4 datasheet ~500-720ms)
-  wait_for(500000);  // 500 ms
+  wait_for(750000);  // 750 ms
 
   // Read 3 bytes: CO2 with CRC
 #if ULP_COMP == 1
