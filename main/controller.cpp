@@ -158,9 +158,8 @@ void UpdateSensors() {
   std::uint32_t humidity = {};
   std::uint32_t co2 = {};
   ReadSensors(&temperature, &humidity, nullptr, &co2, nullptr);
-  std::cout << ae::Format(" >>> Temperature: [{}]\n", temperature);
-  std::cout << ae::Format(" >>> Humidity: [{}]\n", humidity);
-  std::cout << ae::Format(" >>> Co2: [{}]\n", co2);
+  std::cout << ae::Format(" >>> Temperature: [{}], Humidity: [{}], CO2: [{}]\n",
+                          temperature, humidity, co2);
   // TODO: add check if wakeup cause is ulp then send value
   SendValue(temperature);
 }

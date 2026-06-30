@@ -24,23 +24,23 @@
 #  include "ulp_lp_core_i2c.h"
 #  include "ulp_lp_core_utils.h"
 
-esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin, int i2c_speed) { return ESP_OK; }
+esp_err_t i2c_init(int /*bus_handle*/, i2c_port_t i2c_handle_port, int sda_pin, int scl_pin, int i2c_speed) { return ESP_OK; }
 
-esp_err_t i2c_write(i2c_port_t port, uint8_t address, uint8_t const* data,
+esp_err_t i2c_write(i2c_port_t i2c_handle_port, uint8_t address, uint8_t const* data,
                     uint8_t len, int32_t ms_dur) {
-  return lp_core_i2c_master_write_to_device(port, address, data, len, ms_dur);
+  return lp_core_i2c_master_write_to_device(i2c_handle_port, address, data, len, ms_dur);
 }
 
-esp_err_t i2c_read(i2c_port_t port, uint8_t address, uint8_t* data, uint8_t len,
+esp_err_t i2c_read(i2c_port_t i2c_handle_port, uint8_t address, uint8_t* data, uint8_t len,
                    int32_t ms_dur) {
-  return lp_core_i2c_master_read_from_device(port, address, data, len, ms_dur);
+  return lp_core_i2c_master_read_from_device(i2c_handle_port, address, data, len, ms_dur);
 }
 
-esp_err_t i2c_write_read(i2c_port_t port, uint8_t address,
+esp_err_t i2c_write_read(i2c_port_t i2c_handle_port, uint8_t address,
                          uint8_t const* write_data, uint8_t write_len,
                          uint8_t* read_data, uint8_t read_len, int32_t ms_dur) {
   return lp_core_i2c_master_write_read_device(
-      port, address, write_data, write_len, read_data, read_len, ms_dur);
+      i2c_handle_port, address, write_data, write_len, read_data, read_len, ms_dur);
 }
 
 void wait_for(int32_t us_dur) { ulp_lp_core_delay_us(us_dur); }

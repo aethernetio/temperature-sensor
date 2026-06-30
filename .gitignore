@@ -3,12 +3,6 @@ sdkconfig*
 
 # Build directory
 build/
-build*/**.cmake
-build*/**.xcodeproj
-build*/**/CMakeCache.txt
-build*/**/CMakeFiles
-build*/**/CMakeScripts
-build*/**/Debug
 
 # IDE directory
 .pio

@@ -25,13 +25,13 @@
 
 static const char *TAG_I2C = "I2C";
 
-esp_err_t i2c_init(i2c_master_bus_handle_t *bus_handle, i2c_port_t port, int sda_pin, int scl_pin, int i2c_speed) {
+esp_err_t i2c_init(i2c_master_bus_handle_t *bus_handle, i2c_port_t i2c_handle_port, int sda_pin, int scl_pin, int i2c_speed) {
   esp_err_t err;
 
   i2c_master_bus_config_t bus_cfg = {};
 
   ESP_LOGI(TAG_I2C, "Init ESP i2c");
-  bus_cfg.i2c_port = port;
+  bus_cfg.i2c_port = i2c_handle_port;
   bus_cfg.sda_io_num = sda_pin;
   bus_cfg.scl_io_num = scl_pin;
   bus_cfg.clk_source = I2C_CLK_SRC_DEFAULT;
@@ -49,20 +49,20 @@ esp_err_t i2c_init(i2c_master_bus_handle_t *bus_handle, i2c_port_t port, int sda
   return ESP_OK;
 }
 
-esp_err_t i2c_write(i2c_master_dev_handle_t dev_handle, uint8_t address, uint8_t const* data,
+esp_err_t i2c_write(i2c_master_bus_handle_t *bus_handle, i2c_master_dev_handle_t i2c_handle_port, uint8_t address, uint8_t const* data,
                     uint8_t len, int32_t ms_dur) {
-  return i2c_master_transmit(dev_handle, data, len, ms_dur);
+  return i2c_master_transmit(i2c_handle_port, data, len, ms_dur);
 }
 
-esp_err_t i2c_read(i2c_master_dev_handle_t dev_handle, uint8_t address, uint8_t* data, uint8_t len,
+esp_err_t i2c_read(i2c_master_bus_handle_t *bus_handle, i2c_master_dev_handle_t i2c_handle_port, uint8_t address, uint8_t* data, uint8_t len,
                    int32_t ms_dur) {
-  return i2c_master_receive(dev_handle, data, len, ms_dur);
+  return i2c_master_receive(i2c_handle_port, data, len, ms_dur);
 }
 
-esp_err_t i2c_write_read(i2c_master_dev_handle_t dev_handle, uint8_t address,
+esp_err_t i2c_write_read(i2c_master_bus_handle_t *bus_handle, i2c_master_dev_handle_t i2c_handle_port, uint8_t address,
                          uint8_t const* write_data, uint8_t write_len,
                          uint8_t* read_data, uint8_t read_len, int32_t ms_dur) {
-  return i2c_master_transmit_receive(dev_handle, write_data, write_len,
+  return i2c_master_transmit_receive(i2c_handle_port, write_data, write_len,
                                       read_data, read_len,
                                       ms_dur);
 }

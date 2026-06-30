@@ -39,6 +39,7 @@
 // Constants
 #  define LP_I2C_TRANS_TIMEOUT_CYCLES 5000
 #  define LP_I2C_TRANS_WAIT_FOREVER -1
+#  define I2C_BUS_SPEED 400000 // 400 KHz
 
 // I2C Buffers
 static uint8_t data_wr[2];
@@ -76,12 +77,12 @@ static esp_err_t send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
 bool Init() {
 #  if ULP_COMP == 1
   // 2. Install I2C driver
-  if (i2c_init(SHT45_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, 400000) != ESP_OK) {
+  if (i2c_init(0, SHT45_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
     return false;
   }
 #elif ULP_COMP == 0
   // 2. Install I2C driver
-  if (i2c_init(&bus_handle, SHT45_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, 400000) != ESP_OK) {
+  if (i2c_init(&bus_handle, SHT45_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
     return false;
   }
 
@@ -89,7 +90,7 @@ bool Init() {
   i2c_device_config_t dev_cfg_sht45 = {};
   dev_cfg_sht45.dev_addr_length = I2C_ADDR_BIT_LEN_7;
   dev_cfg_sht45.device_address = SHT45_SLAVE_ADDR;  // Address SHT45
-  dev_cfg_sht45.scl_speed_hz = 400000;  // 400 KHz
+  dev_cfg_sht45.scl_speed_hz = I2C_BUS_SPEED;
 
   if(i2c_master_bus_add_device(bus_handle, &dev_cfg_sht45, &dev_handle_sht45) != ESP_OK){
     return false;

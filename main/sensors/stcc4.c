@@ -100,7 +100,7 @@ bool Init() {
 
 #  if ULP_COMP == 1
   // 2. Install I2C driver
-  if (i2c_init(STCC4_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
+  if (i2c_init(0, STCC4_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
     return false;
   }
 #elif ULP_COMP == 0
