@@ -21,6 +21,7 @@
 #endif
 
 #include "hal/i2c_types.h"
+#include "soc/gpio_num.h"
 
 #ifndef BOARD_HAS_ULP
 #  define BOARD_HAS_ULP 0
@@ -28,8 +29,15 @@
 #ifndef BOARD_HAS_LED
 #  define BOARD_HAS_LED 1
 #endif
+#ifndef BOARD_HAS_PWR_ON
+#  define BOARD_HAS_PWR_ON 0
+#endif
 #ifndef STATUS_LED_PIN
 #  define STATUS_LED_PIN GPIO_NUM_35
+#endif
+#ifndef PWR_ON_GPIO
+#  define PWR_ON_GPIO -1
+#  define LP_PWR_ON_GPIO -1
 #endif
 #ifndef RESET_BUTTON_PIN
 #  define RESET_BUTTON_PIN GPIO_NUM_41
@@ -40,8 +48,8 @@
 #define BOARD_HAS_STCC4 0
 #define BOARD_HAS_BME688 1
 // --- Hardware Settings ---
-#define SENSOR_SDA_PIN 2
-#define SENSOR_SCL_PIN 1
+#define SENSOR_SDA_PIN GPIO_NUM_2
+#define SENSOR_SCL_PIN GPIO_NUM_1
 // FIX 1: Use a Fixed Buffer instead of VLA (Variable Length Array) to prevent
 // stack smash
 #define MAX_I2C_BUFFER 64

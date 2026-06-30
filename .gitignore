@@ -1,2 +1,12 @@
 sdkconfig*
 !sdkconfig.defaults
+
+# Build directory
+build/
+
+# IDE directory
+.pio
+.vscode
+
+# CLang
+.clangd

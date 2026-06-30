@@ -14,44 +14,55 @@
  * limitations under the License.
  */
 
-#if defined ESP_PLATFORM && !defined IS_ULP_COCPU
+#include "user_config.h"
+
+#if defined ESP_PLATFORM && ULP_COMP == 0
 #  include <freertos/FreeRTOS.h>
 #  include <freertos/task.h>
 
-#  include "driver/i2c.h"
+#  include "driver/i2c_master.h"
 #  include "esp_log.h"
 
-esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin) {
-  i2c_config_t conf = {
-      .mode = I2C_MODE_MASTER,
-      .sda_io_num = sda_pin,
-      .scl_io_num = scl_pin,
-      .sda_pullup_en = GPIO_PULLUP_ENABLE,
-      .scl_pullup_en = GPIO_PULLUP_ENABLE,
-      .master = {.clk_speed = 100000},
-      .clk_flags = 0,
-  };
-  if (i2c_param_config(port, &conf) != ESP_OK) {
+static const char *TAG_I2C = "I2C";
+
+esp_err_t i2c_init(i2c_master_bus_handle_t *bus_handle, i2c_port_t i2c_handle_port, int sda_pin, int scl_pin, int i2c_speed) {
+  esp_err_t err;
+
+  i2c_master_bus_config_t bus_cfg = {};
+
+  ESP_LOGI(TAG_I2C, "Init ESP i2c");
+  bus_cfg.i2c_port = i2c_handle_port;
+  bus_cfg.sda_io_num = sda_pin;
+  bus_cfg.scl_io_num = scl_pin;
+  bus_cfg.clk_source = I2C_CLK_SRC_DEFAULT;
+  bus_cfg.glitch_ignore_cnt = 7;
+  bus_cfg.intr_priority = 0;
+  bus_cfg.flags.enable_internal_pullup = 0;
+  bus_cfg.flags.allow_pd = 0;
+
+  err = i2c_new_master_bus(&bus_cfg, bus_handle);
+  if(err != ESP_OK){
+    ESP_LOGE(TAG_I2C, "Failed to install the i2c driver! Error: %s", esp_err_to_name(err));
     return ESP_ERR_INVALID_STATE;
   }
-  return i2c_driver_install(port, conf.mode, 0, 0, 0);
+
+  return ESP_OK;
 }
 
-esp_err_t i2c_write(i2c_port_t port, uint8_t address, uint8_t const* data,
+esp_err_t i2c_write(i2c_master_bus_handle_t *bus_handle, i2c_master_dev_handle_t i2c_handle_port, uint8_t address, uint8_t const* data,
                     uint8_t len, int32_t ms_dur) {
-  return i2c_master_write_to_device(port, address, data, len,
-                                    ms_dur);
+  return i2c_master_transmit(i2c_handle_port, data, len, ms_dur);
 }
 
-esp_err_t i2c_read(i2c_port_t port, uint8_t address, uint8_t* data, uint8_t len,
+esp_err_t i2c_read(i2c_master_bus_handle_t *bus_handle, i2c_master_dev_handle_t i2c_handle_port, uint8_t address, uint8_t* data, uint8_t len,
                    int32_t ms_dur) {
-  return i2c_master_read_from_device(port, address, data, len, ms_dur);
+  return i2c_master_receive(i2c_handle_port, data, len, ms_dur);
 }
 
-esp_err_t i2c_write_read(i2c_port_t port, uint8_t address,
+esp_err_t i2c_write_read(i2c_master_bus_handle_t *bus_handle, i2c_master_dev_handle_t i2c_handle_port, uint8_t address,
                          uint8_t const* write_data, uint8_t write_len,
                          uint8_t* read_data, uint8_t read_len, int32_t ms_dur) {
-  return i2c_master_write_read_device(port, address, write_data, write_len,
+  return i2c_master_transmit_receive(i2c_handle_port, write_data, write_len,
                                       read_data, read_len,
                                       ms_dur);
 }

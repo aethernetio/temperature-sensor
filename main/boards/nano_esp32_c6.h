@@ -29,17 +29,24 @@
 #ifndef BOARD_HAS_LED
 #  define BOARD_HAS_LED 1
 #endif
+#ifndef BOARD_HAS_PWR_ON
+#  define BOARD_HAS_PWR_ON 0
+#endif
 #ifndef STATUS_LED_PIN
 #  define STATUS_LED_PIN GPIO_NUM_8
+#endif
+#ifndef PWR_ON_GPIO
+#  define PWR_ON_GPIO -1
+#  define LP_PWR_ON_GPIO -1
 #endif
 #ifndef RESET_BUTTON_PIN
 #  define RESET_BUTTON_PIN GPIO_NUM_9
 #endif
 // --- Sensors ---
 #define BOARD_HAS_SHTC3 0
-#define BOARD_HAS_SHT45 1
+#define BOARD_HAS_SHT45 0
 #define BOARD_HAS_STCC4 0
-#define BOARD_HAS_BME688 0
+#define BOARD_HAS_BME688 1
 // --- Hardware Settings ---
 #define SENSOR_SDA_PIN GPIO_NUM_6
 #define SENSOR_SCL_PIN GPIO_NUM_7

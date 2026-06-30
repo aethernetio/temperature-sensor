@@ -39,30 +39,59 @@
 // Constants
 #  define LP_I2C_TRANS_TIMEOUT_CYCLES 5000
 #  define LP_I2C_TRANS_WAIT_FOREVER -1
+#  define I2C_BUS_SPEED 400000 // 400 KHz
 
 // I2C Buffers
 static uint8_t data_wr[2];
 static uint8_t data_rd[6];
+#  if ULP_COMP == 0
+static i2c_master_bus_handle_t bus_handle;
+static i2c_master_dev_handle_t dev_handle_sht45;
+#  endif
 
 #if ULP_COMP == 1
 #  define SHT45_I2C_NUM_0 LP_I2C_NUM_0
-#else
+#  define I2C_BUS_HANDLE_S 0
+#  define I2C_HANDLE_PORT_S SHT45_I2C_NUM_0
+#elif ULP_COMP == 0
 #  define SHT45_I2C_NUM_0 I2C_NUM_0
+#  define I2C_BUS_HANDLE_S &bus_handle
+#  define I2C_HANDLE_PORT_S dev_handle_sht45
 #endif
 
 bool initialized = false;
 
 // Helper function to send an 8-bit command
-static void send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
+static esp_err_t send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
   data_wr[0] = cmd;
-  i2c_write(SHT45_I2C_NUM_0, slave_addr, data_wr, 1, LP_I2C_TRANS_WAIT_FOREVER);
+
+  esp_err_t err = i2c_write(I2C_HANDLE_PORT_S, slave_addr, data_wr, 1, LP_I2C_TRANS_WAIT_FOREVER);
+
+  if (err != ESP_OK) {
+    // Bail and try again
+    return err;
+  }
+
+  return ESP_OK;
 }
 
 bool Init() {
-  // 1. INSTALL I2C DRIVER
-  if (i2c_init(SHT45_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN) != ESP_OK) {
+  // 2. Install I2C driver
+  if (i2c_init(I2C_BUS_HANDLE_S, SHT45_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
     return false;
   }
+#if ULP_COMP == 0
+  // Configuration of a specific device on the bus
+  i2c_device_config_t dev_cfg_sht45 = {};
+  dev_cfg_sht45.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+  dev_cfg_sht45.device_address = SHT45_SLAVE_ADDR;  // Address SHT45
+  dev_cfg_sht45.scl_speed_hz = I2C_BUS_SPEED;
+
+  if(i2c_master_bus_add_device(bus_handle, &dev_cfg_sht45, &dev_handle_sht45) != ESP_OK){
+    return false;
+  }
+#endif
+
 return true;
 }
 
@@ -77,14 +106,17 @@ void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
   }
   
   // Send measurement command
-  send_command_8bit(SHT4X_CMD_MEASURE_HIGH_PRECISION, SHT45_SLAVE_ADDR);
+  ret = send_command_8bit(SHT4X_CMD_MEASURE_HIGH_PRECISION, SHT45_SLAVE_ADDR);
+
+  if (ret != ESP_OK) {
+    return;
+  }
 
   // Measurement time for high precision
   wait_for(1100000);  // 1.1 S
 
   // Read 6 bytes: temperature and humidity with CRC
-  ret = i2c_read(SHT45_I2C_NUM_0, SHT45_SLAVE_ADDR, data_rd, 6,
-                 LP_I2C_TRANS_TIMEOUT_CYCLES);
+  ret = i2c_read(I2C_HANDLE_PORT_S, SHT45_SLAVE_ADDR, data_rd, 6, LP_I2C_TRANS_TIMEOUT_CYCLES);
 
   if (ret == ESP_OK) {
     uint16_t raw_temp = (data_rd[0] << 8) | data_rd[1];

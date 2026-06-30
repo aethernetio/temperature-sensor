@@ -26,6 +26,10 @@
 void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
   printf(" >>> ULP Temperature: [%d]\n", (int16_t)ulp_temperature);
+  printf(" >>> ULP Humidity: [%d]\n", (int16_t)ulp_humidity);
+  printf(" >>> ULP Pressure: [%d]\n", (int16_t)ulp_pressure);
+  printf(" >>> ULP Co2: [%d]\n", (int16_t)ulp_co2);
+  printf(" >>> ULP Gas_resistance: [%d]\n", (int16_t)ulp_gas_resistance);
 
   if (temperature) {
     *temperature = (int16_t)ulp_temperature;

@@ -155,8 +155,11 @@ void loop() {
 // implemented in sensors/
 void UpdateSensors() {
   std::int16_t temperature = {};
-  ReadSensors(&temperature, nullptr, nullptr, nullptr, nullptr);
-  std::cout << ae::Format(" >>> Temperature: [{}]\n", temperature);
+  std::uint32_t humidity = {};
+  std::uint32_t co2 = {};
+  ReadSensors(&temperature, &humidity, nullptr, &co2, nullptr);
+  std::cout << ae::Format(" >>> Temperature: [{}], Humidity: [{}], CO2: [{}]\n",
+                          temperature, humidity, co2);
   // TODO: add check if wakeup cause is ulp then send value
   SendValue(temperature);
 }

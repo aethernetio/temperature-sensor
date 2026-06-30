@@ -58,3 +58,26 @@ CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
 target_include_directories(${ULP_APP_NAME} PUBLIC "${aether-client-cpp_SOURCE_DIR}")
 
 target_compile_definitions(${ULP_APP_NAME} PRIVATE "ULP_MODE=1")
+
+# Calculate where the build folder of the main project is located
+# ExternalProject is usually built inside build/ulp_main-prefix/src/ulp_main-build
+# We need to go up to the root of the build folder
+set(MAIN_BUILD_DIR "${CMAKE_BINARY_DIR}/../../..")
+set(ULP_BOARD_FILE "${MAIN_BUILD_DIR}/ulp_board_config.cmake")
+
+# If the configuration file exists, connect it
+if(EXISTS "${ULP_BOARD_FILE}")
+    include("${ULP_BOARD_FILE}")
+endif()
+
+# Checking if the BOARD variable value appears after including
+if(NOT "${BOARD}" STREQUAL "")
+    message(STATUS "--------------------------------------------------")
+    message(STATUS "ULP Project SUCCESS! Board loaded from file: ${BOARD}")
+    message(STATUS "--------------------------------------------------")
+    
+    # Checking if the BOARD variable has been included
+    add_compile_definitions(BOARD=${BOARD})
+else()
+    message(WARNING "ULP Project: BOARD is not defined!")
+endif()
