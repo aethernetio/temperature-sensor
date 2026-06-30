@@ -15,6 +15,7 @@
  */
 
 #include <chrono>
+#include <memory>
 #include <cstdlib>
 
 #include "aether/all.h"
@@ -46,7 +47,7 @@ static const auto kWifiCreds = ae::WifiCreds{
 };
 static const auto kWifiInit = ae::WiFiInit{
     std::vector<ae::WiFiAp>{{kWifiCreds, {}}},
-    ae::WiFiPowerSaveParam{},
+    {},
 };
 #endif
 
@@ -60,7 +61,7 @@ void SendValue(std::int16_t temperature);
 void GoToSleep(ae::Uap::Timer uap_timer);
 
 static ae::RcPtr<ae::AetherApp> aether_app;
-static ae::RcPtr<ae::P2pStream> message_stream;
+static std::unique_ptr<ae::P2pStream> message_stream;
 
 void setup() {
   std::cout << ae::Format("Setup {:%Y-%m-%d %H:%M:%S}") << ae::Now()
@@ -121,8 +122,9 @@ void setup() {
                 c->uid(), kServiceUid);
 
             // open message stream to aether service client
-            message_stream =
-                c->message_stream_manager().CreateStream(kServiceUid);
+            message_stream = std::make_unique<ae::P2pStream>(
+                *aether_app, c, kServiceUid,
+                c->message_stream_manager().CreatePort(kServiceUid));
             message_stream->out_data_event().Subscribe(MessageReceived);
 
             // measure temperature and send updated value
@@ -145,7 +147,7 @@ void loop() {
     aether_app->WaitUntil(new_time);
   } else {
     // cleanup resources
-    message_stream.Reset();
+    message_stream.reset();
     aether_app.Reset();
   }
 }
