@@ -43,27 +43,6 @@ esp_err_t i2c_read(I2C_HANDLE_PORT i2c_handle_port, uint8_t address, uint8_t* da
 esp_err_t i2c_write_read(I2C_HANDLE_PORT i2c_handle_port, uint8_t address,
                          uint8_t const* write_data, uint8_t write_len,
                          uint8_t* read_data, uint8_t read_len, int32_t ms_dur);
-/*#  if ULP_COMP == 1
-esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin, int i2c_speed);
-
-esp_err_t i2c_write(i2c_port_t port, uint8_t address, uint8_t const* data,
-                    uint8_t len, int32_t ms_dur);
-esp_err_t i2c_read(i2c_port_t port, uint8_t address, uint8_t* data, uint8_t len,
-                   int32_t ms_dur);
-esp_err_t i2c_write_read(i2c_port_t port, uint8_t address,
-                         uint8_t const* write_data, uint8_t write_len,
-                         uint8_t* read_data, uint8_t read_len, int32_t ms_dur);
-#  elif ULP_COMP == 0
-esp_err_t i2c_init(i2c_master_bus_handle_t *bus_handle, i2c_port_t port, int sda_pin, int scl_pin, int i2c_speed);
-
-esp_err_t i2c_write(i2c_master_dev_handle_t dev_handle, uint8_t address, uint8_t const* data,
-                    uint8_t len, int32_t ms_dur);
-esp_err_t i2c_read(i2c_master_dev_handle_t dev_handle, uint8_t address, uint8_t* data, uint8_t len,
-                   int32_t ms_dur);
-esp_err_t i2c_write_read(i2c_master_dev_handle_t dev_handle, uint8_t address,
-                         uint8_t const* write_data, uint8_t write_len,
-                         uint8_t* read_data, uint8_t read_len, int32_t ms_dur);
-#  endif*/
 
 void wait_for(int32_t us_dur);
 

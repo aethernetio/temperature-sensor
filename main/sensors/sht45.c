@@ -51,8 +51,12 @@ static i2c_master_dev_handle_t dev_handle_sht45;
 
 #if ULP_COMP == 1
 #  define SHT45_I2C_NUM_0 LP_I2C_NUM_0
-#else
+#  define I2C_BUS_HANDLE_S 0
+#  define I2C_HANDLE_PORT_S SHT45_I2C_NUM_0
+#elif ULP_COMP == 0
 #  define SHT45_I2C_NUM_0 I2C_NUM_0
+#  define I2C_BUS_HANDLE_S &bus_handle
+#  define I2C_HANDLE_PORT_S dev_handle_sht45
 #endif
 
 bool initialized = false;
@@ -60,11 +64,8 @@ bool initialized = false;
 // Helper function to send an 8-bit command
 static esp_err_t send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
   data_wr[0] = cmd;
-#if ULP_COMP == 1
-  esp_err_t err = i2c_write(SHT45_I2C_NUM_0, slave_addr, data_wr, 1, LP_I2C_TRANS_WAIT_FOREVER);
-#elif ULP_COMP == 0
-  esp_err_t err = i2c_write(dev_handle_sht45, slave_addr, data_wr, 1, LP_I2C_TRANS_WAIT_FOREVER);
-#endif
+
+  esp_err_t err = i2c_write(I2C_HANDLE_PORT_S, slave_addr, data_wr, 1, LP_I2C_TRANS_WAIT_FOREVER);
 
   if (err != ESP_OK) {
     // Bail and try again
@@ -75,17 +76,11 @@ static esp_err_t send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
 }
 
 bool Init() {
-#  if ULP_COMP == 1
   // 2. Install I2C driver
-  if (i2c_init(0, SHT45_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
+  if (i2c_init(I2C_BUS_HANDLE_S, SHT45_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
     return false;
   }
-#elif ULP_COMP == 0
-  // 2. Install I2C driver
-  if (i2c_init(&bus_handle, SHT45_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
-    return false;
-  }
-
+#if ULP_COMP == 0
   // Configuration of a specific device on the bus
   i2c_device_config_t dev_cfg_sht45 = {};
   dev_cfg_sht45.dev_addr_length = I2C_ADDR_BIT_LEN_7;
@@ -121,11 +116,7 @@ void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
   wait_for(1100000);  // 1.1 S
 
   // Read 6 bytes: temperature and humidity with CRC
-#if ULP_COMP == 1
-  ret = i2c_read(SHT45_I2C_NUM_0, SHT45_SLAVE_ADDR, data_rd, 6, LP_I2C_TRANS_TIMEOUT_CYCLES);
-#elif ULP_COMP == 0
-  ret = i2c_read(dev_handle_sht45, SHT45_SLAVE_ADDR, data_rd, 6, LP_I2C_TRANS_TIMEOUT_CYCLES);
-#endif
+  ret = i2c_read(I2C_HANDLE_PORT_S, SHT45_SLAVE_ADDR, data_rd, 6, LP_I2C_TRANS_TIMEOUT_CYCLES);
 
   if (ret == ESP_OK) {
     uint16_t raw_temp = (data_rd[0] << 8) | data_rd[1];
