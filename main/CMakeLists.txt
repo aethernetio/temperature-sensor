@@ -48,10 +48,7 @@ if(NOT CM_PLATFORM)
 
   include(../cmake/CPM.cmake)
 
-  CPMAddPackage(
-    NAME aether-client-cpp
-    SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../aether-client-cpp"
-  )
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
 
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
   set(TARGET_NAME ${PROJECT_NAME})
@@ -69,26 +66,21 @@ else()
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/.."
       REQUIRES soc ulp
       PRIV_REQUIRES
-        esp_driver_tsens
-        esp_driver_gpio
-        esp_http_server
-        esp_event
-        esp_timer
-        esp_netif
-        esp_hw_support
-        driver)
+        idf::driver
+        idf::esp_driver_i2c
+        idf::esp_driver_tsens
+        idf::esp_driver_gpio
+        idf::esp_http_server
+        idf::esp_event
+        idf::esp_timer
+        idf::esp_netif
+        idf::esp_hw_support)
 
     set(TARGET_NAME "${COMPONENT_LIB}")
-
     include(../cmake/CPM.cmake)
-    CPMAddPackage(
-    NAME aether-client-cpp
-    SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../aether-client-cpp"
-  )
+    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#prepared-packet-v0")
 
     target_link_libraries(${TARGET_NAME} PRIVATE aether)
-
-    ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
 
     if (NOT "${WIFI_SSID}" STREQUAL "")
       target_compile_definitions(${TARGET_NAME} PRIVATE "WIFI_SSID=\"${WIFI_SSID}\"")
@@ -100,6 +92,19 @@ else()
       target_compile_definitions(${TARGET_NAME} PRIVATE "BOARD=${BOARD}")
     endif()
 
+    # Define the path to the board configuration file in the build folder
+    set(ULP_BOARD_FILE "${CMAKE_BINARY_DIR}/ulp_board_config.cmake")
+
+    # Write the value of the BOARD variable to this file
+    if(NOT "${BOARD}" STREQUAL "")
+      file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"${BOARD}\")\n")
+    else()
+      file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"\")\n")
+    endif()
+
+    # We call the project addition as usual
+    ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
+    
   else()
     #Other platforms
     message(FATAL_ERROR "Platform ${CM_PLATFORM} is not supported")

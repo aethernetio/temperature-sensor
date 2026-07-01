@@ -17,8 +17,16 @@
 #if defined ESP_PLATFORM
 
 #  include <esp_err.h>
-#  include <driver/i2c.h>
 #  include <esp_log.h>
+#  if ULP_COMP == 1
+#    include <ulp_lp_core_i2c.h>
+#    define I2C_BUS_HANDLE int
+#    define I2C_HANDLE_PORT i2c_port_t
+#  elif ULP_COMP == 0
+#    include <driver/i2c_master.h>
+#    define I2C_BUS_HANDLE i2c_master_bus_handle_t*
+#    define I2C_HANDLE_PORT i2c_master_dev_handle_t
+#  endif
 
 #  ifdef __cplusplus
 extern "C" {

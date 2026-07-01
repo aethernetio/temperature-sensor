@@ -188,6 +188,9 @@ void loop() {
   }
 }
 
+void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
+                 uint32_t* co2, uint32_t* gas_resistance) {}
+                 
 // implemented in sensors/
 void UpdateSensors() {
   std::int16_t temperature = {};

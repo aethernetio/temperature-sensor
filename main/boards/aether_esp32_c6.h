@@ -20,8 +20,6 @@
 #  error "Illegal CPU! It must be an ESP32C6."
 #endif
 
-#include "hal/i2c_types.h"
-
 #ifndef BOARD_HAS_ULP
 #  define BOARD_HAS_ULP 0
 #endif
@@ -36,7 +34,7 @@
 #endif
 // --- Sensors ---
 #define BOARD_HAS_SHTC3 0
-#define BOARD_HAS_SHT45 1
+#define BOARD_HAS_SHT45 0
 #define BOARD_HAS_STCC4 1
 #define BOARD_HAS_BME688 0
 // --- Hardware Settings ---

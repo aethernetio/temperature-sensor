@@ -13,10 +13,13 @@
 #include <array>
 #include <cstring>
 #include <iostream>
+#include <limits>
+#include <optional>
 
 #include "aether/all.h"
 #include "aether/mstream.h"
 #include "aether/mstream_buffers.h"
+#include "aether/prepared_packet/packet_encoder.h"
 
 #if defined(ESP_PLATFORM)
 #  include <esp_err.h>
@@ -36,10 +39,6 @@ namespace {
 
 static constexpr char const* kTag = "prepared-send";
 
-static constexpr std::uint32_t kMagic = 0x50534456;  // "PSDV"
-static constexpr std::uint32_t kVersion = 1;
-static constexpr std::size_t kMaxPreparedBlockBytes = 4096;
-
 #ifndef AETHER_PREPARED_NONCE_RESERVE
 #  define AETHER_PREPARED_NONCE_RESERVE 32
 #endif
@@ -48,20 +47,16 @@ static constexpr std::size_t kMaxPreparedBlockBytes = 4096;
 #  define AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS 15000
 #endif
 
-struct RetainedPreparedBlock {
-  std::uint32_t magic;
-  std::uint32_t version;
-  std::uint32_t size;
-  std::uint32_t checksum;
-  std::array<std::uint8_t, kMaxPreparedBlockBytes> bytes;
-};
-
 #if defined(ESP_PLATFORM)
 // RTC_NOINIT_ATTR: do not zero on wake from deep sleep.
 // It may contain garbage on first boot, so magic/version/checksum validate it.
-RTC_NOINIT_ATTR RetainedPreparedBlock g_retained_prepared_block;
+RTC_NOINIT_ATTR ae::prepared_packet::RetainedPreparedBlock g_retained_prepared_block;
+
+// ESP32-C6 exposes 8 KiB RTC slow memory; the linker asserts the segment fits.
+static_assert(sizeof(ae::prepared_packet::RetainedPreparedBlock) <= 8 * 1024,
+              "RetainedPreparedBlock must fit in ESP32 RTC slow memory");
 #else
-RetainedPreparedBlock g_retained_prepared_block;
+ae::prepared_packet::RetainedPreparedBlock g_retained_prepared_block;
 #endif
 
 std::uint32_t Checksum(std::uint8_t const* data, std::size_t size) {
@@ -75,7 +70,7 @@ std::uint32_t Checksum(std::uint8_t const* data, std::size_t size) {
 
 bool RetainedLooksValid() {
   auto const& r = g_retained_prepared_block;
-  if (r.magic != kMagic || r.version != kVersion) {
+  if (r.magic != ae::prepared_packet::kMagic || r.version != ae::prepared_packet::kVersion) {
     return false;
   }
   if (r.size == 0 || r.size > r.bytes.size()) {
@@ -88,8 +83,8 @@ void SaveRawBlock(ae::DataBuffer const& bytes) {
   auto& r = g_retained_prepared_block;
   std::memset(&r, 0, sizeof(r));
 
-  r.magic = kMagic;
-  r.version = kVersion;
+  r.magic = ae::prepared_packet::kMagic;
+  r.version = ae::prepared_packet::kVersion;
   r.size = static_cast<std::uint32_t>(bytes.size());
   std::memcpy(r.bytes.data(), bytes.data(), bytes.size());
   r.checksum = Checksum(r.bytes.data(), r.size);
@@ -116,7 +111,7 @@ bool SerializeToRetained(T const& value) {
     os << value;
   }
 
-  if (bytes.empty() || bytes.size() > kMaxPreparedBlockBytes) {
+  if (bytes.empty() || bytes.size() > ae::prepared_packet::kMaxPreparedBlockBytes) {
     std::cerr << "[prepared-send] prepared block serialized size invalid: "
               << bytes.size() << "\n";
     return false;
@@ -141,6 +136,31 @@ bool DeserializeFromRetained(T& value) {
 }
 
 #if defined(ESP_PLATFORM)
+
+bool FillUdpDestination(ae::prepared_packet::PreparedUdpEndpoint const& endpoint,
+                       sockaddr* dest_addr, socklen_t* dest_len) {
+  if (endpoint.version == ae::prepared_packet::PreparedIpVersion::kIpV4) {
+    auto* dest = reinterpret_cast<sockaddr_in*>(dest_addr);
+    std::memset(dest, 0, sizeof(*dest));
+    dest->sin_family = AF_INET;
+    dest->sin_port = htons(endpoint.port);
+    std::memcpy(&dest->sin_addr.s_addr, endpoint.ip.data(), 4);
+    *dest_len = sizeof(*dest);
+    return true;
+  }
+
+  if (endpoint.version == ae::prepared_packet::PreparedIpVersion::kIpV6) {
+    auto* dest = reinterpret_cast<sockaddr_in6*>(dest_addr);
+    std::memset(dest, 0, sizeof(*dest));
+    dest->sin6_family = AF_INET6;
+    dest->sin6_port = htons(endpoint.port);
+    std::memcpy(dest->sin6_addr.s6_addr, endpoint.ip.data(), 16);
+    *dest_len = sizeof(*dest);
+    return true;
+  }
+
+  return false;
+}
 
 static EventGroupHandle_t g_wifi_event_group = nullptr;
 static constexpr EventBits_t kWifiConnectedBit = BIT0;
@@ -292,11 +312,22 @@ void ClearPreparedSendBlock() {
   std::memset(&g_retained_prepared_block, 0, sizeof(g_retained_prepared_block));
 }
 
+std::optional<ae::prepared_packet::PreparedSendMessageBlock> PrepareSendMessage(
+    ae::P2pStream& stream, std::size_t reserve_nonce_count) {
+  if (reserve_nonce_count == 0 ||
+      reserve_nonce_count > std::numeric_limits<std::uint32_t>::max()) {
+    return std::nullopt;
+  }
+
+  return stream.ExportPreparedSendMessageBlock(
+      static_cast<std::uint32_t>(reserve_nonce_count));
+}
+
 bool ExportPreparedSendBlock(ae::AetherApp& app,
                              ae::P2pStream& stream,
                              std::size_t reserve_nonce_count) {
   auto prepared_block =
-      ae::prepared_packet::PrepareSendMessage(stream, reserve_nonce_count);
+      PrepareSendMessage(stream, reserve_nonce_count);
 
   if (!prepared_block) {
     std::cerr << "[prepared-send] PrepareSendMessage failed\n";
@@ -347,22 +378,25 @@ HotSendStatus TryHotWakePreparedSend(std::int16_t temperature) {
 #if defined(ESP_PLATFORM)
   auto const& endpoint = block.endpoint;
 
-  sockaddr_in dest{};
-  dest.sin_family = AF_INET;
-  dest.sin_port = htons(endpoint.port);
-
-  if (inet_pton(AF_INET, endpoint.address.c_str(), &dest.sin_addr) != 1) {
+  sockaddr_storage dest_storage{};
+  socklen_t dest_len = 0;
+  if (!FillUdpDestination(endpoint, reinterpret_cast<sockaddr*>(&dest_storage),
+                          &dest_len)) {
     std::cerr << "[prepared-send] invalid endpoint address\n";
     return HotSendStatus::kSendFailed;
   }
 
-  int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+  int sock = socket(
+      endpoint.version == ae::prepared_packet::PreparedIpVersion::kIpV6
+          ? AF_INET6
+          : AF_INET,
+      SOCK_DGRAM, IPPROTO_IP);
   if (sock < 0) {
     return HotSendStatus::kSendFailed;
   }
 
   auto sent = sendto(sock, packet.data(), packet.size(), 0,
-                     reinterpret_cast<sockaddr*>(&dest), sizeof(dest));
+                     reinterpret_cast<sockaddr*>(&dest_storage), dest_len);
   close(sock);
 
   if (sent != static_cast<int>(packet.size())) {
