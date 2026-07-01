@@ -48,7 +48,10 @@ if(NOT CM_PLATFORM)
 
   include(../cmake/CPM.cmake)
 
-  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#prepared-packet-v0")
+  CPMAddPackage(
+    NAME aether-client-cpp
+    SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../aether-client-cpp"
+  )
 
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
   set(TARGET_NAME ${PROJECT_NAME})
@@ -78,7 +81,10 @@ else()
     set(TARGET_NAME "${COMPONENT_LIB}")
 
     include(../cmake/CPM.cmake)
-    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#prepared-packet-v0")
+    CPMAddPackage(
+      NAME aether-client-cpp
+      SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../aether-client-cpp"
+    )
 
     target_link_libraries(${TARGET_NAME} PRIVATE aether)
 

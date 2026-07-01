@@ -3,20 +3,21 @@
  *
  * Experimental ESP32 prepared-send integration.
  *
- * This file intentionally keeps the hot path isolated from controller.cpp.
- * If hot path fails for any reason, controller.cpp falls back to normal
- * full-Aether boot.
+ * PreparedSendMessageBlock lives as a plain object in RTC RAM.
+ * Presence is tracked only by rtc_prepared_block_valid.
  */
 
 #include "prepared_send/prepared_send.h"
 
-#include <array>
 #include <cstring>
 #include <iostream>
+#include <sstream>
 
 #include "aether/all.h"
 #include "aether/mstream.h"
 #include "aether/mstream_buffers.h"
+#include "aether/prepared_packet/packet_encoder.h"
+#include "aether/prepared_packet/prepare_send_message.h"
 
 #if defined(ESP_PLATFORM)
 #  include <esp_err.h>
@@ -36,10 +37,6 @@ namespace {
 
 static constexpr char const* kTag = "prepared-send";
 
-static constexpr std::uint32_t kMagic = 0x50534456;  // "PSDV"
-static constexpr std::uint32_t kVersion = 1;
-static constexpr std::size_t kMaxPreparedBlockBytes = 4096;
-
 #ifndef AETHER_PREPARED_NONCE_RESERVE
 #  define AETHER_PREPARED_NONCE_RESERVE 32
 #endif
@@ -48,97 +45,13 @@ static constexpr std::size_t kMaxPreparedBlockBytes = 4096;
 #  define AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS 15000
 #endif
 
-struct RetainedPreparedBlock {
-  std::uint32_t magic;
-  std::uint32_t version;
-  std::uint32_t size;
-  std::uint32_t checksum;
-  std::array<std::uint8_t, kMaxPreparedBlockBytes> bytes;
-};
-
 #if defined(ESP_PLATFORM)
-// RTC_NOINIT_ATTR: do not zero on wake from deep sleep.
-// It may contain garbage on first boot, so magic/version/checksum validate it.
-RTC_NOINIT_ATTR RetainedPreparedBlock g_retained_prepared_block;
+RTC_NOINIT_ATTR bool rtc_prepared_block_valid;
+RTC_NOINIT_ATTR ae::prepared_packet::PreparedSendMessageBlock rtc_prepared_block;
 #else
-RetainedPreparedBlock g_retained_prepared_block;
+bool rtc_prepared_block_valid = false;
+ae::prepared_packet::PreparedSendMessageBlock rtc_prepared_block{};
 #endif
-
-std::uint32_t Checksum(std::uint8_t const* data, std::size_t size) {
-  std::uint32_t h = 2166136261u;
-  for (std::size_t i = 0; i < size; ++i) {
-    h ^= data[i];
-    h *= 16777619u;
-  }
-  return h;
-}
-
-bool RetainedLooksValid() {
-  auto const& r = g_retained_prepared_block;
-  if (r.magic != kMagic || r.version != kVersion) {
-    return false;
-  }
-  if (r.size == 0 || r.size > r.bytes.size()) {
-    return false;
-  }
-  return Checksum(r.bytes.data(), r.size) == r.checksum;
-}
-
-void SaveRawBlock(ae::DataBuffer const& bytes) {
-  auto& r = g_retained_prepared_block;
-  std::memset(&r, 0, sizeof(r));
-
-  r.magic = kMagic;
-  r.version = kVersion;
-  r.size = static_cast<std::uint32_t>(bytes.size());
-  std::memcpy(r.bytes.data(), bytes.data(), bytes.size());
-  r.checksum = Checksum(r.bytes.data(), r.size);
-}
-
-bool LoadRawBlock(ae::DataBuffer& bytes) {
-  if (!RetainedLooksValid()) {
-    return false;
-  }
-
-  auto const& r = g_retained_prepared_block;
-  bytes.assign(r.bytes.begin(), r.bytes.begin() + r.size);
-  return true;
-}
-
-template <typename T>
-bool SerializeToRetained(T const& value) {
-  ae::DataBuffer bytes;
-  bytes.reserve(512);
-
-  {
-    auto writer = ae::VectorWriter<>{bytes};
-    auto os = ae::omstream{writer};
-    os << value;
-  }
-
-  if (bytes.empty() || bytes.size() > kMaxPreparedBlockBytes) {
-    std::cerr << "[prepared-send] prepared block serialized size invalid: "
-              << bytes.size() << "\n";
-    return false;
-  }
-
-  SaveRawBlock(bytes);
-  return true;
-}
-
-template <typename T>
-bool DeserializeFromRetained(T& value) {
-  ae::DataBuffer bytes;
-  if (!LoadRawBlock(bytes)) {
-    return false;
-  }
-
-  auto reader = ae::VectorReader<>{bytes};
-  auto is = ae::imstream{reader};
-  is >> value;
-
-  return ae::data_was_read(is);
-}
 
 #if defined(ESP_PLATFORM)
 
@@ -168,7 +81,6 @@ bool EnsureWifiConnectedForHotPath() {
   return false;
 #endif
 
-  // It is OK if these were already initialized by a previous attempt.
   auto err = nvs_flash_init();
   if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
       err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -234,10 +146,89 @@ bool EnsureWifiConnectedForHotPath() {
   return true;
 }
 
+std::string PreparedEndpointText(
+    ae::prepared_packet::PreparedEndpoint const& endpoint) {
+  char buf[INET6_ADDRSTRLEN]{};
+
+  if (endpoint.version == ae::prepared_packet::PreparedIpVersion::kIpV4) {
+    if (inet_ntop(AF_INET, endpoint.ip.data(), buf, sizeof(buf)) == nullptr) {
+      return {};
+    }
+  } else {
+    if (inet_ntop(AF_INET6, endpoint.ip.data(), buf, sizeof(buf)) == nullptr) {
+      return {};
+    }
+  }
+
+  std::ostringstream ss;
+  ss << buf << ":" << endpoint.port;
+  return ss.str();
+}
+
+bool SendUdpDatagram(ae::prepared_packet::PreparedEndpoint const& endpoint,
+                     ae::DataBuffer const& packet) {
+  if (endpoint.protocol != ae::Protocol::kUdp) {
+    ESP_LOGE(kTag, "endpoint protocol is not UDP");
+    return false;
+  }
+
+  auto endpoint_text = PreparedEndpointText(endpoint);
+  if (endpoint_text.empty()) {
+    ESP_LOGE(kTag, "invalid prepared IP endpoint");
+    return false;
+  }
+
+  sockaddr_storage addr{};
+  socklen_t addr_len = 0;
+  int fd = -1;
+
+  if (endpoint.version == ae::prepared_packet::PreparedIpVersion::kIpV4) {
+    sockaddr_in a{};
+    a.sin_family = AF_INET;
+    a.sin_port = htons(endpoint.port);
+    std::memcpy(&a.sin_addr, endpoint.ip.data(), 4);
+
+    fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    std::memcpy(&addr, &a, sizeof(a));
+    addr_len = sizeof(a);
+  } else {
+    sockaddr_in6 a{};
+    a.sin6_family = AF_INET6;
+    a.sin6_port = htons(endpoint.port);
+    std::memcpy(&a.sin6_addr, endpoint.ip.data(), 16);
+
+    fd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+    std::memcpy(&addr, &a, sizeof(a));
+    addr_len = sizeof(a);
+  }
+
+  if (fd < 0) {
+    ESP_LOGE(kTag, "socket() failed");
+    return false;
+  }
+
+  auto sent = sendto(fd, packet.data(), packet.size(), 0,
+                     reinterpret_cast<sockaddr*>(&addr), addr_len);
+  close(fd);
+
+  if (sent >= 0 && static_cast<std::size_t>(sent) == packet.size()) {
+    ESP_LOGI(kTag, "UDP datagram sent %zu bytes to %s", packet.size(),
+             endpoint_text.c_str());
+    return true;
+  }
+
+  ESP_LOGE(kTag, "UDP send failed: sent=%d size=%zu", static_cast<int>(sent),
+           packet.size());
+  return false;
+}
+
 #else
 
-bool EnsureWifiConnectedForHotPath() {
-  return true;
+bool EnsureWifiConnectedForHotPath() { return true; }
+
+bool SendUdpDatagram(ae::prepared_packet::PreparedEndpoint const&,
+                     ae::DataBuffer const&) {
+  return false;
 }
 
 #endif
@@ -254,8 +245,6 @@ char const* ToString(HotSendStatus status) {
       return "nonce-exhausted";
     case HotSendStatus::kEncodeFailed:
       return "encode-failed";
-    case HotSendStatus::kPersistFailed:
-      return "persist-failed";
     case HotSendStatus::kWifiFailed:
       return "wifi-failed";
     case HotSendStatus::kSendFailed:
@@ -286,32 +275,29 @@ ae::DataBuffer MakeTemperaturePayload(std::int16_t temperature) {
   return message;
 }
 
-bool HasPreparedSendBlock() { return RetainedLooksValid(); }
+bool HasPreparedSendBlock() { return rtc_prepared_block_valid; }
 
-void ClearPreparedSendBlock() {
-  std::memset(&g_retained_prepared_block, 0, sizeof(g_retained_prepared_block));
-}
+void ClearPreparedSendBlock() { rtc_prepared_block_valid = false; }
 
-bool ExportPreparedSendBlock(ae::AetherApp& app,
-                             ae::P2pStream& stream,
+bool ExportPreparedSendBlock(ae::AetherApp& app, ae::P2pStream& stream,
                              std::size_t reserve_nonce_count) {
-  auto prepared_block =
-      ae::prepared_packet::PrepareSendMessage(stream, reserve_nonce_count);
+  if (stream.stream_info().link_state != ae::LinkState::kLinked) {
+    return false;
+  }
+
+  auto prepared_block = ae::prepared_packet::PrepareSendMessage(
+      stream, static_cast<std::uint32_t>(reserve_nonce_count));
 
   if (!prepared_block) {
     std::cerr << "[prepared-send] PrepareSendMessage failed\n";
     return false;
   }
 
-  // Critical ordering:
-  // PrepareSendMessage has already reserved/burned a nonce range in the full
-  // Aether state. Persist full Aether state only after reserve.
+  // PrepareSendMessage already reserved/burned nonce range in full Aether state.
   app.aether().Save();
 
-  if (!SerializeToRetained(*prepared_block)) {
-    std::cerr << "[prepared-send] failed to retain prepared block\n";
-    return false;
-  }
+  rtc_prepared_block = *prepared_block;
+  rtc_prepared_block_valid = true;
 
   std::cout << "[prepared-send] exported prepared block, reserved "
             << reserve_nonce_count << " nonces\n";
@@ -319,61 +305,40 @@ bool ExportPreparedSendBlock(ae::AetherApp& app,
 }
 
 HotSendStatus TryHotWakePreparedSend(std::int16_t temperature) {
-  ae::prepared_packet::PreparedSendMessageBlock block;
-  if (!DeserializeFromRetained(block)) {
+  if (!rtc_prepared_block_valid) {
     return HotSendStatus::kNoPreparedBlock;
   }
 
   if (!EnsureWifiConnectedForHotPath()) {
+    ClearPreparedSendBlock();
     return HotSendStatus::kWifiFailed;
   }
 
+  auto block = rtc_prepared_block;
   auto payload = MakeTemperaturePayload(temperature);
-
   ae::DataBuffer packet;
+
   auto encode_result = ae::prepared_packet::EncodePacket(block, payload, packet);
 
   if (!encode_result) {
     ClearPreparedSendBlock();
+    if (encode_result.error ==
+        ae::prepared_packet::EncodePacketError::kNonceExhausted) {
+      return HotSendStatus::kNonceExhausted;
+    }
     return HotSendStatus::kEncodeFailed;
   }
 
-  // Persist immediately after EncodePacket, before UDP send/sleep, because
-  // EncodePacket consumes nonce state.
-  if (!SerializeToRetained(block)) {
-    return HotSendStatus::kPersistFailed;
-  }
+  rtc_prepared_block = block;
 
-#if defined(ESP_PLATFORM)
-  auto const& endpoint = block.endpoint;
-
-  sockaddr_in dest{};
-  dest.sin_family = AF_INET;
-  dest.sin_port = htons(endpoint.port);
-
-  if (inet_pton(AF_INET, endpoint.address.c_str(), &dest.sin_addr) != 1) {
-    std::cerr << "[prepared-send] invalid endpoint address\n";
+  if (!SendUdpDatagram(block.endpoint, packet)) {
+    ClearPreparedSendBlock();
     return HotSendStatus::kSendFailed;
   }
 
-  int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-  if (sock < 0) {
-    return HotSendStatus::kSendFailed;
-  }
-
-  auto sent = sendto(sock, packet.data(), packet.size(), 0,
-                     reinterpret_cast<sockaddr*>(&dest), sizeof(dest));
-  close(sock);
-
-  if (sent != static_cast<int>(packet.size())) {
-    return HotSendStatus::kSendFailed;
-  }
-
-  std::cout << "[prepared-send] hot path UDP sent " << sent << " bytes\n";
+  std::cout << "[prepared-send] hot path sent temperature " << temperature
+            << "\n";
   return HotSendStatus::kSent;
-#else
-  return HotSendStatus::kUnsupported;
-#endif
 }
 
 }  // namespace temp_sensor::prepared_send

@@ -22,17 +22,8 @@
 #include "sleeping/sleeping.h"
 #include "prepared_send/prepared_send.h"
 
-/**
- * Standard uid for test application.
- * This is intended to use only for testing purposes due to its limitations.
- * For real applications you should register your own uid \see aethernet.io
- */
 static constexpr auto kParentUid =
     ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
-/**
- * \brief Uid of aether service for store the temperature values.
- * TODO: add actual uid
- */
 static constexpr auto kServiceUid =
 #ifdef SERVICE_UID
     ae::Uid::FromString(SERVICE_UID);
@@ -51,17 +42,16 @@ static const auto kWifiInit = ae::WiFiInit{
 };
 #endif
 
-// Update temperature sensor
 void UpdateSensors();
-// Message from aether service received
 void MessageReceived(ae::DataBuffer const& buffer);
-// Send the message value to the aether service
 void SendValue(std::int16_t temperature);
-// Go to sleep method
 void GoToSleep(ae::Uap::Timer uap_timer);
+void TryExportPreparedBlock();
 
 static ae::RcPtr<ae::AetherApp> aether_app;
 static ae::RcPtr<ae::P2pStream> message_stream;
+static ae::Subscription stream_update_sub_;
+static bool prepared_block_exported = false;
 
 #ifndef AETHER_PREPARED_HOT_SLEEP_SECONDS
 #  define AETHER_PREPARED_HOT_SLEEP_SECONDS 600
@@ -77,14 +67,11 @@ static constexpr std::size_t kPreparedNonceReserve =
     32;
 #endif
 
-
 void setup() {
   std::cout << ae::Format("Setup {:%Y-%m-%d %H:%M:%S}") << ae::Now()
             << std::endl;
 
 #if defined(ESP_PLATFORM)
-  // Prepared-send hot path: try to send current temperature without creating
-  // full AetherApp. Any error falls back to the normal full boot below.
   {
     std::int16_t hot_temperature = {};
     ReadSensors(&hot_temperature, nullptr, nullptr, nullptr, nullptr);
@@ -108,8 +95,6 @@ void setup() {
       ae::AetherAppContext{}
 #if AE_DISTILLATION
 #  ifdef ESP_PLATFORM
-          // For esp32 wifi adapter configured with wifi ssid and password
-          // required
           .AddAdapterFactory([&](ae::AetherAppContext const& context) {
             return ae::WifiAdapter::ptr::Create(
                 ae::CreateWith{context.domain()}.with_id(
@@ -123,9 +108,6 @@ void setup() {
             if (uap.is_valid()) {
               return uap;
             }
-            // configure uap
-            // 60secs for send/receive
-            // then 2 times by 30 seconds for send only
             return ae::Uap::ptr::Create(
                 ae::CreateWith{context.domain()}.with_id(ae::GlobalId::kUap),
                 context.aether(),
@@ -141,10 +123,8 @@ void setup() {
 #endif
   );
 
-  // setup sleep on uap event
   aether_app->aether()->uap->sleep_event().Subscribe(GoToSleep);
 
-  // select controller's client
   auto& select_client =
       aether_app->aether()->SelectClient(kParentUid, "Controller");
 
@@ -152,19 +132,24 @@ void setup() {
       [&](ae::Result<ae::Client::ptr, int>&& res) {
         if (res) {
           ae::Client::ptr client = std::move(res).value();
-          client.WithLoaded([](auto const& c) {
+          client.WithLoaded([&](auto const& c) {
             std::cout << Format(
                 "\n\n>>>>>>>\n>>>>>>> Client Loaded UID:{} \n>>>>>>> Visit "
                 "https://aethernet.io/smarthub.html?uuid={} \n<<<<<\n\n",
                 c->uid(), kServiceUid);
 
-            // open message stream to aether service client
-            message_stream =
-                c->message_stream_manager().CreateStream(kServiceUid);
+            auto handle =
+                c->message_stream_manager().CreatePort(kServiceUid);
+            message_stream = ae::MakeRcPtr<ae::P2pStream>(
+                ae::AeContext{*aether_app}, client.Load(), kServiceUid,
+                std::move(handle));
             message_stream->out_data_event().Subscribe(MessageReceived);
+            stream_update_sub_ =
+                message_stream->stream_update_event().Subscribe(
+                    []() { TryExportPreparedBlock(); });
 
-            // measure temperature and send updated value
             UpdateSensors();
+            TryExportPreparedBlock();
           });
         } else {
           std::cerr << " !!! Client selection error";
@@ -178,47 +163,56 @@ void loop() {
     return;
   }
   if (!aether_app->IsExited()) {
-    // run aether update loop
     auto new_time = aether_app->Update(ae::Now());
     aether_app->WaitUntil(new_time);
+    TryExportPreparedBlock();
   } else {
-    // cleanup resources
+    stream_update_sub_.Reset();
     message_stream.Reset();
     aether_app.Reset();
+    prepared_block_exported = false;
   }
 }
 
-// implemented in sensors/
 void UpdateSensors() {
   std::int16_t temperature = {};
   ReadSensors(&temperature, nullptr, nullptr, nullptr, nullptr);
   std::cout << ae::Format(" >>> Temperature: [{}]\n", temperature);
-  // TODO: add check if wakeup cause is ulp then send value
   SendValue(temperature);
 }
 
 void MessageReceived(ae::DataBuffer const& buffer) {
-  // TODO: add handle serivice's requests
   std::cout << ae::Format(" >>> Received message from service: [{}]\n", buffer);
 }
 
+void TryExportPreparedBlock() {
+  if (prepared_block_exported || !aether_app || !message_stream) {
+    return;
+  }
+
+  if (message_stream->stream_info().link_state != ae::LinkState::kLinked) {
+    return;
+  }
+
+  if (temp_sensor::prepared_send::ExportPreparedSendBlock(
+          *aether_app, *message_stream, kPreparedNonceReserve)) {
+    prepared_block_exported = true;
+  }
+}
+
 void SendValue(std::int16_t temperature) {
-  // The stream is not initialized yet
   if (!message_stream) {
     return;
   }
 
-  auto message = temp_sensor::prepared_send::MakeTemperaturePayload(temperature);
+  if (message_stream->stream_info().link_state != ae::LinkState::kLinked) {
+    return;
+  }
+
+  auto message =
+      temp_sensor::prepared_send::MakeTemperaturePayload(temperature);
 
   message_stream->Write(std::move(message)).status_event().Subscribe([](auto) {
-    // Export/refresh prepared block after the full send path has a valid stream.
-    // If export fails, keep normal behavior and just sleep.
-    if (aether_app && message_stream) {
-      temp_sensor::prepared_send::ExportPreparedSendBlock(
-          *aether_app, *message_stream, kPreparedNonceReserve);
-    }
-
-    // with any result ready to sleep
     aether_app->aether()->uap->SleepReady();
   });
 }
@@ -230,17 +224,11 @@ void GoToSleep(ae::Uap::Timer uap_timer) {
     return;
   }
 
-  // get the interval with the specified offset
-  // offset is required to account the Save operation
   auto interval = uap_timer.interval(std::chrono::seconds{10});
-  // save current aether state
   aether_app->aether().Save();
-  // Go to sleep
   auto sleep_until = interval.until();
   std::cout << ae::Format(
       " >>> Sleep from {:%Y-%m-%d %H:%M:%S} until {:%Y-%m-%d %H:%M:%S}...\n",
       ae::Now(), sleep_until);
-  // TODO: add separate sleep duration
-  DeepSleep(interval.until(), interval.until(),
-            3000);  // wait till time or 30 deegrees
+  DeepSleep(interval.until(), interval.until(), 3000);
 }

@@ -3,18 +3,15 @@
  *
  * Experimental prepared-send hot path for battery thermometer.
  *
- * Scope:
- * - full boot prepares/exports PreparedSendMessageBlock for the service stream;
- * - following ESP32 wakeups try to send one UDP prepared packet without
- *   constructing full AetherApp;
- * - any error falls back to normal full Aether boot.
+ * PreparedSendMessageBlock is stored as a plain object in RTC RAM.
+ * rtc_prepared_block_valid is the only presence indicator.
  */
 
 #ifndef TEMP_SENSOR_PREPARED_SEND_H_
 #define TEMP_SENSOR_PREPARED_SEND_H_
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 #include "aether/all.h"
 
@@ -25,7 +22,6 @@ enum class HotSendStatus {
   kNoPreparedBlock,
   kNonceExhausted,
   kEncodeFailed,
-  kPersistFailed,
   kWifiFailed,
   kSendFailed,
   kUnsupported,
@@ -33,20 +29,10 @@ enum class HotSendStatus {
 
 char const* ToString(HotSendStatus status);
 
-// Build the same binary temperature payload as SendValue().
 ae::DataBuffer MakeTemperaturePayload(std::int16_t temperature);
 
-// Try the MCU hot path.
-// Returns kSent only if:
-//   - retained prepared block exists;
-//   - Wi-Fi was connected;
-//   - prepared packet was encoded;
-//   - mutated block was persisted after nonce consumption;
-//   - UDP datagram was sent.
 HotSendStatus TryHotWakePreparedSend(std::int16_t temperature);
 
-// Export a new prepared block from the already initialized full Aether stream.
-// Must be called only after full client/stream are usable.
 bool ExportPreparedSendBlock(ae::AetherApp& app,
                              ae::P2pStream& stream,
                              std::size_t reserve_nonce_count);

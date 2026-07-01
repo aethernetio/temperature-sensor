@@ -1,0 +1,3 @@
+[submodule "aether-client-cpp"]
+	path = aether-client-cpp
+	url = https://github.com/aethernetio/aether-client-cpp.git
