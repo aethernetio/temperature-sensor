@@ -48,7 +48,7 @@ if(NOT CM_PLATFORM)
 
   include(../cmake/CPM.cmake)
 
-  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#prepared-packet-v0")
 
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
   set(TARGET_NAME ${PROJECT_NAME})
