@@ -137,8 +137,8 @@ bool DeserializeFromRetained(T& value) {
 
 #if defined(ESP_PLATFORM)
 
-bool FillUdpDestination(ae::prepared_packet::PreparedUdpEndpoint const& endpoint,
-                       sockaddr* dest_addr, socklen_t* dest_len) {
+bool FillUdpDestination(ae::prepared_packet::PreparedEndpoint const& endpoint,
+                       sockaddr* dest_addr, socklen_t* dest_len) {  
   if (endpoint.version == ae::prepared_packet::PreparedIpVersion::kIpV4) {
     auto* dest = reinterpret_cast<sockaddr_in*>(dest_addr);
     std::memset(dest, 0, sizeof(*dest));
