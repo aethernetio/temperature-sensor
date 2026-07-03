@@ -32,4 +32,3 @@ Edit platformio.ini to match your board and set ssid and password.
 ```sh
 pio run -e <env_name> -t upload
 ```
-Test
