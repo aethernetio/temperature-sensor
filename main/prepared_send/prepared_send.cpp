@@ -40,7 +40,7 @@ namespace {
 static constexpr char const* kTag = "prepared-send";
 
 #ifndef AETHER_PREPARED_NONCE_RESERVE
-#  define AETHER_PREPARED_NONCE_RESERVE 32
+#  define AETHER_PREPARED_NONCE_RESERVE 30
 #endif
 
 #ifndef AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS
@@ -286,7 +286,7 @@ char const* ToString(HotSendStatus status) {
   return "unknown";
 }
 
-ae::DataBuffer MakeTemperaturePayload(std::int16_t temperature) {
+ae::DataBuffer MakeTemperaturePayload(std::string temperature) {
   struct Header {
     std::uint8_t const root_code = 0x3;
     std::uint8_t const size = sizeof(std::uint8_t) + sizeof(std::int16_t);
@@ -349,7 +349,7 @@ bool ExportPreparedSendBlock(ae::AetherApp& app,
   return true;
 }
 
-HotSendStatus TryHotWakePreparedSend(std::int16_t temperature) {
+HotSendStatus TryHotWakePreparedSend(std::string temperature) {
   ae::prepared_packet::PreparedSendMessageBlock block;
   if (!DeserializeFromRetained(block)) {
     return HotSendStatus::kNoPreparedBlock;

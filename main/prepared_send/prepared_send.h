@@ -34,7 +34,7 @@ enum class HotSendStatus {
 char const* ToString(HotSendStatus status);
 
 // Build the same binary temperature payload as SendValue().
-ae::DataBuffer MakeTemperaturePayload(std::int16_t temperature);
+ae::DataBuffer MakeTemperaturePayload(std::string temperature);
 
 // Try the MCU hot path.
 // Returns kSent only if:
@@ -43,7 +43,7 @@ ae::DataBuffer MakeTemperaturePayload(std::int16_t temperature);
 //   - prepared packet was encoded;
 //   - mutated block was persisted after nonce consumption;
 //   - UDP datagram was sent.
-HotSendStatus TryHotWakePreparedSend(std::int16_t temperature);
+HotSendStatus TryHotWakePreparedSend(std::string temperature);
 
 // Export a new prepared block from the already initialized full Aether stream.
 // Must be called only after full client/stream are usable.

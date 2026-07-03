@@ -37,7 +37,7 @@ static constexpr auto kServiceUid =
 #ifdef SERVICE_UID
     ae::Uid::FromString(SERVICE_UID);
 #else
-    ae::Uid::FromString("e839f1a9-e0ec-4ff6-b85c-d49efaabf24f");
+    ae::Uid::FromString("c6f15489-09cb-4c59-a8aa-eadd7abe6ae3");
 #endif
 
 #ifdef ESP_PLATFORM
@@ -56,7 +56,7 @@ void UpdateSensors();
 // Message from aether service received
 void MessageReceived(ae::DataBuffer const& buffer);
 // Send the message value to the aether service
-void SendValue(std::int16_t temperature);
+void SendValue(std::string temperature);
 // Go to sleep method
 void GoToSleep(ae::Uap::Timer uap_timer);
 
@@ -64,7 +64,7 @@ static ae::RcPtr<ae::AetherApp> aether_app;
 static std::unique_ptr<ae::P2pStream> message_stream;
 
 #ifndef AETHER_PREPARED_HOT_SLEEP_SECONDS
-#  define AETHER_PREPARED_HOT_SLEEP_SECONDS 600
+#  define AETHER_PREPARED_HOT_SLEEP_SECONDS 30
 #endif
 
 static constexpr auto kPreparedHotSleepSeconds =
@@ -77,6 +77,10 @@ static constexpr std::size_t kPreparedNonceReserve =
     32;
 #endif
 
+void ReadHotSensors(std::string* temperature, uint32_t* humidity, uint32_t* pressure,
+                 uint32_t* co2, uint32_t* gas_resistance) {
+                  *temperature = "Hot 25.67";
+                 }
 
 void setup() {
   std::cout << ae::Format("Setup {:%Y-%m-%d %H:%M:%S}") << ae::Now()
@@ -86,8 +90,8 @@ void setup() {
   // Prepared-send hot path: try to send current temperature without creating
   // full AetherApp. Any error falls back to the normal full boot below.
   {
-    std::int16_t hot_temperature = {};
-    ReadSensors(&hot_temperature, nullptr, nullptr, nullptr, nullptr);
+    std::string hot_temperature = {};
+    ReadHotSensors(&hot_temperature, nullptr, nullptr, nullptr, nullptr);
 
     auto hot_status =
         temp_sensor::prepared_send::TryHotWakePreparedSend(hot_temperature);
@@ -189,12 +193,14 @@ void loop() {
   }
 }
 
-void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
-                 uint32_t* co2, uint32_t* gas_resistance) {}
+void ReadSensors(std::string* temperature, uint32_t* humidity, uint32_t* pressure,
+                 uint32_t* co2, uint32_t* gas_resistance) {
+                  *temperature = "25.67";
+                 }
                  
 // implemented in sensors/
 void UpdateSensors() {
-  std::int16_t temperature = {};
+  std::string temperature = {};
   ReadSensors(&temperature, nullptr, nullptr, nullptr, nullptr);
   std::cout << ae::Format(" >>> Temperature: [{}]\n", temperature);
   // TODO: add check if wakeup cause is ulp then send value
@@ -206,7 +212,7 @@ void MessageReceived(ae::DataBuffer const& buffer) {
   std::cout << ae::Format(" >>> Received message from service: [{}]\n", buffer);
 }
 
-void SendValue(std::int16_t temperature) {
+void SendValue(std::string temperature) {
   // The stream is not initialized yet
   if (!message_stream) {
     return;
@@ -233,7 +239,7 @@ void GoToSleep(ae::Uap::Timer uap_timer) {
   if (!aether_app) {
     return;
   }
-
+  
   // get the interval with the specified offset
   // offset is required to account the Save operation
   auto interval = uap_timer.interval(std::chrono::seconds{10});
@@ -245,6 +251,7 @@ void GoToSleep(ae::Uap::Timer uap_timer) {
       " >>> Sleep from {:%Y-%m-%d %H:%M:%S} until {:%Y-%m-%d %H:%M:%S}...\n",
       ae::Now(), sleep_until);
   // TODO: add separate sleep duration
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   DeepSleep(interval.until(), interval.until(),
             3000);  // wait till time or 30 deegrees
 }
