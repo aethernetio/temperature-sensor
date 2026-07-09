@@ -37,7 +37,7 @@ static constexpr auto kServiceUid =
 #ifdef SERVICE_UID
     ae::Uid::FromString(SERVICE_UID);
 #else
-    ae::Uid::FromString("c6f15489-09cb-4c59-a8aa-eadd7abe6ae3");
+    ae::Uid::FromString("ce61234d-de02-46e0-804d-ae7cb0900f3d");
 #endif
 
 #ifdef ESP_PLATFORM
@@ -47,7 +47,7 @@ static const auto kWifiCreds = ae::WifiCreds{
 };
 static const auto kWifiInit = ae::WiFiInit{
     std::vector<ae::WiFiAp>{{kWifiCreds, {}}},
-    ae::WiFiPowerSaveParam{},
+    {},
 };
 #endif
 
@@ -79,7 +79,7 @@ static constexpr std::size_t kPreparedNonceReserve =
 
 void ReadHotSensors(std::string* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
-                  *temperature = "Hot 25.67";
+                  *temperature = "Prepared 25.67";
                  }
 
 void setup() {
@@ -195,7 +195,7 @@ void loop() {
 
 void ReadSensors(std::string* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
-                  *temperature = "25.67";
+                  *temperature = "Full 25.67";
                  }
                  
 // implemented in sensors/
@@ -219,6 +219,8 @@ void SendValue(std::string temperature) {
   }
 
   auto message = temp_sensor::prepared_send::MakeTemperaturePayload(temperature);
+  std::cout << ae::Format(" [CALL-CHAIN] SendValue payload_size={}\n",
+                          message.size());
 
   message_stream->Write(std::move(message)).status_event().Subscribe([](auto) {
     // Export/refresh prepared block after the full send path has a valid stream.
@@ -251,7 +253,6 @@ void GoToSleep(ae::Uap::Timer uap_timer) {
       " >>> Sleep from {:%Y-%m-%d %H:%M:%S} until {:%Y-%m-%d %H:%M:%S}...\n",
       ae::Now(), sleep_until);
   // TODO: add separate sleep duration
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   DeepSleep(interval.until(), interval.until(),
             3000);  // wait till time or 30 deegrees
 }

@@ -11,10 +11,12 @@
 #include "prepared_send/prepared_send.h"
 
 #include <array>
+#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <limits>
 #include <optional>
+#include <thread>
 
 #include "aether/all.h"
 #include "aether/mstream.h"
@@ -27,6 +29,7 @@
 #  include <esp_log.h>
 #  include <esp_netif.h>
 #  include <esp_wifi.h>
+#  include <esp_wifi_default.h>
 #  include <freertos/FreeRTOS.h>
 #  include <freertos/event_groups.h>
 #  include <lwip/inet.h>
@@ -45,6 +48,10 @@ static constexpr char const* kTag = "prepared-send";
 
 #ifndef AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS
 #  define AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS 15000
+#endif
+
+#ifndef AETHER_PREPARED_HOT_WIFI_MAX_RETRY
+#  define AETHER_PREPARED_HOT_WIFI_MAX_RETRY 10
 #endif
 
 #if defined(ESP_PLATFORM)
@@ -163,18 +170,119 @@ bool FillUdpDestination(ae::prepared_packet::PreparedEndpoint const& endpoint,
 }
 
 static EventGroupHandle_t g_wifi_event_group = nullptr;
+static esp_netif_t* g_wifi_netif = nullptr;
+static esp_event_handler_instance_t g_wifi_any_id_handler = nullptr;
+static esp_event_handler_instance_t g_wifi_got_ip_handler = nullptr;
+static bool g_wifi_initialized = false;
+static bool g_wifi_started = false;
+static bool g_default_event_loop_created = false;
+static int g_wifi_retry_count = 0;
 static constexpr EventBits_t kWifiConnectedBit = BIT0;
 static constexpr EventBits_t kWifiFailBit = BIT1;
 
 void WifiEventHandler(void*, esp_event_base_t event_base,
-                      std::int32_t event_id, void*) {
+                      std::int32_t event_id, void* event_data) {
+  if (g_wifi_event_group == nullptr) {
+    return;
+  }
+
   if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-    esp_wifi_connect();
+    g_wifi_retry_count = 0;
+    auto err = esp_wifi_connect();
+    if (err != ESP_OK) {
+      ESP_LOGE(kTag, "Wi-Fi hot path connect start failed: %s",
+               esp_err_to_name(err));
+      xEventGroupSetBits(g_wifi_event_group, kWifiFailBit);
+    }
   } else if (event_base == WIFI_EVENT &&
              event_id == WIFI_EVENT_STA_DISCONNECTED) {
-    xEventGroupSetBits(g_wifi_event_group, kWifiFailBit);
+    auto const* event =
+        static_cast<wifi_event_sta_disconnected_t const*>(event_data);
+    auto const reason = event != nullptr ? static_cast<int>(event->reason) : -1;
+
+    if (g_wifi_retry_count < AETHER_PREPARED_HOT_WIFI_MAX_RETRY) {
+      ++g_wifi_retry_count;
+      ESP_LOGW(kTag,
+               "Wi-Fi hot path disconnected reason=%d; retry %d/%d",
+               reason, g_wifi_retry_count,
+               static_cast<int>(AETHER_PREPARED_HOT_WIFI_MAX_RETRY));
+
+      auto err = esp_wifi_connect();
+      if (err != ESP_OK) {
+        ESP_LOGE(kTag, "Wi-Fi hot path reconnect failed: %s",
+                 esp_err_to_name(err));
+        xEventGroupSetBits(g_wifi_event_group, kWifiFailBit);
+      }
+    } else {
+      ESP_LOGE(kTag, "Wi-Fi hot path retry limit reached; reason=%d", reason);
+      xEventGroupSetBits(g_wifi_event_group, kWifiFailBit);
+    }
   } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+    ESP_LOGI(kTag, "Wi-Fi hot path connected after %d retries",
+             g_wifi_retry_count);
     xEventGroupSetBits(g_wifi_event_group, kWifiConnectedBit);
+  }
+}
+
+void CleanupHotPathWifi() {
+  if (g_wifi_any_id_handler != nullptr) {
+    auto err = esp_event_handler_instance_unregister(
+        WIFI_EVENT, ESP_EVENT_ANY_ID, g_wifi_any_id_handler);
+    if (err != ESP_OK) {
+      ESP_LOGW(kTag, "failed to unregister WIFI handler: %s",
+               esp_err_to_name(err));
+    }
+    g_wifi_any_id_handler = nullptr;
+  }
+
+  if (g_wifi_got_ip_handler != nullptr) {
+    auto err = esp_event_handler_instance_unregister(
+        IP_EVENT, IP_EVENT_STA_GOT_IP, g_wifi_got_ip_handler);
+    if (err != ESP_OK) {
+      ESP_LOGW(kTag, "failed to unregister IP handler: %s",
+               esp_err_to_name(err));
+    }
+    g_wifi_got_ip_handler = nullptr;
+  }
+
+  if (g_wifi_started) {
+    auto err = esp_wifi_stop();
+    if (err != ESP_OK && err != ESP_ERR_WIFI_NOT_STARTED &&
+        err != ESP_ERR_WIFI_NOT_INIT) {
+      ESP_LOGW(kTag, "esp_wifi_stop failed during cleanup: %s",
+               esp_err_to_name(err));
+    }
+    g_wifi_started = false;
+  }
+
+  if (g_wifi_initialized) {
+    auto err = esp_wifi_deinit();
+    if (err != ESP_OK && err != ESP_ERR_WIFI_NOT_INIT) {
+      ESP_LOGW(kTag, "esp_wifi_deinit failed during cleanup: %s",
+               esp_err_to_name(err));
+    }
+    g_wifi_initialized = false;
+  }
+
+  if (g_wifi_netif != nullptr) {
+    esp_netif_destroy_default_wifi(g_wifi_netif);
+    g_wifi_netif = nullptr;
+  }
+
+  if (g_wifi_event_group != nullptr) {
+    vEventGroupDelete(g_wifi_event_group);
+    g_wifi_event_group = nullptr;
+  }
+
+  g_wifi_retry_count = 0;
+
+  if (g_default_event_loop_created) {
+    auto err = esp_event_loop_delete_default();
+    if (err != ESP_OK) {
+      ESP_LOGW(kTag, "esp_event_loop_delete_default failed: %s",
+               esp_err_to_name(err));
+    }
+    g_default_event_loop_created = false;
   }
 }
 
@@ -200,33 +308,63 @@ bool EnsureWifiConnectedForHotPath() {
     return false;
   }
 
+  CleanupHotPathWifi();
+
   if (esp_netif_init() != ESP_OK) {
     ESP_LOGW(kTag, "esp_netif_init returned non-OK; continuing");
   }
-  if (esp_event_loop_create_default() != ESP_OK) {
-    ESP_LOGW(kTag, "event loop already exists or failed; continuing");
+  err = esp_event_loop_create_default();
+  if (err == ESP_OK) {
+    g_default_event_loop_created = true;
+  } else if (err == ESP_ERR_INVALID_STATE) {
+    ESP_LOGW(kTag, "event loop already exists; continuing");
+  } else {
+    ESP_LOGE(kTag, "esp_event_loop_create_default failed: %s",
+             esp_err_to_name(err));
+    return false;
   }
 
   g_wifi_event_group = xEventGroupCreate();
   if (g_wifi_event_group == nullptr) {
     ESP_LOGE(kTag, "failed to create Wi-Fi event group");
+    CleanupHotPathWifi();
     return false;
   }
 
-  esp_netif_create_default_wifi_sta();
+  g_wifi_netif = esp_netif_create_default_wifi_sta();
+  if (g_wifi_netif == nullptr) {
+    ESP_LOGE(kTag, "failed to create default Wi-Fi STA netif");
+    CleanupHotPathWifi();
+    return false;
+  }
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-  if (esp_wifi_init(&cfg) != ESP_OK) {
-    ESP_LOGE(kTag, "esp_wifi_init failed");
+  err = esp_wifi_init(&cfg);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "esp_wifi_init failed: %s", esp_err_to_name(err));
+    CleanupHotPathWifi();
+    return false;
+  }
+  g_wifi_initialized = true;
+
+  err = esp_event_handler_instance_register(
+      WIFI_EVENT, ESP_EVENT_ANY_ID, &WifiEventHandler, nullptr,
+      &g_wifi_any_id_handler);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "failed to register WIFI handler: %s",
+             esp_err_to_name(err));
+    CleanupHotPathWifi();
     return false;
   }
 
-  esp_event_handler_instance_t any_id;
-  esp_event_handler_instance_t got_ip;
-  esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
-                                      &WifiEventHandler, nullptr, &any_id);
-  esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
-                                      &WifiEventHandler, nullptr, &got_ip);
+  err = esp_event_handler_instance_register(
+      IP_EVENT, IP_EVENT_STA_GOT_IP, &WifiEventHandler, nullptr,
+      &g_wifi_got_ip_handler);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "failed to register IP handler: %s", esp_err_to_name(err));
+    CleanupHotPathWifi();
+    return false;
+  }
 
   wifi_config_t wifi_config{};
   std::strncpy(reinterpret_cast<char*>(wifi_config.sta.ssid), WIFI_SSID,
@@ -234,12 +372,27 @@ bool EnsureWifiConnectedForHotPath() {
   std::strncpy(reinterpret_cast<char*>(wifi_config.sta.password), WIFI_PASSWORD,
                sizeof(wifi_config.sta.password));
 
-  if (esp_wifi_set_mode(WIFI_MODE_STA) != ESP_OK ||
-      esp_wifi_set_config(WIFI_IF_STA, &wifi_config) != ESP_OK ||
-      esp_wifi_start() != ESP_OK) {
-    ESP_LOGE(kTag, "failed to start Wi-Fi STA");
+  err = esp_wifi_set_mode(WIFI_MODE_STA);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "esp_wifi_set_mode failed: %s", esp_err_to_name(err));
+    CleanupHotPathWifi();
     return false;
   }
+
+  err = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "esp_wifi_set_config failed: %s", esp_err_to_name(err));
+    CleanupHotPathWifi();
+    return false;
+  }
+
+  err = esp_wifi_start();
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "esp_wifi_start failed: %s", esp_err_to_name(err));
+    CleanupHotPathWifi();
+    return false;
+  }
+  g_wifi_started = true;
 
   EventBits_t bits = xEventGroupWaitBits(
       g_wifi_event_group, kWifiConnectedBit | kWifiFailBit, pdFALSE, pdFALSE,
@@ -247,7 +400,7 @@ bool EnsureWifiConnectedForHotPath() {
 
   if ((bits & kWifiConnectedBit) == 0) {
     ESP_LOGE(kTag, "Wi-Fi hot path connect timeout/fail");
-    esp_wifi_stop();
+    CleanupHotPathWifi();
     return false;
   }
 
@@ -259,6 +412,8 @@ bool EnsureWifiConnectedForHotPath() {
 bool EnsureWifiConnectedForHotPath() {
   return true;
 }
+
+void CleanupHotPathWifi() {}
 
 #endif
 
@@ -359,6 +514,11 @@ HotSendStatus TryHotWakePreparedSend(std::string temperature) {
     return HotSendStatus::kWifiFailed;
   }
 
+  auto fail_after_wifi = [](HotSendStatus status) {
+    CleanupHotPathWifi();
+    return status;
+  };
+
   auto payload = MakeTemperaturePayload(temperature);
 
   ae::DataBuffer packet;
@@ -366,13 +526,13 @@ HotSendStatus TryHotWakePreparedSend(std::string temperature) {
 
   if (!encode_result) {
     ClearPreparedSendBlock();
-    return HotSendStatus::kEncodeFailed;
+    return fail_after_wifi(HotSendStatus::kEncodeFailed);
   }
 
   // Persist immediately after EncodePacket, before UDP send/sleep, because
   // EncodePacket consumes nonce state.
   if (!SerializeToRetained(block)) {
-    return HotSendStatus::kPersistFailed;
+    return fail_after_wifi(HotSendStatus::kPersistFailed);
   }
 
 #if defined(ESP_PLATFORM)
@@ -383,7 +543,7 @@ HotSendStatus TryHotWakePreparedSend(std::string temperature) {
   if (!FillUdpDestination(endpoint, reinterpret_cast<sockaddr*>(&dest_storage),
                           &dest_len)) {
     std::cerr << "[prepared-send] invalid endpoint address\n";
-    return HotSendStatus::kSendFailed;
+    return fail_after_wifi(HotSendStatus::kSendFailed);
   }
 
   int sock = socket(
@@ -392,7 +552,7 @@ HotSendStatus TryHotWakePreparedSend(std::string temperature) {
           : AF_INET,
       SOCK_DGRAM, IPPROTO_IP);
   if (sock < 0) {
-    return HotSendStatus::kSendFailed;
+    return fail_after_wifi(HotSendStatus::kSendFailed);
   }
 
   auto sent = sendto(sock, packet.data(), packet.size(), 0,
@@ -400,9 +560,9 @@ HotSendStatus TryHotWakePreparedSend(std::string temperature) {
   close(sock);
 
   if (sent != static_cast<int>(packet.size())) {
-    return HotSendStatus::kSendFailed;
+    return fail_after_wifi(HotSendStatus::kSendFailed);
   }
-
+  std::this_thread::sleep_for(std::chrono::milliseconds(450));
   std::cout << "[prepared-send] hot path UDP sent " << sent << " bytes\n";
   return HotSendStatus::kSent;
 #else
