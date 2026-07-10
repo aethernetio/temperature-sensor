@@ -22,6 +22,8 @@
 #include "sleeping/sleeping.h"
 #include "prepared_send/prepared_send.h"
 
+using namespace std::chrono_literals;
+
 /**
  * Standard uid for test application.
  * This is intended to use only for testing purposes due to its limitations.
@@ -37,7 +39,7 @@ static constexpr auto kServiceUid =
 #ifdef SERVICE_UID
     ae::Uid::FromString(SERVICE_UID);
 #else
-    ae::Uid::FromString("ce61234d-de02-46e0-804d-ae7cb0900f3d");
+    ae::Uid::FromString("f763febf-b555-487c-bf0f-c3813a1398d2");
 #endif
 
 #ifdef ESP_PLATFORM
@@ -51,16 +53,42 @@ static const auto kWifiInit = ae::WiFiInit{
 };
 #endif
 
+struct WorkMode {
+  using type = std::uint8_t;
+  static constexpr type kTx = 0x1, kRx = 0x2, kTxRx = 0x3;
+
+  static std::string_view ToText(type v) {
+    switch (v) {
+      case WorkMode::kTx:
+        return "TX";
+      case WorkMode::kRx:
+        return "RX";
+      case WorkMode::kTxRx:
+        return "TX+RX";
+      default:
+        return "NONE";
+    }
+  }
+};
+
+static constexpr ae::Duration kTxInterval = 30s;
+static RTC_STORAGE_ATTR ae::TimePoint next_tx_time = {};
+
+// Client selection handler
+void ClientSelected(ae::Result<ae::Client::ptr, int> res);
 // Update temperature sensor
 void UpdateSensors();
 // Message from aether service received
 void MessageReceived(ae::DataBuffer const& buffer);
 // Send the message value to the aether service
 void SendValue(std::string temperature);
+// Make all required work and ready to sleep
+void SleepReady();
 // Go to sleep method
-void GoToSleep(ae::Uap::Timer uap_timer);
+void GoToSleep(ae::TimePoint time_point);
 
 static ae::RcPtr<ae::AetherApp> aether_app;
+static ae::Client::ptr client;
 static std::unique_ptr<ae::P2pStream> message_stream;
 
 #ifndef AETHER_PREPARED_HOT_SLEEP_SECONDS
@@ -122,60 +150,13 @@ void setup() {
                 kWifiInit);
           })
 #  endif
-          .UapFactory([](ae::AetherAppContext const& context) {
-            auto uap = context.aether()->uap;
-            if (uap.is_valid()) {
-              return uap;
-            }
-            // configure uap
-            // 60secs for send/receive
-            // then 2 times by 30 seconds for send only
-            return ae::Uap::ptr::Create(
-                ae::CreateWith{context.domain()}.with_id(ae::GlobalId::kUap),
-                context.aether(),
-                std::initializer_list{
-                    ae::Interval{.type = ae::IntervalType::kSendReceive,
-                                 .duration = std::chrono::seconds{60},
-                                 .window = std::chrono::seconds{10}},
-                    ae::Interval{.type = ae::IntervalType::kSendOnly,
-                                 .duration = std::chrono::seconds{30}},
-                    ae::Interval{.type = ae::IntervalType::kSendOnly,
-                                 .duration = std::chrono::seconds{30}}});
-          })
 #endif
   );
 
-  // setup sleep on uap event
-  aether_app->aether()->uap->sleep_event().Subscribe(GoToSleep);
-
   // select controller's client
-  auto& select_client =
-      aether_app->aether()->SelectClient(kParentUid, "Controller");
-
-  select_client.result_event().Subscribe(
-      [&](ae::Result<ae::Client::ptr, int>&& res) {
-        if (res) {
-          ae::Client::ptr client = std::move(res).value();
-          client.WithLoaded([](auto const& c) {
-            std::cout << Format(
-                "\n\n>>>>>>>\n>>>>>>> Client Loaded UID:{} \n>>>>>>> Visit "
-                "https://aethernet.io/smarthub.html?uuid={} \n<<<<<\n\n",
-                c->uid(), kServiceUid);
-
-            // open message stream to aether service client
-            message_stream = std::make_unique<ae::P2pStream>(
-                *aether_app, c, kServiceUid,
-                c->message_stream_manager().CreatePort(kServiceUid));
-            message_stream->out_data_event().Subscribe(MessageReceived);
-
-            // measure temperature and send updated value
-            UpdateSensors();
-          });
-        } else {
-          std::cerr << " !!! Client selection error";
-          aether_app->Exit(1);
-        }
-      });
+  aether_app->aether()->SelectClient(kParentUid, "Controller")
+      .result_event()
+      .Subscribe(&ClientSelected);
 }
 
 void loop() {
@@ -190,6 +171,60 @@ void loop() {
     // cleanup resources
     message_stream.reset();
     aether_app.Reset();
+  }
+}
+
+void ClientSelected(ae::Result<ae::Client::ptr, int> res) {
+  if (!res) {
+    std::cerr << " !!! Client selection error\n";
+    aether_app->Exit(1);
+    return;
+  }
+
+  client = std::move(res).value();
+  auto r = client.WithLoaded([](ae::Ptr<ae::Client> const& c) {
+    std::cout << ae::Format(
+        "\n\n>>>>>>>\n>>>>>>> Client Loaded UID:{} \n>>>>>>> Visit "
+        "https://aethernet.io/smarthub.html?uuid={} \n<<<<<\n\n",
+        c->uid(), kServiceUid);
+
+    // Config connectivity policy, open 5s RX window every 60s.
+    c->connectivity_policy()
+        ->ConfigureRxTimings(ae::RequestPolicy::All{})
+        .ForAllPriorities(ae::RxTimingConf::Every(60s).WithWindow(5s));
+
+    // check current work_mode
+    // it's always TX if we woke up
+    auto work_mode = WorkMode::kTx;
+    auto current_time = ae::Now();
+    static constexpr ae::Duration threshold = 5s;
+    auto cp_status = c->connectivity_policy()->GetStatus();
+    // if it's next_service_time it's also RX
+    if ((current_time + threshold) >= cp_status.next_service_time) {
+      work_mode = work_mode | WorkMode::kRx;
+    }
+    std::cout << ae::Format(">>>> Run in {} work mode\n",
+                            WorkMode::ToText(work_mode));
+
+    if ((work_mode & WorkMode::kRx) != 0) {
+      // open message stream for receive and send
+      message_stream = std::make_unique<ae::P2pStream>(
+          *aether_app, c, kServiceUid,
+          c->message_stream_manager().CreatePort(kServiceUid));
+      message_stream->out_data_event().Subscribe(MessageReceived);
+    } else {
+      // open message stream for send only
+      message_stream = std::make_unique<ae::P2pStream>(
+          *aether_app, c, kServiceUid, ae::P2pPortHandle{});
+    }
+
+    // measure temperature and send updated value
+    UpdateSensors();
+  });
+
+  if (!r) {
+    std::cerr << " !!! Client wasn't loaded";
+    aether_app->Exit(2);
   }
 }
 
@@ -231,28 +266,45 @@ void SendValue(std::string temperature) {
     }
 
     // with any result ready to sleep
-    aether_app->aether()->uap->SleepReady();
+    SleepReady();
   });
+
+  next_tx_time = ae::Now() + kTxInterval;
 }
 
-void GoToSleep(ae::Uap::Timer uap_timer) {
+void SleepReady() {
+  auto go_to_sleep = [](auto next_rx_time) noexcept {
+    auto next_time = std::min(next_tx_time, next_rx_time);
+    std::cout << ae::Format(
+        ">> Go to sleep no wait, next_tx_time {}, next_rx_time {}\n",
+        next_tx_time, next_rx_time);
+    GoToSleep(next_time);
+  };
+
+  auto status = client->connectivity_policy()->GetStatus();
+  if (status.can_suspend) {
+    go_to_sleep(status.next_service_time);
+  } else {
+    std::cout << ">>> Wait for can suspend\n";
+    client->connectivity_policy()->suspend_allowed_event().Subscribe([&]() {
+      go_to_sleep(client->connectivity_policy()->GetStatus().next_service_time);
+    });
+  }
+}
+
+void GoToSleep(ae::TimePoint time_point) {
   std::cout << " >>> Going to sleep...\n";
 
   if (!aether_app) {
     return;
   }
-  
-  // get the interval with the specified offset
-  // offset is required to account the Save operation
-  auto interval = uap_timer.interval(std::chrono::seconds{10});
   // save current aether state
   aether_app->aether().Save();
+  
   // Go to sleep
-  auto sleep_until = interval.until();
   std::cout << ae::Format(
       " >>> Sleep from {:%Y-%m-%d %H:%M:%S} until {:%Y-%m-%d %H:%M:%S}...\n",
-      ae::Now(), sleep_until);
+      ae::Now(), time_point);
   // TODO: add separate sleep duration
-  DeepSleep(interval.until(), interval.until(),
-            3000);  // wait till time or 30 deegrees
+  DeepSleep(time_point, time_point, 3000);  // wait till time or 30 deegrees
 }
