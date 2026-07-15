@@ -17,6 +17,7 @@
 #include <chrono>
 #include <memory>
 #include <cstdlib>
+#include <iostream>
 
 #include "aether/all.h"
 #include "sensors/sensors.h"
