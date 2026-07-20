@@ -41,6 +41,8 @@ namespace temp_sensor::prepared_send {
 namespace {
 
 static constexpr char const* kTag = "prepared-send";
+static RTC_DATA_ATTR esp_netif_ip_info_t rtc_ip_info = {};
+static RTC_DATA_ATTR  bool adress_is_valid{false};
 
 #ifndef AETHER_PREPARED_NONCE_RESERVE
 #  define AETHER_PREPARED_NONCE_RESERVE 30
@@ -218,6 +220,18 @@ void WifiEventHandler(void*, esp_event_base_t event_base,
       xEventGroupSetBits(g_wifi_event_group, kWifiFailBit);
     }
   } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+    ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+        if (!adress_is_valid) {
+            rtc_ip_info.ip = event->ip_info.ip;
+            rtc_ip_info.netmask = event->ip_info.netmask;
+            rtc_ip_info.gw = event->ip_info.gw;
+            /*wifi_ap_record_t ap_info;
+            if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+                rtc_net_cfg.channel = ap_info.primary;
+                memcpy(rtc_net_cfg.bssid, ap_info.bssid, 6);
+            }*/
+            adress_is_valid = true;
+        }
     ESP_LOGI(kTag, "Wi-Fi hot path connected after %d retries",
              g_wifi_retry_count);
     xEventGroupSetBits(g_wifi_event_group, kWifiConnectedBit);
@@ -338,6 +352,19 @@ bool EnsureWifiConnectedForHotPath() {
     return false;
   }
 
+  if (adress_is_valid) {
+    std::cout <<  "Restoring netif config\n";
+    esp_netif_dhcpc_stop(g_wifi_netif);
+    esp_netif_ip_info_t ip_info = {
+      .ip = {.addr = rtc_ip_info.ip.addr},
+      .netmask = {.addr = rtc_ip_info.netmask.addr},
+      .gw = {.addr = rtc_ip_info.gw.addr}
+    };
+    esp_netif_set_ip_info(g_wifi_netif, &ip_info);
+  } else {
+    std::cout <<  "Restoring netif config filed\n";
+  }
+
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   err = esp_wifi_init(&cfg);
   if (err != ESP_OK) {
@@ -386,6 +413,8 @@ bool EnsureWifiConnectedForHotPath() {
     return false;
   }
 
+  esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N);
+  
   err = esp_wifi_start();
   if (err != ESP_OK) {
     ESP_LOGE(kTag, "esp_wifi_start failed: %s", esp_err_to_name(err));
@@ -506,6 +535,7 @@ bool ExportPreparedSendBlock(ae::AetherApp& app,
 
 HotSendStatus TryHotWakePreparedSend(std::string temperature) {
   ae::prepared_packet::PreparedSendMessageBlock block;
+  //sleep(10);
   if (!DeserializeFromRetained(block)) {
     return HotSendStatus::kNoPreparedBlock;
   }
