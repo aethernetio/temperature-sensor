@@ -54,6 +54,10 @@ bool ExportPreparedSendBlock(ae::AetherApp& app,
 void ClearPreparedSendBlock();
 bool HasPreparedSendBlock();
 
+struct WiFiBaseStation {
+  uint8_t target_bssid[6];
+  uint8_t target_channel;
+};
 }  // namespace temp_sensor::prepared_send
 
 #endif  // TEMP_SENSOR_PREPARED_SEND_H_

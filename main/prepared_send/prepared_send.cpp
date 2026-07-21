@@ -28,8 +28,10 @@
 #  include <esp_event.h>
 #  include <esp_log.h>
 #  include <esp_netif.h>
+#  include <esp_mac.h>
 #  include <esp_wifi.h>
 #  include <esp_wifi_default.h>
+#  include <esp_private/wifi.h>
 #  include <freertos/FreeRTOS.h>
 #  include <freertos/event_groups.h>
 #  include <lwip/inet.h>
@@ -39,10 +41,11 @@
 
 namespace temp_sensor::prepared_send {
 namespace {
-
 static constexpr char const* kTag = "prepared-send";
 static RTC_DATA_ATTR esp_netif_ip_info_t rtc_ip_info = {};
-static RTC_DATA_ATTR  bool adress_is_valid{false};
+static RTC_DATA_ATTR WiFiBaseStation base_station{};
+static RTC_DATA_ATTR bool adress_is_valid{false};
+static RTC_DATA_ATTR bool bs_is_valid{false};
 
 #ifndef AETHER_PREPARED_NONCE_RESERVE
 #  define AETHER_PREPARED_NONCE_RESERVE 30
@@ -225,11 +228,17 @@ void WifiEventHandler(void*, esp_event_base_t event_base,
             rtc_ip_info.ip = event->ip_info.ip;
             rtc_ip_info.netmask = event->ip_info.netmask;
             rtc_ip_info.gw = event->ip_info.gw;
-            /*wifi_ap_record_t ap_info;
+           
+            wifi_ap_record_t ap_info;
             if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
-                rtc_net_cfg.channel = ap_info.primary;
-                memcpy(rtc_net_cfg.bssid, ap_info.bssid, 6);
-            }*/
+                base_station.target_channel = ap_info.primary;
+                memcpy(base_station.target_bssid, ap_info.bssid, sizeof(base_station.target_bssid));
+                 ESP_LOGD(kTag,
+                          "Storing to cache BSSID:" MACSTR " CHN:%u",
+                          MAC2STR(base_station.target_bssid),
+                          static_cast<unsigned>(base_station.target_channel));
+                bs_is_valid = true;
+            }
             adress_is_valid = true;
         }
     ESP_LOGI(kTag, "Wi-Fi hot path connected after %d retries",
@@ -310,6 +319,9 @@ bool EnsureWifiConnectedForHotPath() {
   return false;
 #endif
 
+  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+  wifi_config_t wifi_config{};
+
   // It is OK if these were already initialized by a previous attempt.
   auto err = nvs_flash_init();
   if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -365,7 +377,10 @@ bool EnsureWifiConnectedForHotPath() {
     std::cout <<  "Restoring netif config filed\n";
   }
 
-  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+  // We disable aggregation so that the packages go out one by one and quickly
+  cfg.ampdu_rx_enable = 0;
+  cfg.ampdu_tx_enable = 0;
+
   err = esp_wifi_init(&cfg);
   if (err != ESP_OK) {
     ESP_LOGE(kTag, "esp_wifi_init failed: %s", esp_err_to_name(err));
@@ -393,7 +408,6 @@ bool EnsureWifiConnectedForHotPath() {
     return false;
   }
 
-  wifi_config_t wifi_config{};
   std::strncpy(reinterpret_cast<char*>(wifi_config.sta.ssid), WIFI_SSID,
                sizeof(wifi_config.sta.ssid));
   std::strncpy(reinterpret_cast<char*>(wifi_config.sta.password), WIFI_PASSWORD,
@@ -423,9 +437,31 @@ bool EnsureWifiConnectedForHotPath() {
   }
   g_wifi_started = true;
 
+  if(bs_is_valid){
+    ESP_LOGD(kTag,
+             "REStoring from cache BSSID:" MACSTR " CHN:%u",
+             MAC2STR(base_station.target_bssid),
+             static_cast<unsigned>(base_station.target_channel));
+    wifi_config.sta.scan_method = WIFI_FAST_SCAN;  // Fast scan
+    wifi_config.sta.bssid_set = true;              // Enable BSSID binding
+    wifi_config.sta.channel = base_station.target_channel;  // Set channel
+    // Copy the BSSID to the configuration
+    memcpy(wifi_config.sta.bssid, base_station.target_bssid,
+          sizeof(base_station.target_bssid));
+    err = esp_wifi_set_channel(base_station.target_channel, WIFI_SECOND_CHAN_NONE);
+    if (err != ESP_OK) {
+      ESP_LOGE(kTag, "esp_wifi_set_channel: %s", esp_err_to_name(err));
+      CleanupHotPathWifi();
+      return false;
+    }
+  }
+
   EventBits_t bits = xEventGroupWaitBits(
       g_wifi_event_group, kWifiConnectedBit | kWifiFailBit, pdFALSE, pdFALSE,
       pdMS_TO_TICKS(AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS));
+
+  esp_wifi_internal_set_fix_rate(WIFI_IF_STA, true, (wifi_phy_rate_t)0x0);
+  //esp_wifi_internal_set_retry_counter(3, 3); 
 
   if ((bits & kWifiConnectedBit) == 0) {
     ESP_LOGE(kTag, "Wi-Fi hot path connect timeout/fail");
