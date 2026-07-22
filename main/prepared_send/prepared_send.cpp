@@ -413,6 +413,18 @@ bool EnsureWifiConnectedForHotPath() {
   std::strncpy(reinterpret_cast<char*>(wifi_config.sta.password), WIFI_PASSWORD,
                sizeof(wifi_config.sta.password));
 
+  if (bs_is_valid) {
+    ESP_LOGD(kTag,
+             "Restoring cached BSSID:" MACSTR " CHN:%u",
+             MAC2STR(base_station.target_bssid),
+             static_cast<unsigned>(base_station.target_channel));
+    wifi_config.sta.scan_method = WIFI_FAST_SCAN;
+    wifi_config.sta.bssid_set = true;
+    wifi_config.sta.channel = base_station.target_channel;
+    std::memcpy(wifi_config.sta.bssid, base_station.target_bssid,
+                sizeof(base_station.target_bssid));
+  }
+
   err = esp_wifi_set_mode(WIFI_MODE_STA);
   if (err != ESP_OK) {
     ESP_LOGE(kTag, "esp_wifi_set_mode failed: %s", esp_err_to_name(err));
@@ -436,25 +448,6 @@ bool EnsureWifiConnectedForHotPath() {
     return false;
   }
   g_wifi_started = true;
-
-  if(bs_is_valid){
-    ESP_LOGD(kTag,
-             "REStoring from cache BSSID:" MACSTR " CHN:%u",
-             MAC2STR(base_station.target_bssid),
-             static_cast<unsigned>(base_station.target_channel));
-    wifi_config.sta.scan_method = WIFI_FAST_SCAN;  // Fast scan
-    wifi_config.sta.bssid_set = true;              // Enable BSSID binding
-    wifi_config.sta.channel = base_station.target_channel;  // Set channel
-    // Copy the BSSID to the configuration
-    memcpy(wifi_config.sta.bssid, base_station.target_bssid,
-          sizeof(base_station.target_bssid));
-    err = esp_wifi_set_channel(base_station.target_channel, WIFI_SECOND_CHAN_NONE);
-    if (err != ESP_OK) {
-      ESP_LOGE(kTag, "esp_wifi_set_channel: %s", esp_err_to_name(err));
-      CleanupHotPathWifi();
-      return false;
-    }
-  }
 
   EventBits_t bits = xEventGroupWaitBits(
       g_wifi_event_group, kWifiConnectedBit | kWifiFailBit, pdFALSE, pdFALSE,
