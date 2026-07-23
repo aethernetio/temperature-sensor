@@ -622,6 +622,7 @@ HotSendStatus TryHotWakePreparedSend(std::string temperature) {
     return fail_after_wifi(HotSendStatus::kSendFailed);
   }
   std::this_thread::sleep_for(std::chrono::milliseconds(450));
+  CleanupHotPathWifi();
   std::cout << "[prepared-send] hot path UDP sent " << sent << " bytes\n";
   return HotSendStatus::kSent;
 #else

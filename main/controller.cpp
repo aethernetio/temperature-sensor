@@ -30,7 +30,7 @@ using namespace std::chrono_literals;
  * For real applications you should register your own uid \see aethernet.io
  */
 static constexpr auto kParentUid =
-    ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
+    ae::Uid::FromString("b1ac52c8-8d94-bd39-4c01-a631ac594165");
 /**
  * \brief Uid of aether service for store the temperature values.
  * TODO: add actual uid
@@ -39,7 +39,7 @@ static constexpr auto kServiceUid =
 #ifdef SERVICE_UID
     ae::Uid::FromString(SERVICE_UID);
 #else
-    ae::Uid::FromString("f763febf-b555-487c-bf0f-c3813a1398d2");
+    ae::Uid::FromString("73791462-71a0-4014-b1aa-104ba9e62475");
 #endif
 
 #ifdef ESP_PLATFORM
