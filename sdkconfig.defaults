@@ -60,6 +60,9 @@ CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=n
 CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED=y
 
+# Disable BOD
+#CONFIG_ESP_BROWNOUT_DET=n
+
 #==============================Optimization=========================================
 
 # 1. Compiler optimization (Critical for execution speed)

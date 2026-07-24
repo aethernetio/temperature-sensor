@@ -24,6 +24,7 @@
 #include "aether/prepared_packet/packet_encoder.h"
 
 #if defined(ESP_PLATFORM)
+#  include <esp_sleep.h>
 #  include <esp_err.h>
 #  include <esp_event.h>
 #  include <esp_log.h>
@@ -41,11 +42,6 @@
 
 namespace temp_sensor::prepared_send {
 namespace {
-static constexpr char const* kTag = "prepared-send";
-static RTC_DATA_ATTR esp_netif_ip_info_t rtc_ip_info = {};
-static RTC_DATA_ATTR WiFiBaseStation base_station{};
-static RTC_DATA_ATTR bool adress_is_valid{false};
-static RTC_DATA_ATTR bool bs_is_valid{false};
 
 #ifndef AETHER_PREPARED_NONCE_RESERVE
 #  define AETHER_PREPARED_NONCE_RESERVE 30
@@ -60,9 +56,14 @@ static RTC_DATA_ATTR bool bs_is_valid{false};
 #endif
 
 #if defined(ESP_PLATFORM)
+static constexpr char const* kTag = "prepared-send";
 // RTC_NOINIT_ATTR: do not zero on wake from deep sleep.
 // It may contain garbage on first boot, so magic/version/checksum validate it.
 RTC_NOINIT_ATTR ae::prepared_packet::RetainedPreparedBlock g_retained_prepared_block;
+static RTC_DATA_ATTR esp_netif_ip_info_t rtc_ip_info = {};
+static RTC_DATA_ATTR WiFiBaseStation base_station{};
+static RTC_NOINIT_ATTR bool adress_is_valid;
+static RTC_NOINIT_ATTR bool bs_is_valid;
 
 // ESP32-C6 exposes 8 KiB RTC slow memory; the linker asserts the segment fits.
 static_assert(sizeof(ae::prepared_packet::RetainedPreparedBlock) <= 8 * 1024,
@@ -248,6 +249,8 @@ void WifiEventHandler(void*, esp_event_base_t event_base,
 }
 
 void CleanupHotPathWifi() {
+  adress_is_valid =false;
+  bs_is_valid = false;
   if (g_wifi_any_id_handler != nullptr) {
     auto err = esp_event_handler_instance_unregister(
         WIFI_EVENT, ESP_EVENT_ANY_ID, g_wifi_any_id_handler);
@@ -449,6 +452,19 @@ bool EnsureWifiConnectedForHotPath() {
   }
   g_wifi_started = true;
 
+  err = esp_wifi_set_max_tx_power(80);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "esp_wifi_set_max_tx_power failed: %s", esp_err_to_name(err));
+    CleanupHotPathWifi();
+    return false;
+  }
+  err = esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "esp_wifi_set_ps failed: %s", esp_err_to_name(err));
+    CleanupHotPathWifi();
+    return false;
+  }
+
   EventBits_t bits = xEventGroupWaitBits(
       g_wifi_event_group, kWifiConnectedBit | kWifiFailBit, pdFALSE, pdFALSE,
       pdMS_TO_TICKS(AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS));
@@ -565,6 +581,18 @@ bool ExportPreparedSendBlock(ae::AetherApp& app,
 HotSendStatus TryHotWakePreparedSend(std::string temperature) {
   ae::prepared_packet::PreparedSendMessageBlock block;
   //sleep(10);
+  esp_reset_reason_t reset = esp_reset_reason();
+  esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
+
+  ESP_LOGI(kTag,  "reset_reason=%d, wakeup_cause=%d",
+           static_cast<int>(reset),
+           static_cast<int>(wakeup));
+
+  if (reset != ESP_RST_DEEPSLEEP) {
+    adress_is_valid =false;
+    bs_is_valid = false;
+  }
+
   if (!DeserializeFromRetained(block)) {
     return HotSendStatus::kNoPreparedBlock;
   }
