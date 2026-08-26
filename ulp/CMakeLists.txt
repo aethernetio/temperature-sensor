@@ -52,7 +52,7 @@ ulp_add_build_binary_targets(${ULP_APP_NAME})
 target_include_directories(${ULP_APP_NAME} PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../main")
 
 include(../cmake/CPM.cmake)
-CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#prepared-packet-v0")
+CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#adopt/prepared-packet-v0")
 
 # not link but only setup include directory for aether/config_consts.h
 target_include_directories(${ULP_APP_NAME} PUBLIC "${aether-client-cpp_SOURCE_DIR}")

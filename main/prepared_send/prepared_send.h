@@ -15,6 +15,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <string_view>
 
 #include "aether/all.h"
 
@@ -31,10 +32,10 @@ enum class HotSendStatus {
   kUnsupported,
 };
 
-char const* ToString(HotSendStatus status);
+std::string_view ToString(HotSendStatus status);
 
 // Build the same binary temperature payload as SendValue().
-ae::DataBuffer MakeTemperaturePayload(std::string temperature);
+ae::DataBuffer MakeTemperaturePayload(std::string const& temperature);
 
 // Try the MCU hot path.
 // Returns kSent only if:
@@ -43,16 +44,12 @@ ae::DataBuffer MakeTemperaturePayload(std::string temperature);
 //   - prepared packet was encoded;
 //   - mutated block was persisted after nonce consumption;
 //   - UDP datagram was sent.
-HotSendStatus TryHotWakePreparedSend(std::string temperature);
+HotSendStatus TryHotWakePreparedSend(std::string const& temperature);
 
 // Export a new prepared block from the already initialized full Aether stream.
 // Must be called only after full client/stream are usable.
-bool ExportPreparedSendBlock(ae::AetherApp& app,
-                             ae::P2pStream& stream,
-                             std::size_t reserve_nonce_count);
-
-void ClearPreparedSendBlock();
-bool HasPreparedSendBlock();
+bool ExportPreparedSendBlock(ae::Client::ptr const& client, ae::Uid destination,
+                             std::size_t reserve_message_count);
 
 struct WiFiBaseStation {
   uint8_t target_bssid[6];

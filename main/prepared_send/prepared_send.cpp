@@ -18,10 +18,12 @@
 #include <optional>
 #include <thread>
 
+#include "aether-miscpp/serialization/binary_archive.h"
+#include "aether-miscpp/misc/defer.h"
+
 #include "aether/all.h"
-#include "aether/mstream.h"
-#include "aether/mstream_buffers.h"
 #include "aether/prepared_packet/packet_encoder.h"
+#include "aether/prepared_packet/prepared_send_message.h"
 
 #if defined(ESP_PLATFORM)
 #  include <esp_sleep.h>
@@ -57,117 +59,46 @@ namespace {
 
 #if defined(ESP_PLATFORM)
 static constexpr char const* kTag = "prepared-send";
+
 // RTC_NOINIT_ATTR: do not zero on wake from deep sleep.
-// It may contain garbage on first boot, so magic/version/checksum validate it.
-RTC_NOINIT_ATTR ae::prepared_packet::RetainedPreparedBlock g_retained_prepared_block;
+// It may contain garbage on first boot, so magic validate it.
+static RTC_NOINIT_ATTR ae::prepared_packet::PreparedSendMessageBlock
+    g_prepared_send_message_block;
+
 static RTC_DATA_ATTR esp_netif_ip_info_t rtc_ip_info = {};
 static RTC_DATA_ATTR WiFiBaseStation base_station{};
-static RTC_NOINIT_ATTR bool adress_is_valid;
+static RTC_NOINIT_ATTR bool address_is_valid;
 static RTC_NOINIT_ATTR bool bs_is_valid;
 
 // ESP32-C6 exposes 8 KiB RTC slow memory; the linker asserts the segment fits.
-static_assert(sizeof(ae::prepared_packet::RetainedPreparedBlock) <= 8 * 1024,
-              "RetainedPreparedBlock must fit in ESP32 RTC slow memory");
+static_assert(sizeof(ae::prepared_packet::PreparedSendMessageBlock) <= 8 * 1024,
+              "PreparedSendMessageBlock must fit in ESP32 RTC slow memory");
 #else
-ae::prepared_packet::RetainedPreparedBlock g_retained_prepared_block;
+ae::prepared_packet::PreparedSendMessageBlock g_prepared_send_message_block;
 #endif
-
-std::uint32_t Checksum(std::uint8_t const* data, std::size_t size) {
-  std::uint32_t h = 2166136261u;
-  for (std::size_t i = 0; i < size; ++i) {
-    h ^= data[i];
-    h *= 16777619u;
-  }
-  return h;
-}
-
-bool RetainedLooksValid() {
-  auto const& r = g_retained_prepared_block;
-  if (r.magic != ae::prepared_packet::kMagic || r.version != ae::prepared_packet::kVersion) {
-    return false;
-  }
-  if (r.size == 0 || r.size > r.bytes.size()) {
-    return false;
-  }
-  return Checksum(r.bytes.data(), r.size) == r.checksum;
-}
-
-void SaveRawBlock(ae::DataBuffer const& bytes) {
-  auto& r = g_retained_prepared_block;
-  std::memset(&r, 0, sizeof(r));
-
-  r.magic = ae::prepared_packet::kMagic;
-  r.version = ae::prepared_packet::kVersion;
-  r.size = static_cast<std::uint32_t>(bytes.size());
-  std::memcpy(r.bytes.data(), bytes.data(), bytes.size());
-  r.checksum = Checksum(r.bytes.data(), r.size);
-}
-
-bool LoadRawBlock(ae::DataBuffer& bytes) {
-  if (!RetainedLooksValid()) {
-    return false;
-  }
-
-  auto const& r = g_retained_prepared_block;
-  bytes.assign(r.bytes.begin(), r.bytes.begin() + r.size);
-  return true;
-}
-
-template <typename T>
-bool SerializeToRetained(T const& value) {
-  ae::DataBuffer bytes;
-  bytes.reserve(512);
-
-  {
-    auto writer = ae::VectorWriter<>{bytes};
-    auto os = ae::omstream{writer};
-    os << value;
-  }
-
-  if (bytes.empty() || bytes.size() > ae::prepared_packet::kMaxPreparedBlockBytes) {
-    std::cerr << "[prepared-send] prepared block serialized size invalid: "
-              << bytes.size() << "\n";
-    return false;
-  }
-
-  SaveRawBlock(bytes);
-  return true;
-}
-
-template <typename T>
-bool DeserializeFromRetained(T& value) {
-  ae::DataBuffer bytes;
-  if (!LoadRawBlock(bytes)) {
-    return false;
-  }
-
-  auto reader = ae::VectorReader<>{bytes};
-  auto is = ae::imstream{reader};
-  is >> value;
-
-  return ae::data_was_read(is);
-}
 
 #if defined(ESP_PLATFORM)
 
 bool FillUdpDestination(ae::prepared_packet::PreparedEndpoint const& endpoint,
-                       sockaddr* dest_addr, socklen_t* dest_len) {  
-  if (endpoint.version == ae::prepared_packet::PreparedIpVersion::kIpV4) {
+                        sockaddr* dest_addr, socklen_t* dest_len) {
+  if (endpoint.address.Index() == ae::AddrVersion::kIpV4) {
     auto* dest = reinterpret_cast<sockaddr_in*>(dest_addr);
     std::memset(dest, 0, sizeof(*dest));
     dest->sin_family = AF_INET;
     dest->sin_port = htons(endpoint.port);
-    std::memcpy(&dest->sin_addr.s_addr, endpoint.ip.data(), 4);
+    std::memcpy(&dest->sin_addr.s_addr,
+                &endpoint.address.Get<ae::IpV4Addr>().ipv4_value, 4);
     *dest_len = sizeof(*dest);
     return true;
   }
 
-  if (endpoint.version == ae::prepared_packet::PreparedIpVersion::kIpV6) {
+  if (endpoint.address.Index() == ae::AddrVersion::kIpV6) {
     auto* dest = reinterpret_cast<sockaddr_in6*>(dest_addr);
     std::memset(dest, 0, sizeof(*dest));
     dest->sin6_family = AF_INET6;
     dest->sin6_port = htons(endpoint.port);
-    std::memcpy(dest->sin6_addr.s6_addr, endpoint.ip.data(), 16);
+    std::memcpy(&dest->sin6_addr.s6_addr,
+                &endpoint.address.Get<ae::IpV6Addr>().ipv6_value, 16);
     *dest_len = sizeof(*dest);
     return true;
   }
@@ -186,8 +117,8 @@ static int g_wifi_retry_count = 0;
 static constexpr EventBits_t kWifiConnectedBit = BIT0;
 static constexpr EventBits_t kWifiFailBit = BIT1;
 
-void WifiEventHandler(void*, esp_event_base_t event_base,
-                      std::int32_t event_id, void* event_data) {
+void WifiEventHandler(void*, esp_event_base_t event_base, std::int32_t event_id,
+                      void* event_data) {
   if (g_wifi_event_group == nullptr) {
     return;
   }
@@ -208,8 +139,7 @@ void WifiEventHandler(void*, esp_event_base_t event_base,
 
     if (g_wifi_retry_count < AETHER_PREPARED_HOT_WIFI_MAX_RETRY) {
       ++g_wifi_retry_count;
-      ESP_LOGW(kTag,
-               "Wi-Fi hot path disconnected reason=%d; retry %d/%d",
+      ESP_LOGW(kTag, "Wi-Fi hot path disconnected reason=%d; retry %d/%d",
                reason, g_wifi_retry_count,
                static_cast<int>(AETHER_PREPARED_HOT_WIFI_MAX_RETRY));
 
@@ -224,24 +154,24 @@ void WifiEventHandler(void*, esp_event_base_t event_base,
       xEventGroupSetBits(g_wifi_event_group, kWifiFailBit);
     }
   } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-    ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        if (!adress_is_valid) {
-            rtc_ip_info.ip = event->ip_info.ip;
-            rtc_ip_info.netmask = event->ip_info.netmask;
-            rtc_ip_info.gw = event->ip_info.gw;
-           
-            wifi_ap_record_t ap_info;
-            if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
-                base_station.target_channel = ap_info.primary;
-                memcpy(base_station.target_bssid, ap_info.bssid, sizeof(base_station.target_bssid));
-                 ESP_LOGD(kTag,
-                          "Storing to cache BSSID:" MACSTR " CHN:%u",
-                          MAC2STR(base_station.target_bssid),
-                          static_cast<unsigned>(base_station.target_channel));
-                bs_is_valid = true;
-            }
-            adress_is_valid = true;
-        }
+    ip_event_got_ip_t* event = (ip_event_got_ip_t*)event_data;
+    if (!address_is_valid) {
+      rtc_ip_info.ip = event->ip_info.ip;
+      rtc_ip_info.netmask = event->ip_info.netmask;
+      rtc_ip_info.gw = event->ip_info.gw;
+
+      wifi_ap_record_t ap_info;
+      if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+        base_station.target_channel = ap_info.primary;
+        memcpy(base_station.target_bssid, ap_info.bssid,
+               sizeof(base_station.target_bssid));
+        ESP_LOGD(kTag, "Storing to cache BSSID:" MACSTR " CHN:%u",
+                 MAC2STR(base_station.target_bssid),
+                 static_cast<unsigned>(base_station.target_channel));
+        bs_is_valid = true;
+      }
+      address_is_valid = true;
+    }
     ESP_LOGI(kTag, "Wi-Fi hot path connected after %d retries",
              g_wifi_retry_count);
     xEventGroupSetBits(g_wifi_event_group, kWifiConnectedBit);
@@ -249,7 +179,7 @@ void WifiEventHandler(void*, esp_event_base_t event_base,
 }
 
 void CleanupHotPathWifi() {
-  adress_is_valid =false;
+  address_is_valid = false;
   bs_is_valid = false;
   if (g_wifi_any_id_handler != nullptr) {
     auto err = esp_event_handler_instance_unregister(
@@ -313,14 +243,14 @@ void CleanupHotPathWifi() {
 }
 
 bool EnsureWifiConnectedForHotPath() {
-#ifndef WIFI_SSID
+#  ifndef WIFI_SSID
   ESP_LOGE(kTag, "WIFI_SSID is not defined");
   return false;
-#endif
-#ifndef WIFI_PASSWORD
+#  endif
+#  ifndef WIFI_PASSWORD
   ESP_LOGE(kTag, "WIFI_PASSWORD is not defined");
   return false;
-#endif
+#  endif
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   wifi_config_t wifi_config{};
@@ -367,17 +297,16 @@ bool EnsureWifiConnectedForHotPath() {
     return false;
   }
 
-  if (adress_is_valid) {
-    std::cout <<  "Restoring netif config\n";
+  if (address_is_valid) {
+    std::cout << "Restoring netif config\n";
     esp_netif_dhcpc_stop(g_wifi_netif);
     esp_netif_ip_info_t ip_info = {
-      .ip = {.addr = rtc_ip_info.ip.addr},
-      .netmask = {.addr = rtc_ip_info.netmask.addr},
-      .gw = {.addr = rtc_ip_info.gw.addr}
-    };
+        .ip = {.addr = rtc_ip_info.ip.addr},
+        .netmask = {.addr = rtc_ip_info.netmask.addr},
+        .gw = {.addr = rtc_ip_info.gw.addr}};
     esp_netif_set_ip_info(g_wifi_netif, &ip_info);
   } else {
-    std::cout <<  "Restoring netif config filed\n";
+    std::cout << "Restoring netif config filed\n";
   }
 
   // We disable aggregation so that the packages go out one by one and quickly
@@ -392,19 +321,18 @@ bool EnsureWifiConnectedForHotPath() {
   }
   g_wifi_initialized = true;
 
-  err = esp_event_handler_instance_register(
-      WIFI_EVENT, ESP_EVENT_ANY_ID, &WifiEventHandler, nullptr,
-      &g_wifi_any_id_handler);
+  err = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                            &WifiEventHandler, nullptr,
+                                            &g_wifi_any_id_handler);
   if (err != ESP_OK) {
-    ESP_LOGE(kTag, "failed to register WIFI handler: %s",
-             esp_err_to_name(err));
+    ESP_LOGE(kTag, "failed to register WIFI handler: %s", esp_err_to_name(err));
     CleanupHotPathWifi();
     return false;
   }
 
-  err = esp_event_handler_instance_register(
-      IP_EVENT, IP_EVENT_STA_GOT_IP, &WifiEventHandler, nullptr,
-      &g_wifi_got_ip_handler);
+  err = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
+                                            &WifiEventHandler, nullptr,
+                                            &g_wifi_got_ip_handler);
   if (err != ESP_OK) {
     ESP_LOGE(kTag, "failed to register IP handler: %s", esp_err_to_name(err));
     CleanupHotPathWifi();
@@ -417,8 +345,7 @@ bool EnsureWifiConnectedForHotPath() {
                sizeof(wifi_config.sta.password));
 
   if (bs_is_valid) {
-    ESP_LOGD(kTag,
-             "Restoring cached BSSID:" MACSTR " CHN:%u",
+    ESP_LOGD(kTag, "Restoring cached BSSID:" MACSTR " CHN:%u",
              MAC2STR(base_station.target_bssid),
              static_cast<unsigned>(base_station.target_channel));
     wifi_config.sta.scan_method = WIFI_FAST_SCAN;
@@ -442,8 +369,9 @@ bool EnsureWifiConnectedForHotPath() {
     return false;
   }
 
-  esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N);
-  
+  esp_wifi_set_protocol(
+      WIFI_IF_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N);
+
   err = esp_wifi_start();
   if (err != ESP_OK) {
     ESP_LOGE(kTag, "esp_wifi_start failed: %s", esp_err_to_name(err));
@@ -454,7 +382,8 @@ bool EnsureWifiConnectedForHotPath() {
 
   err = esp_wifi_set_max_tx_power(80);
   if (err != ESP_OK) {
-    ESP_LOGE(kTag, "esp_wifi_set_max_tx_power failed: %s", esp_err_to_name(err));
+    ESP_LOGE(kTag, "esp_wifi_set_max_tx_power failed: %s",
+             esp_err_to_name(err));
     CleanupHotPathWifi();
     return false;
   }
@@ -470,7 +399,7 @@ bool EnsureWifiConnectedForHotPath() {
       pdMS_TO_TICKS(AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS));
 
   esp_wifi_internal_set_fix_rate(WIFI_IF_STA, true, (wifi_phy_rate_t)0x0);
-  //esp_wifi_internal_set_retry_counter(3, 3); 
+  // esp_wifi_internal_set_retry_counter(3, 3);
 
   if ((bits & kWifiConnectedBit) == 0) {
     ESP_LOGE(kTag, "Wi-Fi hot path connect timeout/fail");
@@ -483,9 +412,7 @@ bool EnsureWifiConnectedForHotPath() {
 
 #else
 
-bool EnsureWifiConnectedForHotPath() {
-  return true;
-}
+bool EnsureWifiConnectedForHotPath() { return true; }
 
 void CleanupHotPathWifi() {}
 
@@ -493,7 +420,7 @@ void CleanupHotPathWifi() {}
 
 }  // namespace
 
-char const* ToString(HotSendStatus status) {
+std::string_view ToString(HotSendStatus status) {
   switch (status) {
     case HotSendStatus::kSent:
       return "sent";
@@ -515,85 +442,72 @@ char const* ToString(HotSendStatus status) {
   return "unknown";
 }
 
-ae::DataBuffer MakeTemperaturePayload(std::string temperature) {
-  struct Header {
-    std::uint8_t const root_code = 0x3;
-    std::uint8_t const size = sizeof(std::uint8_t) + sizeof(std::int16_t);
-    std::uint8_t const dev_code = 0x10;
-    AE_REFLECT_MEMBERS(root_code, size, dev_code)
-  };
+struct Header {
+  AE_REFLECT_MEMBERS(root_code, size, dev_code)
+  std::uint8_t const root_code = 0x3;
+  std::uint8_t const size = sizeof(std::uint8_t) + sizeof(std::int16_t);
+  std::uint8_t const dev_code = 0x10;
+};
 
+ae::DataBuffer MakeTemperaturePayload(std::string const& temperature) {
   static constexpr auto header = Header{};
 
   auto message = ae::DataBuffer{};
-  message.reserve(sizeof(header) + sizeof(temperature));
+  message.reserve(sizeof(header) + temperature.size());
   {
-    auto writer = ae::VectorWriter<>{message};
-    auto stream = ae::omstream{writer};
-    stream << header << temperature;
+    auto archive =
+        ae::seri::BinaryArchive{ae::seri::BinaryVectorBuffer<>{message}};
+    archive.Save(header);
+    archive.Save(temperature);
   }
   return message;
 }
 
-bool HasPreparedSendBlock() { return RetainedLooksValid(); }
+bool HasPreparedSendBlock() { return g_prepared_send_message_block.is_valid(); }
 
 void ClearPreparedSendBlock() {
-  std::memset(&g_retained_prepared_block, 0, sizeof(g_retained_prepared_block));
+  // magic indicate if block is valid
+  // make it invalid
+  g_prepared_send_message_block.raw.magic = {};
 }
 
-std::optional<ae::prepared_packet::PreparedSendMessageBlock> PrepareSendMessage(
-    ae::P2pStream& stream, std::size_t reserve_nonce_count) {
-  if (reserve_nonce_count == 0 ||
-      reserve_nonce_count > std::numeric_limits<std::uint32_t>::max()) {
-    return std::nullopt;
-  }
+bool ExportPreparedSendBlock(ae::Client::ptr const& client, ae::Uid destination,
+                             std::size_t reserve_message_count) {
+  auto prep_res = ae::prepared_packet::PrepareSendMessageBlock(
+      client, destination, reserve_message_count);
 
-  return stream.ExportPreparedSendMessageBlock(
-      static_cast<std::uint32_t>(reserve_nonce_count));
-}
-
-bool ExportPreparedSendBlock(ae::AetherApp& app,
-                             ae::P2pStream& stream,
-                             std::size_t reserve_nonce_count) {
-  auto prepared_block =
-      PrepareSendMessage(stream, reserve_nonce_count);
-
-  if (!prepared_block) {
-    std::cerr << "[prepared-send] PrepareSendMessage failed\n";
+  if (!prep_res) {
+    std::cerr << "[prepared-send] PrepareSendMessage failed with ec: "
+              << prep_res.error().ec << " error: " << prep_res.error().msg
+              << "\n";
     return false;
   }
 
-  // Critical ordering:
-  // PrepareSendMessage has already reserved/burned a nonce range in the full
-  // Aether state. Persist full Aether state only after reserve.
-  app.aether().Save();
+  g_prepared_send_message_block = std::move(prep_res).value();
 
-  if (!SerializeToRetained(*prepared_block)) {
-    std::cerr << "[prepared-send] failed to retain prepared block\n";
-    return false;
-  }
+  auto const resolved_block = g_prepared_send_message_block.Resolve();
 
-  std::cout << "[prepared-send] exported prepared block, reserved "
-            << reserve_nonce_count << " nonces\n";
+  std::cout << "[prepared-send] exported prepared block reserved "
+            << resolved_block->message_left << " messages\n";
   return true;
 }
 
-HotSendStatus TryHotWakePreparedSend(std::string temperature) {
-  ae::prepared_packet::PreparedSendMessageBlock block;
-  //sleep(10);
+HotSendStatus TryHotWakePreparedSend(
+    [[maybe_unused]] std::string const& temperature) {
+#if defined(ESP_PLATFORM)
+  // sleep(10);
   esp_reset_reason_t reset = esp_reset_reason();
   esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
 
-  ESP_LOGI(kTag,  "reset_reason=%d, wakeup_cause=%d",
-           static_cast<int>(reset),
+  ESP_LOGI(kTag, "reset_reason=%d, wakeup_cause=%d", static_cast<int>(reset),
            static_cast<int>(wakeup));
 
   if (reset != ESP_RST_DEEPSLEEP) {
-    adress_is_valid =false;
+    address_is_valid = false;
     bs_is_valid = false;
   }
 
-  if (!DeserializeFromRetained(block)) {
+  if (!g_prepared_send_message_block.is_valid()) {
     return HotSendStatus::kNoPreparedBlock;
   }
 
@@ -601,56 +515,49 @@ HotSendStatus TryHotWakePreparedSend(std::string temperature) {
     return HotSendStatus::kWifiFailed;
   }
 
-  auto fail_after_wifi = [](HotSendStatus status) {
-    CleanupHotPathWifi();
-    return status;
-  };
+  auto fail_after_wifi = ae_defer_at[] { CleanupHotPathWifi(); };
 
   auto payload = MakeTemperaturePayload(temperature);
 
   ae::DataBuffer packet;
-  auto encode_result = ae::prepared_packet::EncodePacket(block, payload, packet);
+  auto encode_result = ae::prepared_packet::EncodePacket(
+      g_prepared_send_message_block, payload, packet);
 
   if (!encode_result) {
     ClearPreparedSendBlock();
-    return fail_after_wifi(HotSendStatus::kEncodeFailed);
+    return HotSendStatus::kEncodeFailed;
   }
 
-  // Persist immediately after EncodePacket, before UDP send/sleep, because
-  // EncodePacket consumes nonce state.
-  if (!SerializeToRetained(block)) {
-    return fail_after_wifi(HotSendStatus::kPersistFailed);
-  }
-
-#if defined(ESP_PLATFORM)
-  auto const& endpoint = block.endpoint;
+  auto const resolved_block = g_prepared_send_message_block.Resolve();
+  std::cout << "[prepared-send] reserved messages left "
+            << resolved_block->message_left << "\n";
+  auto endpoint = resolved_block->endpoint;
 
   sockaddr_storage dest_storage{};
   socklen_t dest_len = 0;
   if (!FillUdpDestination(endpoint, reinterpret_cast<sockaddr*>(&dest_storage),
                           &dest_len)) {
     std::cerr << "[prepared-send] invalid endpoint address\n";
-    return fail_after_wifi(HotSendStatus::kSendFailed);
+    return HotSendStatus::kSendFailed;
   }
 
   int sock = socket(
-      endpoint.version == ae::prepared_packet::PreparedIpVersion::kIpV6
-          ? AF_INET6
-          : AF_INET,
+      endpoint.address.Index() == ae::AddrVersion::kIpV6 ? AF_INET6 : AF_INET,
       SOCK_DGRAM, IPPROTO_IP);
   if (sock < 0) {
-    return fail_after_wifi(HotSendStatus::kSendFailed);
+    return HotSendStatus::kSendFailed;
   }
 
   auto sent = sendto(sock, packet.data(), packet.size(), 0,
                      reinterpret_cast<sockaddr*>(&dest_storage), dest_len);
   close(sock);
 
-  if (sent != static_cast<int>(packet.size())) {
-    return fail_after_wifi(HotSendStatus::kSendFailed);
+  if (sent != static_cast<ssize_t>(packet.size())) {
+    return HotSendStatus::kSendFailed;
   }
+
   std::this_thread::sleep_for(std::chrono::milliseconds(450));
-  CleanupHotPathWifi();
+
   std::cout << "[prepared-send] hot path UDP sent " << sent << " bytes\n";
   return HotSendStatus::kSent;
 #else

@@ -16,8 +16,10 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <iostream>
 
 #include "aether/all.h"
+#include "aether/env.h"
 #include "sensors/sensors.h"
 #include "sleeping/sleeping.h"
 #include "prepared_send/prepared_send.h"
@@ -81,13 +83,13 @@ void UpdateSensors();
 // Message from aether service received
 void MessageReceived(ae::DataBuffer const& buffer);
 // Send the message value to the aether service
-void SendValue(std::string temperature);
+void SendValue(std::string const& temperature);
 // Make all required work and ready to sleep
 void SleepReady();
 // Go to sleep method
 void GoToSleep(ae::TimePoint time_point);
 
-static ae::RcPtr<ae::AetherApp> aether_app;
+static std::shared_ptr<ae::AetherApp> aether_app;
 static ae::Client::ptr client;
 static std::unique_ptr<ae::P2pStream> message_stream;
 
@@ -105,14 +107,14 @@ static constexpr std::size_t kPreparedNonceReserve =
     32;
 #endif
 
-void ReadHotSensors(std::string* temperature, uint32_t* humidity, uint32_t* pressure,
-                 uint32_t* co2, uint32_t* gas_resistance) {
-                  *temperature = "Prepared 25.67";
-                 }
+void ReadHotSensors(std::string* temperature, uint32_t* humidity,
+                    uint32_t* pressure, uint32_t* co2,
+                    uint32_t* gas_resistance) {
+  *temperature = "Prepared 25.67";
+}
 
 void setup() {
-  std::cout << ae::Format("Setup {:%Y-%m-%d %H:%M:%S}") << ae::Now()
-            << std::endl;
+  std::cout << ae::Format("Setup {}") << ae::Now() << std::endl;
 
 #if defined(ESP_PLATFORM)
   // Prepared-send hot path: try to send current temperature without creating
@@ -128,8 +130,8 @@ void setup() {
                             temp_sensor::prepared_send::ToString(hot_status));
 
     if (hot_status == temp_sensor::prepared_send::HotSendStatus::kSent) {
-      auto sleep_until = std::chrono::system_clock::now() +
-                         kPreparedHotSleepSeconds;
+      auto sleep_until =
+          std::chrono::system_clock::now() + kPreparedHotSleepSeconds;
       DeepSleep(sleep_until, sleep_until, 3000);
       return;
     }
@@ -154,7 +156,8 @@ void setup() {
   );
 
   // select controller's client
-  aether_app->aether()->SelectClient(kParentUid, "Controller")
+  aether_app->aether()
+      ->SelectClient(kParentUid, "Controller")
       .result_event()
       .Subscribe(&ClientSelected);
 }
@@ -170,7 +173,7 @@ void loop() {
   } else {
     // cleanup resources
     message_stream.reset();
-    aether_app.Reset();
+    aether_app.reset();
   }
 }
 
@@ -182,57 +185,56 @@ void ClientSelected(ae::Result<ae::Client::ptr, int> res) {
   }
 
   client = std::move(res).value();
-  auto r = client.WithLoaded([](ae::Ptr<ae::Client> const& c) {
-    std::cout << ae::Format(
-        "\n\n>>>>>>>\n>>>>>>> Client Loaded UID:{} \n>>>>>>> Visit "
-        "https://aethernet.io/smarthub.html?uuid={} \n<<<<<\n\n",
-        c->uid(), kServiceUid);
-
-    // Config connectivity policy, open 5s RX window every 60s.
-    c->connectivity_policy()
-        ->ConfigureRxTimings(ae::RequestPolicy::All{})
-        .ForAllPriorities(ae::RxTimingConf::Every(60s).WithWindow(5s));
-
-    // check current work_mode
-    // it's always TX if we woke up
-    auto work_mode = WorkMode::kTx;
-    auto current_time = ae::Now();
-    static constexpr ae::Duration threshold = 5s;
-    auto cp_status = c->connectivity_policy()->GetStatus();
-    // if it's next_service_time it's also RX
-    if ((current_time + threshold) >= cp_status.next_service_time) {
-      work_mode = work_mode | WorkMode::kRx;
-    }
-    std::cout << ae::Format(">>>> Run in {} work mode\n",
-                            WorkMode::ToText(work_mode));
-
-    if ((work_mode & WorkMode::kRx) != 0) {
-      // open message stream for receive and send
-      message_stream = std::make_unique<ae::P2pStream>(
-          *aether_app, c, kServiceUid,
-          c->message_stream_manager().CreatePort(kServiceUid));
-      message_stream->out_data_event().Subscribe(MessageReceived);
-    } else {
-      // open message stream for send only
-      message_stream = std::make_unique<ae::P2pStream>(
-          *aether_app, c, kServiceUid, ae::P2pPortHandle{});
-    }
-
-    // measure temperature and send updated value
-    UpdateSensors();
-  });
-
-  if (!r) {
+  auto client_ptr = client.Load();
+  if (!client_ptr) {
     std::cerr << " !!! Client wasn't loaded";
     aether_app->Exit(2);
   }
+
+  std::cout << ae::Format(
+      "\n\n>>>>>>>\n>>>>>>> Client Loaded UID:{} \n>>>>>>> Visit "
+      "https://aethernet.io/smarthub.html?uuid={} \n<<<<<\n\n",
+      client_ptr->uid(), kServiceUid);
+
+  // Config connectivity policy, open 5s RX window every 60s.
+  client_ptr->connectivity_policy()
+      ->ConfigureRxTimings(ae::RequestPolicy::All{})
+      .ForAllPriorities(ae::RxTimingConf::Every(60s).WithWindow(5s));
+
+  // check current work_mode
+  // it's always TX if we woke up
+  auto work_mode = WorkMode::kTx;
+  auto current_time = ae::Now();
+  static constexpr ae::Duration threshold = 5s;
+  auto cp_status = client_ptr->connectivity_policy()->GetStatus();
+  // if it's next_service_time it's also RX
+  if ((current_time + threshold) >= cp_status.next_service_time) {
+    work_mode = work_mode | WorkMode::kRx;
+  }
+  std::cout << ae::Format(">>>> Run in {} work mode\n",
+                          WorkMode::ToText(work_mode));
+
+  if ((work_mode & WorkMode::kRx) != 0) {
+    // open message stream for receive and send
+    message_stream = std::make_unique<ae::P2pStream>(
+        *aether_app, client_ptr, kServiceUid,
+        client_ptr->message_stream_manager().CreatePort(kServiceUid));
+    message_stream->out_data_event().Subscribe(MessageReceived);
+  } else {
+    // open message stream for send only
+    message_stream = std::make_unique<ae::P2pStream>(
+        *aether_app, client_ptr, kServiceUid, ae::P2pPortHandle{});
+  }
+
+  // measure temperature and send updated value
+  UpdateSensors();
 }
 
-void ReadSensors(std::string* temperature, uint32_t* humidity, uint32_t* pressure,
-                 uint32_t* co2, uint32_t* gas_resistance) {
-                  *temperature = "Full 25.67";
-                 }
-                 
+void ReadSensors(std::string* temperature, uint32_t* humidity,
+                 uint32_t* pressure, uint32_t* co2, uint32_t* gas_resistance) {
+  *temperature = "Full 25.67";
+}
+
 // implemented in sensors/
 void UpdateSensors() {
   std::string temperature = {};
@@ -247,22 +249,23 @@ void MessageReceived(ae::DataBuffer const& buffer) {
   std::cout << ae::Format(" >>> Received message from service: [{}]\n", buffer);
 }
 
-void SendValue(std::string temperature) {
+void SendValue(std::string const& temperature) {
   // The stream is not initialized yet
   if (!message_stream) {
     return;
   }
 
-  auto message = temp_sensor::prepared_send::MakeTemperaturePayload(temperature);
+  auto message =
+      temp_sensor::prepared_send::MakeTemperaturePayload(temperature);
   std::cout << ae::Format(" [CALL-CHAIN] SendValue payload_size={}\n",
                           message.size());
 
   message_stream->Write(std::move(message)).status_event().Subscribe([](auto) {
-    // Export/refresh prepared block after the full send path has a valid stream.
-    // If export fails, keep normal behavior and just sleep.
-    if (aether_app && message_stream) {
+    // Export/refresh prepared block after the full send path has a valid
+    // stream. If export fails, keep normal behavior and just sleep.
+    if (client.is_valid() && message_stream) {
       temp_sensor::prepared_send::ExportPreparedSendBlock(
-          *aether_app, *message_stream, kPreparedNonceReserve);
+          client, message_stream->destination(), kPreparedNonceReserve);
     }
 
     // with any result ready to sleep
@@ -300,11 +303,10 @@ void GoToSleep(ae::TimePoint time_point) {
   }
   // save current aether state
   aether_app->aether().Save();
-  
+
   // Go to sleep
-  std::cout << ae::Format(
-      " >>> Sleep from {:%Y-%m-%d %H:%M:%S} until {:%Y-%m-%d %H:%M:%S}...\n",
-      ae::Now(), time_point);
+  std::cout << ae::Format(" >>> Sleep from {} until {}...\n", ae::Now(),
+                          time_point);
   // TODO: add separate sleep duration
   DeepSleep(time_point, time_point, 3000);  // wait till time or 30 deegrees
 }

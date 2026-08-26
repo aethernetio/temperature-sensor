@@ -48,7 +48,7 @@ if(NOT CM_PLATFORM)
 
   include(../cmake/CPM.cmake)
 
-  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#prepared-packet-v0")
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#adopt/prepared-packet-v0")
 
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
   set(TARGET_NAME ${PROJECT_NAME})
@@ -78,7 +78,7 @@ else()
 
     set(TARGET_NAME "${COMPONENT_LIB}")
     include(../cmake/CPM.cmake)
-    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#prepared-packet-v0")
+    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#adopt/prepared-packet-v0")
 
     target_link_libraries(${TARGET_NAME} PRIVATE aether)
 
@@ -104,7 +104,7 @@ else()
 
     # We call the project addition as usual
     ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
-    
+
   else()
     #Other platforms
     message(FATAL_ERROR "Platform ${CM_PLATFORM} is not supported")

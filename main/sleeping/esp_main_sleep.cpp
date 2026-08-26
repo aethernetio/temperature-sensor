@@ -17,6 +17,7 @@
 #include "sleeping/sleeping.h"
 
 #include <chrono>
+#include <functional>
 
 #include "aether/all.h"
 
@@ -48,9 +49,15 @@
 static const char* TAG = "ESP_MAIN_SLEEP";
 
 int DeepSleep(time_point soft_sleep_tp, time_point, std::int16_t) {
-  auto time_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                     soft_sleep_tp - std::chrono::system_clock::now())
-                     .count();
+  auto time_us = std::invoke([&]() -> std::uint64_t {
+    auto current_time = std::chrono::system_clock::now();
+    if (soft_sleep_tp < current_time) {
+      return 0;
+    }
+    return std::chrono::duration_cast<std::chrono::microseconds>(soft_sleep_tp -
+                                                                 current_time)
+        .count();
+  });
 
   esp_sleep_enable_timer_wakeup(time_us);
   ESP_LOGI(TAG, "Timer wakeup enabled: %llu us", time_us);
