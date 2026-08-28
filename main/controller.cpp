@@ -43,7 +43,7 @@ static constexpr auto kServiceUid =
 #ifdef SERVICE_UID
     ae::Uid::FromString(SERVICE_UID);
 #else
-    ae::Uid::FromString("ac3ac9ed-3c62-4009-b8a0-18ee82e2a368");
+    ae::Uid::FromString("752fa297-ec98-47d9-8def-a3ef80ecca42");
 #endif
 
 #ifdef ESP_PLATFORM
@@ -210,6 +210,7 @@ void MessageReceived(ae::DataBuffer const& buffer) {
 }
 
 void SendValue(std::int16_t temperature) {
+  temperature = (temperature/100 + 30) * 3;
   auto payload = { 0x03, 0x03, 0x0A, (temperature) & 0xFF, (temperature >> 8) & 0xFF };
   auto message = ae::DataBuffer{std::begin(payload), std::end(payload)};
 
