@@ -13,7 +13,6 @@
 #include <array>
 #include <chrono>
 #include <cstring>
-#include <iostream>
 #include <limits>
 #include <optional>
 #include <thread>
@@ -24,6 +23,10 @@
 #include "aether/all.h"
 #include "aether/prepared_packet/packet_encoder.h"
 #include "aether/prepared_packet/prepared_send_message.h"
+
+#if !defined(ESP_PLATFORM)
+#  include <iostream>
+#endif
 
 #if defined(ESP_PLATFORM)
 #  include <esp_sleep.h>
@@ -40,9 +43,19 @@
 #  include <lwip/inet.h>
 #  include <lwip/sockets.h>
 #  include <nvs_flash.h>
+#  include "wifi_lifecycle_out.h"
 #endif
 
 namespace temp_sensor::prepared_send {
+#if defined(ESP_PLATFORM)
+static char g_last_hot_wifi_fail[64] = {};
+
+static void SetHotWifiFail(char const* msg) {
+  std::strncpy(g_last_hot_wifi_fail, msg, sizeof(g_last_hot_wifi_fail) - 1);
+  g_last_hot_wifi_fail[sizeof(g_last_hot_wifi_fail) - 1] = '\0';
+}
+#endif
+
 namespace {
 
 #ifndef AETHER_PREPARED_NONCE_RESERVE
@@ -244,14 +257,17 @@ void CleanupHotPathWifi() {
 
 bool EnsureWifiConnectedForHotPath() {
 #  ifndef WIFI_SSID
+  SetHotWifiFail("WIFI_SSID undefined");
   ESP_LOGE(kTag, "WIFI_SSID is not defined");
   return false;
 #  endif
 #  ifndef WIFI_PASSWORD
+  SetHotWifiFail("WIFI_PASSWORD undefined");
   ESP_LOGE(kTag, "WIFI_PASSWORD is not defined");
   return false;
 #  endif
 
+  SetHotWifiFail("");
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   wifi_config_t wifi_config{};
 
@@ -263,6 +279,7 @@ bool EnsureWifiConnectedForHotPath() {
     err = nvs_flash_init();
   }
   if (err != ESP_OK && err != ESP_ERR_NVS_NO_FREE_PAGES) {
+    SetHotWifiFail("nvs_flash_init");
     ESP_LOGE(kTag, "nvs_flash_init failed: %s", esp_err_to_name(err));
     return false;
   }
@@ -278,6 +295,7 @@ bool EnsureWifiConnectedForHotPath() {
   } else if (err == ESP_ERR_INVALID_STATE) {
     ESP_LOGW(kTag, "event loop already exists; continuing");
   } else {
+    SetHotWifiFail("event_loop_create");
     ESP_LOGE(kTag, "esp_event_loop_create_default failed: %s",
              esp_err_to_name(err));
     return false;
@@ -285,20 +303,25 @@ bool EnsureWifiConnectedForHotPath() {
 
   g_wifi_event_group = xEventGroupCreate();
   if (g_wifi_event_group == nullptr) {
+    SetHotWifiFail("event_group_create");
     ESP_LOGE(kTag, "failed to create Wi-Fi event group");
     CleanupHotPathWifi();
     return false;
   }
 
-  g_wifi_netif = esp_netif_create_default_wifi_sta();
+  g_wifi_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
   if (g_wifi_netif == nullptr) {
+    g_wifi_netif = esp_netif_create_default_wifi_sta();
+  }
+  if (g_wifi_netif == nullptr) {
+    SetHotWifiFail("create_default_wifi_sta");
     ESP_LOGE(kTag, "failed to create default Wi-Fi STA netif");
     CleanupHotPathWifi();
     return false;
   }
 
   if (address_is_valid) {
-    std::cout << "Restoring netif config\n";
+    ESP_LOGI(kTag, "Restoring netif config");
     esp_netif_dhcpc_stop(g_wifi_netif);
     esp_netif_ip_info_t ip_info = {
         .ip = {.addr = rtc_ip_info.ip.addr},
@@ -306,7 +329,7 @@ bool EnsureWifiConnectedForHotPath() {
         .gw = {.addr = rtc_ip_info.gw.addr}};
     esp_netif_set_ip_info(g_wifi_netif, &ip_info);
   } else {
-    std::cout << "Restoring netif config filed\n";
+    ESP_LOGI(kTag, "No cached netif config");
   }
 
   // We disable aggregation so that the packages go out one by one and quickly
@@ -314,12 +337,16 @@ bool EnsureWifiConnectedForHotPath() {
   cfg.ampdu_tx_enable = 0;
 
   err = esp_wifi_init(&cfg);
-  if (err != ESP_OK) {
+  if (err == ESP_ERR_WIFI_INIT_STATE) {
+    g_wifi_initialized = true;
+  } else if (err != ESP_OK) {
+    SetHotWifiFail("esp_wifi_init");
     ESP_LOGE(kTag, "esp_wifi_init failed: %s", esp_err_to_name(err));
     CleanupHotPathWifi();
     return false;
+  } else {
+    g_wifi_initialized = true;
   }
-  g_wifi_initialized = true;
 
   err = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                             &WifiEventHandler, nullptr,
@@ -402,6 +429,7 @@ bool EnsureWifiConnectedForHotPath() {
   // esp_wifi_internal_set_retry_counter(3, 3);
 
   if ((bits & kWifiConnectedBit) == 0) {
+    SetHotWifiFail("connect_timeout");
     ESP_LOGE(kTag, "Wi-Fi hot path connect timeout/fail");
     CleanupHotPathWifi();
     return false;
@@ -465,6 +493,13 @@ ae::DataBuffer MakeTemperaturePayload(std::string const& temperature) {
 
 bool HasPreparedSendBlock() { return g_prepared_send_message_block.is_valid(); }
 
+std::uint32_t PreparedMessageLeft() {
+  if (!g_prepared_send_message_block.is_valid()) {
+    return 0;
+  }
+  return g_prepared_send_message_block.Resolve()->message_left;
+}
+
 void ClearPreparedSendBlock() {
   // magic indicate if block is valid
   // make it invalid
@@ -477,9 +512,10 @@ bool ExportPreparedSendBlock(ae::Client::ptr const& client, ae::Uid destination,
       client, destination, reserve_message_count);
 
   if (!prep_res) {
-    std::cerr << "[prepared-send] PrepareSendMessage failed with ec: "
-              << prep_res.error().ec << " error: " << prep_res.error().msg
-              << "\n";
+    ESP_LOGE(kTag, "PrepareSendMessage failed ec=%d msg=%.*s",
+             prep_res.error().ec,
+             static_cast<int>(prep_res.error().msg.size()),
+             prep_res.error().msg.data());
     return false;
   }
 
@@ -487,37 +523,60 @@ bool ExportPreparedSendBlock(ae::Client::ptr const& client, ae::Uid destination,
 
   auto const resolved_block = g_prepared_send_message_block.Resolve();
 
-  std::cout << "[prepared-send] exported prepared block reserved "
-            << resolved_block->message_left << " messages\n";
+  ESP_LOGI(kTag, "exported prepared block reserved %lu messages",
+           static_cast<unsigned long>(resolved_block->message_left));
   return true;
 }
 
-HotSendStatus TryHotWakePreparedSend(
-    [[maybe_unused]] std::string const& temperature) {
+ae::DataBuffer MakeBenchPayload(std::string_view kind, int sequence) {
+  auto text = ae::Format("{}:{}", kind, sequence);
+  return ae::DataBuffer{text.begin(), text.end()};
+}
+
 #if defined(ESP_PLATFORM)
-  // sleep(10);
-  esp_reset_reason_t reset = esp_reset_reason();
-  esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
-
-  ESP_LOGI(kTag, "reset_reason=%d, wakeup_cause=%d", static_cast<int>(reset),
-           static_cast<int>(wakeup));
-
-  if (reset != ESP_RST_DEEPSLEEP) {
-    address_is_valid = false;
-    bs_is_valid = false;
+void ReleaseFullAetherWifiForHotPath() {
+  auto err = esp_wifi_stop();
+  if (err != ESP_OK && err != ESP_ERR_WIFI_NOT_STARTED &&
+      err != ESP_ERR_WIFI_NOT_INIT) {
+    ESP_LOGW(kTag, "esp_wifi_stop during release failed: %s",
+             esp_err_to_name(err));
   }
+  err = esp_wifi_deinit();
+  if (err != ESP_OK && err != ESP_ERR_WIFI_NOT_INIT) {
+    ESP_LOGW(kTag, "esp_wifi_deinit during release failed: %s",
+             esp_err_to_name(err));
+  }
+  if (esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+      netif != nullptr) {
+    esp_netif_destroy(netif);
+  }
+  esp_netif_deinit();
+  err = esp_event_loop_delete_default();
+  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    ESP_LOGW(kTag, "esp_event_loop_delete_default failed: %s",
+             esp_err_to_name(err));
+  }
+  vTaskDelay(pdMS_TO_TICKS(50));
+}
+#endif
 
+HotSendStatus SendPreparedOnce(ae::DataBuffer const& payload) {
+#if defined(ESP_PLATFORM)
   if (!g_prepared_send_message_block.is_valid()) {
     return HotSendStatus::kNoPreparedBlock;
   }
 
+  if (g_prepared_send_message_block.Resolve()->message_left == 0) {
+    return HotSendStatus::kNonceExhausted;
+  }
+
   if (!EnsureWifiConnectedForHotPath()) {
+    WifiLifecyclePrintf("PREPARED_WIFI_FAIL reason=%s\n",
+                        LastHotWifiFailReason());
     return HotSendStatus::kWifiFailed;
   }
 
   auto fail_after_wifi = ae_defer_at[] { CleanupHotPathWifi(); };
-
-  auto payload = MakeTemperaturePayload(temperature);
 
   ae::DataBuffer packet;
   auto encode_result = ae::prepared_packet::EncodePacket(
@@ -529,15 +588,15 @@ HotSendStatus TryHotWakePreparedSend(
   }
 
   auto const resolved_block = g_prepared_send_message_block.Resolve();
-  std::cout << "[prepared-send] reserved messages left "
-            << resolved_block->message_left << "\n";
+  ESP_LOGI(kTag, "reserved messages left %lu",
+           static_cast<unsigned long>(resolved_block->message_left));
   auto endpoint = resolved_block->endpoint;
 
   sockaddr_storage dest_storage{};
   socklen_t dest_len = 0;
   if (!FillUdpDestination(endpoint, reinterpret_cast<sockaddr*>(&dest_storage),
                           &dest_len)) {
-    std::cerr << "[prepared-send] invalid endpoint address\n";
+    ESP_LOGE(kTag, "invalid endpoint address");
     return HotSendStatus::kSendFailed;
   }
 
@@ -556,13 +615,44 @@ HotSendStatus TryHotWakePreparedSend(
     return HotSendStatus::kSendFailed;
   }
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(450));
+#  ifndef AETHER_PREPARED_POST_SEND_HOLD_MS
+#    define AETHER_PREPARED_POST_SEND_HOLD_MS 450
+#  endif
+  std::this_thread::sleep_for(
+      std::chrono::milliseconds(AETHER_PREPARED_POST_SEND_HOLD_MS));
 
-  std::cout << "[prepared-send] hot path UDP sent " << sent << " bytes\n";
+  ESP_LOGI(kTag, "hot path UDP sent %d bytes", static_cast<int>(sent));
   return HotSendStatus::kSent;
+#else
+  (void)payload;
+  return HotSendStatus::kUnsupported;
+#endif
+}
+
+HotSendStatus TryHotWakePreparedSend(
+    [[maybe_unused]] std::string const& temperature) {
+#if defined(ESP_PLATFORM)
+  esp_reset_reason_t reset = esp_reset_reason();
+  esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
+
+  ESP_LOGI(kTag, "reset_reason=%d, wakeup_cause=%d", static_cast<int>(reset),
+           static_cast<int>(wakeup));
+
+  // Production deep-sleep semantics: only preserve local Wi-Fi RTC cache across
+  // deep-sleep wakes. Cold / other resets invalidate the local prepared cache.
+  if (reset != ESP_RST_DEEPSLEEP) {
+    address_is_valid = false;
+    bs_is_valid = false;
+  }
+
+  return SendPreparedOnce(MakeTemperaturePayload(temperature));
 #else
   return HotSendStatus::kUnsupported;
 #endif
 }
+
+#if defined(ESP_PLATFORM)
+char const* LastHotWifiFailReason() { return g_last_hot_wifi_fail; }
+#endif
 
 }  // namespace temp_sensor::prepared_send

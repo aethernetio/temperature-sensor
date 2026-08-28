@@ -24,6 +24,14 @@ if (ESP_PLATFORM OR IDF_TARGET)
   set(CM_PLATFORM "ESP32")
 endif()
 
+# Bench harness sdkconfig (main task stack, USB console). Must be set before project().
+set(AE_EXP_PREPARED_MESSAGE_E2E "" CACHE STRING
+    "No-sleep prepared-message E2E bench (set to 1)")
+if(AE_EXP_PREPARED_MESSAGE_E2E STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.bench")
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

@@ -18,7 +18,12 @@ list(APPEND src_list
   "main.cpp"
 )
 
-if(AE_EXP_WIFI_LIFECYCLE)
+if(AE_EXP_PREPARED_MESSAGE_E2E)
+  list(APPEND src_list
+    "prepared_message_e2e_bench.cpp"
+    "prepared_send/prepared_send.cpp"
+  )
+elseif(AE_EXP_WIFI_LIFECYCLE)
   list(APPEND src_list "wifi_lifecycle_bench.cpp")
 elseif(AE_EXP_FULL_CYCLES)
   list(APPEND src_list "thermometer_full_cycles.cpp")
@@ -142,6 +147,8 @@ set(AE_EXP_WIFI_LIFECYCLE "" CACHE STRING "Wi-Fi lifecycle bench harness (set to
 set(AE_EXP_WIFI_LIFECYCLE_VARIANT "" CACHE STRING "Wi-Fi lifecycle variant id (0=baseline)")
 set(AE_EXP_WIFI_LIFECYCLE_CYCLES "" CACHE STRING "Wi-Fi lifecycle cycles (default 10)")
 set(AE_EXP_WIFI_COOLDOWN_MS "" CACHE STRING "Cooldown between cycles, outside timer (ms)")
+set(AE_EXP_PREPARED_MESSAGE_E2E "" CACHE STRING "No-sleep prepared-message E2E bench (set to 1)")
+set(BENCH_CLIENT_ID "" CACHE STRING "Bench SelectClient id (default prepared_message_bench_v1)")
 set(AE_EXP_WIFI_CANONICAL "" CACHE STRING "Canonical ESP-IDF Wi-Fi driver (set to 1)")
 set(AE_EXP_WIFI_FEAT_AMPDU_OFF "" CACHE STRING "Canonical+bisect: AMPDU off")
 set(AE_EXP_WIFI_FEAT_SCAN_THRESHOLD "" CACHE STRING "Canonical+bisect: scan threshold")
@@ -176,6 +183,11 @@ ae_exp_define_if_set(AE_EXP_WIFI_LIFECYCLE)
 ae_exp_define_if_set(AE_EXP_WIFI_LIFECYCLE_VARIANT)
 ae_exp_define_if_set(AE_EXP_WIFI_LIFECYCLE_CYCLES)
 ae_exp_define_if_set(AE_EXP_WIFI_COOLDOWN_MS)
+ae_exp_define_if_set(AE_EXP_PREPARED_MESSAGE_E2E)
+if(NOT "${BENCH_CLIENT_ID}" STREQUAL "")
+  target_compile_definitions(${TARGET_NAME} PRIVATE
+    "BENCH_CLIENT_ID=\"${BENCH_CLIENT_ID}\"")
+endif()
 
 # Continuous prepared-send E2E test defaults (override via -D...).
 if(NOT DEFINED AETHER_PREPARED_NONCE_RESERVE)
