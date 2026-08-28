@@ -21,6 +21,7 @@
 #include "aether/all.h"
 
 #if ULP_SLEEP == 1
+#  include <iostream>
 
 #  include <freertos/FreeRTOS.h>
 #  include <freertos/task.h>

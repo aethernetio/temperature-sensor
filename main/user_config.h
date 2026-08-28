@@ -48,10 +48,11 @@
 #if defined ESP_PLATFORM
 // Select the board to build example for
 #  define BOARD_AETHER_ESP32_C6 0
-#  define BOARD_FIRE_BEETLE2_С6 1
-#  define BOARD_NANO_ESP32_C6 2
-#  define BOARD_WROVER_ESP32 3
-#  define BOARD_M5STACK_ATOM_LITE 4
+#  define BOARD_NANO_ESP32_C6 1
+#  define BOARD_M5STACK_ATOM_LITE 2
+// For future extension
+// #  define BOARD_FIRE_BEETLE2_С6 3
+// #  define BOARD_WROVER_ESP32 4
 
 #  ifndef BOARD
 #    define BOARD BOARD_AETHER_ESP32_C6
