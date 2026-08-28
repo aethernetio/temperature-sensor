@@ -43,6 +43,8 @@ std::vector<std::unique_ptr<ae::P2pStream>> g_streams;
 std::uint32_t g_registration_us = 0;
 std::array<std::uint32_t, kOuter> g_full_us{};
 std::array<bool, kOuter> g_full_have{};
+std::array<std::uint32_t, kOuter> g_session_us{};
+std::array<bool, kOuter> g_session_have{};
 std::array<std::array<std::uint32_t, kPreparedPer>, kOuter> g_prep_us{};
 std::array<std::array<bool, kPreparedPer>, kOuter> g_prep_have{};
 std::array<std::array<std::uint8_t, kPreparedPer>, kOuter> g_prep_flags{};
@@ -74,6 +76,7 @@ std::uint32_t Percentile(std::vector<std::uint32_t> v, int pct) {
 
 void PrintSummary() {
   std::vector<std::uint32_t> fulls;
+  std::vector<std::uint32_t> sessions;
   std::vector<std::uint32_t> firsts;
   std::vector<std::uint32_t> warms;
   std::vector<std::uint32_t> all;
@@ -87,6 +90,9 @@ void PrintSummary() {
   for (int o = 0; o < kOuter; ++o) {
     if (g_full_have[static_cast<size_t>(o)]) {
       fulls.push_back(g_full_us[static_cast<size_t>(o)]);
+    }
+    if (g_session_have[static_cast<size_t>(o)]) {
+      sessions.push_back(g_session_us[static_cast<size_t>(o)]);
     }
     for (int i = 0; i < kPreparedPer; ++i) {
       if (!g_prep_have[static_cast<size_t>(o)][static_cast<size_t>(i)]) {
@@ -157,11 +163,13 @@ void PrintSummary() {
   std::cout << "  time_us=" << g_registration_us << "\n";
   std::cout << "FULL\n";
   print_vec("  ", fulls);
-  std::cout << "FIRST PREPARED\n";
+  std::cout << "WIFI_SESSION_START\n";
+  print_vec("  ", sessions);
+  std::cout << "FIRST PREPARED (send-only)\n";
   print_vec("  ", firsts);
-  std::cout << "WARM PREPARED\n";
+  std::cout << "WARM PREPARED (send-only)\n";
   print_vec("  ", warms);
-  std::cout << "ALL PREPARED\n";
+  std::cout << "ALL PREPARED (send-only)\n";
   print_vec("  ", all);
   std::cout << "DELIVERY\n";
   std::cout << "  full=" << g_full_recv << "/" << kExpectedFull << "\n";
@@ -184,7 +192,8 @@ void PrintSummary() {
   std::cout << "  used_static_arp hits=" << static_arp_hits << "\n";
   std::cout << "  arp_fallback hits=" << arp_fallback_hits << "\n";
   std::cout << "  wifi_fallback hits=" << wifi_fallback_hits << "\n";
-  std::cout << "NOTE prepared timing includes AETHER_PREPARED_POST_SEND_HOLD_MS=300\n";
+  std::cout << "NOTE prepared_send_us is encode+sendto only (no post-send hold in keep-wifi-up)\n";
+  std::cout << "NOTE previous_full_us on PREPARED#1 carries wifi_session_start_us\n";
   std::cout << "BENCH_DONE\n";
   std::cout.flush();
 }
@@ -245,6 +254,11 @@ void OnMessage(ae::Uid sender, ae::DataBuffer const& data) {
     ++g_prep_recv;
     int const o = static_cast<int>(p.outer_cycle) - 1;
     int const i = static_cast<int>(p.prepared_index) - 1;
+    if (o >= 0 && o < kOuter && p.prepared_index == 1 &&
+        p.previous_full_us != 0) {
+      g_session_us[static_cast<size_t>(o)] = p.previous_full_us;
+      g_session_have[static_cast<size_t>(o)] = true;
+    }
     // previous_prepared_us is timing of prepared_index-1
     if (o >= 0 && o < kOuter && p.prepared_index >= 2) {
       int const pi = static_cast<int>(p.prepared_index) - 2;
@@ -256,10 +270,15 @@ void OnMessage(ae::Uid sender, ae::DataBuffer const& data) {
             p.cache_flags;
       }
     }
+    if (o >= 0 && o < kOuter && i >= 0 && i < kPreparedPer) {
+      g_prep_flags[static_cast<size_t>(o)][static_cast<size_t>(i)] =
+          p.cache_flags;
+    }
     std::cout << ae::Format(
-        "RECV PREPARED outer={} idx={} seq={} prev_us={} flags={} ts={}\n",
+        "RECV PREPARED outer={} idx={} seq={} prev_us={} session_us={} flags={} "
+        "ts={}\n",
         p.outer_cycle, p.prepared_index, p.sequence_global,
-        p.previous_prepared_us, p.cache_flags, ts);
+        p.previous_prepared_us, p.previous_full_us, p.cache_flags, ts);
   } else if (type == temp_sensor::bench::MsgType::kFinal) {
     ++g_final_recv;
     if (p.previous_full_us != 0) {

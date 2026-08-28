@@ -23,6 +23,11 @@ if(AE_EXP_PREPARED_WIFI_CACHE_5X20)
     "prepared_wifi_cache_5x20_bench.cpp"
     "prepared_send/prepared_send.cpp"
   )
+elseif(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20)
+  list(APPEND src_list
+    "prepared_keep_wifi_up_5x20_bench.cpp"
+    "prepared_send/prepared_send.cpp"
+  )
 elseif(AE_EXP_PREPARED_MESSAGE_E2E)
   list(APPEND src_list
     "prepared_message_e2e_bench.cpp"
@@ -154,6 +159,7 @@ set(AE_EXP_WIFI_LIFECYCLE_CYCLES "" CACHE STRING "Wi-Fi lifecycle cycles (defaul
 set(AE_EXP_WIFI_COOLDOWN_MS "" CACHE STRING "Cooldown between cycles, outside timer (ms)")
 set(AE_EXP_PREPARED_MESSAGE_E2E "" CACHE STRING "No-sleep prepared-message E2E bench (set to 1)")
 set(AE_EXP_PREPARED_WIFI_CACHE_5X20 "" CACHE STRING "Silent 5x20 prepared Wi-Fi cache bench (set to 1)")
+set(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 "" CACHE STRING "Silent 5x20 keep-Wi-Fi-up prepared bench (set to 1)")
 set(BENCH_CLIENT_ID "" CACHE STRING "Bench SelectClient id (default prepared_message_bench_v1)")
 set(AE_EXP_WIFI_CANONICAL "" CACHE STRING "Canonical ESP-IDF Wi-Fi driver (set to 1)")
 set(AE_EXP_WIFI_FEAT_AMPDU_OFF "" CACHE STRING "Canonical+bisect: AMPDU off")
@@ -191,7 +197,9 @@ ae_exp_define_if_set(AE_EXP_WIFI_LIFECYCLE_CYCLES)
 ae_exp_define_if_set(AE_EXP_WIFI_COOLDOWN_MS)
 ae_exp_define_if_set(AE_EXP_PREPARED_MESSAGE_E2E)
 ae_exp_define_if_set(AE_EXP_PREPARED_WIFI_CACHE_5X20)
-if(AE_EXP_PREPARED_WIFI_CACHE_5X20 STREQUAL "1")
+ae_exp_define_if_set(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20)
+if(AE_EXP_PREPARED_WIFI_CACHE_5X20 STREQUAL "1" OR
+   AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 STREQUAL "1")
   target_compile_definitions(aether PUBLIC "AE_EXP_SILENT=1")
   target_compile_definitions(${TARGET_NAME} PRIVATE "AE_EXP_SILENT=1")
 endif()

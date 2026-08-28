@@ -44,10 +44,19 @@ ae::DataBuffer MakeBenchPayload(std::string_view kind, int sequence);
 // Shared encode + Wi-Fi + UDP + post-send hold + Wi-Fi runtime cleanup.
 HotSendStatus SendPreparedOnce(ae::DataBuffer const& payload);
 
-// Last send cache usage bits (bench CacheFlags). Valid after SendPreparedOnce.
+// Last send cache usage bits (bench CacheFlags). Valid after SendPreparedOnce /
+// BeginPreparedWifiSession / SendPreparedPacketOnActiveWifi.
 std::uint8_t LastSendCacheFlags();
 
 #if defined(ESP_PLATFORM)
+// Bench-only: keep one Wi-Fi association across many prepared UDP sends.
+// Does not replace production SendPreparedOnce().
+bool BeginPreparedWifiSession();
+HotSendStatus SendPreparedPacketOnActiveWifi(ae::DataBuffer const& payload);
+void EndPreparedWifiSession();
+// Duration of the last successful BeginPreparedWifiSession() (µs).
+std::uint32_t LastWifiSessionStartUs();
+
 // No-sleep bench: AetherApp release may leave ESP-IDF Wi-Fi/netif up.
 void ReleaseFullAetherWifiForHotPath();
 

@@ -35,6 +35,7 @@
 #  include <esp_event.h>
 #  include <esp_netif.h>
 #  include <esp_mac.h>
+#  include <esp_timer.h>
 #  include <esp_wifi.h>
 #  include <esp_wifi_default.h>
 #  include <esp_private/wifi.h>
@@ -54,6 +55,8 @@
 #endif
 
 namespace temp_sensor::prepared_send {
+
+void ClearPreparedSendBlock();
 
 #if defined(ESP_PLATFORM) && !defined(AE_EXP_SILENT)
 static constexpr char const* kTag = "prepared-send";
@@ -93,6 +96,8 @@ static constexpr char const* kTag = "prepared-send";
 #endif
 
 static std::uint8_t g_last_send_cache_flags = 0;
+static bool g_prepared_wifi_session_active = false;
+static std::uint32_t g_last_wifi_session_start_us = 0;
 
 #if defined(ESP_PLATFORM)
 static RTC_NOINIT_ATTR ae::prepared_packet::PreparedSendMessageBlock
@@ -568,11 +573,61 @@ bool EnsureWifiConnectedForHotPath() {
   return true;
 }
 
+// Encode + socket/sendto/close only. Does not touch Wi-Fi lifetime.
+HotSendStatus EncodeAndUdpSend(ae::DataBuffer const& payload) {
+  if (!g_prepared_send_message_block.is_valid()) {
+    return HotSendStatus::kNoPreparedBlock;
+  }
+
+  if (g_prepared_send_message_block.Resolve()->message_left == 0) {
+    return HotSendStatus::kNonceExhausted;
+  }
+
+  ae::DataBuffer packet;
+  auto encode_result = ae::prepared_packet::EncodePacket(
+      g_prepared_send_message_block, payload, packet);
+
+  if (!encode_result) {
+    ClearPreparedSendBlock();
+    return HotSendStatus::kEncodeFailed;
+  }
+
+  auto const resolved_block = g_prepared_send_message_block.Resolve();
+  auto endpoint = resolved_block->endpoint;
+
+  sockaddr_storage dest_storage{};
+  socklen_t dest_len = 0;
+  if (!FillUdpDestination(endpoint, reinterpret_cast<sockaddr*>(&dest_storage),
+                          &dest_len)) {
+    return HotSendStatus::kSendFailed;
+  }
+
+  int sock = socket(
+      endpoint.address.Index() == ae::AddrVersion::kIpV6 ? AF_INET6 : AF_INET,
+      SOCK_DGRAM, IPPROTO_IP);
+  if (sock < 0) {
+    return HotSendStatus::kSendFailed;
+  }
+
+  auto sent = sendto(sock, packet.data(), packet.size(), 0,
+                     reinterpret_cast<sockaddr*>(&dest_storage), dest_len);
+  close(sock);
+
+  if (sent != static_cast<ssize_t>(packet.size())) {
+    return HotSendStatus::kSendFailed;
+  }
+  return HotSendStatus::kSent;
+}
+
 #else
 
 bool EnsureWifiConnectedForHotPath() { return true; }
 
 void CleanupHotPathWifiRuntime() {}
+
+HotSendStatus EncodeAndUdpSend(ae::DataBuffer const&) {
+  return HotSendStatus::kUnsupported;
+}
 
 #endif
 
@@ -725,38 +780,9 @@ HotSendStatus SendPreparedOnce(ae::DataBuffer const& payload) {
 
   auto fail_after_wifi = ae_defer_at[] { CleanupHotPathWifiRuntime(); };
 
-  ae::DataBuffer packet;
-  auto encode_result = ae::prepared_packet::EncodePacket(
-      g_prepared_send_message_block, payload, packet);
-
-  if (!encode_result) {
-    ClearPreparedSendBlock();
-    return HotSendStatus::kEncodeFailed;
-  }
-
-  auto const resolved_block = g_prepared_send_message_block.Resolve();
-  auto endpoint = resolved_block->endpoint;
-
-  sockaddr_storage dest_storage{};
-  socklen_t dest_len = 0;
-  if (!FillUdpDestination(endpoint, reinterpret_cast<sockaddr*>(&dest_storage),
-                          &dest_len)) {
-    return HotSendStatus::kSendFailed;
-  }
-
-  int sock = socket(
-      endpoint.address.Index() == ae::AddrVersion::kIpV6 ? AF_INET6 : AF_INET,
-      SOCK_DGRAM, IPPROTO_IP);
-  if (sock < 0) {
-    return HotSendStatus::kSendFailed;
-  }
-
-  auto sent = sendto(sock, packet.data(), packet.size(), 0,
-                     reinterpret_cast<sockaddr*>(&dest_storage), dest_len);
-  close(sock);
-
-  if (sent != static_cast<ssize_t>(packet.size())) {
-    return HotSendStatus::kSendFailed;
+  auto const status = EncodeAndUdpSend(payload);
+  if (status != HotSendStatus::kSent) {
+    return status;
   }
 
 #  ifndef AETHER_PREPARED_POST_SEND_HOLD_MS
@@ -771,6 +797,45 @@ HotSendStatus SendPreparedOnce(ae::DataBuffer const& payload) {
   return HotSendStatus::kUnsupported;
 #endif
 }
+
+#if defined(ESP_PLATFORM)
+void EndPreparedWifiSession();
+
+bool BeginPreparedWifiSession() {
+  if (g_prepared_wifi_session_active) {
+    EndPreparedWifiSession();
+  }
+  g_last_wifi_session_start_us = 0;
+  auto const t0 = esp_timer_get_time();
+  if (!EnsureWifiConnectedForHotPath()) {
+    return false;
+  }
+  auto const elapsed = esp_timer_get_time() - t0;
+  g_last_wifi_session_start_us =
+      elapsed < 0 ? 0
+                  : static_cast<std::uint32_t>(
+                        elapsed > static_cast<std::int64_t>(
+                                      std::numeric_limits<std::uint32_t>::max())
+                            ? std::numeric_limits<std::uint32_t>::max()
+                            : elapsed);
+  g_prepared_wifi_session_active = true;
+  return true;
+}
+
+HotSendStatus SendPreparedPacketOnActiveWifi(ae::DataBuffer const& payload) {
+  if (!g_prepared_wifi_session_active) {
+    return HotSendStatus::kWifiFailed;
+  }
+  return EncodeAndUdpSend(payload);
+}
+
+void EndPreparedWifiSession() {
+  CleanupHotPathWifiRuntime();
+  g_prepared_wifi_session_active = false;
+}
+
+std::uint32_t LastWifiSessionStartUs() { return g_last_wifi_session_start_us; }
+#endif
 
 HotSendStatus TryHotWakePreparedSend(
     [[maybe_unused]] std::string const& temperature) {
