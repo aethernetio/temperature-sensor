@@ -80,7 +80,9 @@ void PrintSummary() {
   int bssid_hits = 0;
   int ip_hits = 0;
   int dhcp_skip = 0;
-  int fallbacks = 0;
+  int static_arp_hits = 0;
+  int arp_fallback_hits = 0;
+  int wifi_fallback_hits = 0;
 
   for (int o = 0; o < kOuter; ++o) {
     if (g_full_have[static_cast<size_t>(o)]) {
@@ -107,8 +109,14 @@ void PrintSummary() {
       if (fl & static_cast<std::uint8_t>(temp_sensor::bench::CacheFlags::kDhcpSkipped)) {
         ++dhcp_skip;
       }
-      if (fl & static_cast<std::uint8_t>(temp_sensor::bench::CacheFlags::kFallback)) {
-        ++fallbacks;
+      if (fl & static_cast<std::uint8_t>(temp_sensor::bench::CacheFlags::kUsedStaticArp)) {
+        ++static_arp_hits;
+      }
+      if (fl & static_cast<std::uint8_t>(temp_sensor::bench::CacheFlags::kArpFallback)) {
+        ++arp_fallback_hits;
+      }
+      if (fl & static_cast<std::uint8_t>(temp_sensor::bench::CacheFlags::kWifiFallback)) {
+        ++wifi_fallback_hits;
       }
     }
   }
@@ -173,7 +181,9 @@ void PrintSummary() {
   std::cout << "  DHCP skipped confirmed="
             << (dhcp_skip > 0 ? "yes" : "no") << " (hits=" << dhcp_skip
             << ")\n";
-  std::cout << "  fallbacks=" << fallbacks << "\n";
+  std::cout << "  used_static_arp hits=" << static_arp_hits << "\n";
+  std::cout << "  arp_fallback hits=" << arp_fallback_hits << "\n";
+  std::cout << "  wifi_fallback hits=" << wifi_fallback_hits << "\n";
   std::cout << "NOTE prepared timing includes AETHER_PREPARED_POST_SEND_HOLD_MS=300\n";
   std::cout << "BENCH_DONE\n";
   std::cout.flush();

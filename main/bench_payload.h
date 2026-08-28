@@ -27,7 +27,9 @@ enum class CacheFlags : std::uint8_t {
   kUsedBssid = 1 << 0,
   kUsedStaticIp = 1 << 1,
   kDhcpSkipped = 1 << 2,
-  kFallback = 1 << 3,
+  kUsedStaticArp = 1 << 3,
+  kArpFallback = 1 << 4,
+  kWifiFallback = 1 << 5,
 };
 
 #pragma pack(push, 1)

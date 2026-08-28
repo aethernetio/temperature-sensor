@@ -42,6 +42,11 @@
 #  include <freertos/event_groups.h>
 #  include <lwip/inet.h>
 #  include <lwip/sockets.h>
+#  include <lwip/etharp.h>
+#  include <lwip/netif.h>
+#  include <lwip/tcpip.h>
+#  include <esp_netif.h>
+#  include <esp_netif_net_stack.h>
 #  include <nvs_flash.h>
 #  if !defined(AE_EXP_SILENT)
 #    include <esp_log.h>
@@ -83,6 +88,10 @@ static constexpr char const* kTag = "prepared-send";
 #  define AETHER_PREPARED_HOT_WIFI_MAX_RETRY 10
 #endif
 
+#ifndef AETHER_PREPARED_ARP_TIMEOUT_MS
+#  define AETHER_PREPARED_ARP_TIMEOUT_MS 500
+#endif
+
 static std::uint8_t g_last_send_cache_flags = 0;
 
 #if defined(ESP_PLATFORM)
@@ -91,8 +100,10 @@ static RTC_NOINIT_ATTR ae::prepared_packet::PreparedSendMessageBlock
 
 static RTC_DATA_ATTR esp_netif_ip_info_t rtc_ip_info = {};
 static RTC_DATA_ATTR WiFiBaseStation base_station{};
+static RTC_DATA_ATTR std::uint8_t gateway_mac[6] = {};
 static RTC_NOINIT_ATTR bool address_is_valid;
 static RTC_NOINIT_ATTR bool bs_is_valid;
+static RTC_NOINIT_ATTR bool gateway_mac_valid;
 
 static_assert(sizeof(ae::prepared_packet::PreparedSendMessageBlock) <= 8 * 1024,
               "PreparedSendMessageBlock must fit in ESP32 RTC slow memory");
@@ -158,6 +169,129 @@ void CaptureApIntoCache() {
   std::memcpy(base_station.target_bssid, ap_info.bssid,
               sizeof(base_station.target_bssid));
   bs_is_valid = true;
+}
+
+struct GatewayMacLookupCtx {
+  struct netif* lwip_netif{nullptr};
+  ip4_addr_t gw{};
+  std::uint8_t mac[6]{};
+  bool found{false};
+};
+
+esp_err_t LookupGatewayMacTcpip(void* arg) {
+  auto* ctx = static_cast<GatewayMacLookupCtx*>(arg);
+  struct eth_addr* eth_ret = nullptr;
+  ip4_addr_t const* ip_ret = nullptr;
+  auto const idx =
+      etharp_find_addr(ctx->lwip_netif, &ctx->gw, &eth_ret, &ip_ret);
+  if (idx >= 0 && eth_ret != nullptr) {
+    std::memcpy(ctx->mac, eth_ret->addr, sizeof(ctx->mac));
+    ctx->found = true;
+  }
+  return ESP_OK;
+}
+
+esp_err_t RequestGatewayArpTcpip(void* arg) {
+  auto* ctx = static_cast<GatewayMacLookupCtx*>(arg);
+  (void)etharp_request(ctx->lwip_netif, &ctx->gw);
+  return ESP_OK;
+}
+
+struct StaticArpInstallCtx {
+  ip4_addr_t gw{};
+  struct eth_addr eth{};
+  err_t err{ERR_VAL};
+};
+
+esp_err_t InstallStaticGatewayArpTcpip(void* arg) {
+  auto* ctx = static_cast<StaticArpInstallCtx*>(arg);
+  ctx->err = etharp_add_static_entry(&ctx->gw, &ctx->eth);
+  return ESP_OK;
+}
+
+bool LookupGatewayMac(esp_netif_t* esp_netif, std::uint8_t out_mac[6]) {
+  if (esp_netif == nullptr || rtc_ip_info.gw.addr == 0) {
+    return false;
+  }
+  auto* lwip_netif =
+      static_cast<struct netif*>(esp_netif_get_netif_impl(esp_netif));
+  if (lwip_netif == nullptr) {
+    return false;
+  }
+
+  GatewayMacLookupCtx ctx{};
+  ctx.lwip_netif = lwip_netif;
+  ctx.gw.addr = rtc_ip_info.gw.addr;
+  if (esp_netif_tcpip_exec(&LookupGatewayMacTcpip, &ctx) != ESP_OK ||
+      !ctx.found) {
+    return false;
+  }
+  std::memcpy(out_mac, ctx.mac, 6);
+  return true;
+}
+
+bool ResolveAndCacheGatewayMac(esp_netif_t* esp_netif) {
+  std::uint8_t mac[6]{};
+  if (LookupGatewayMac(esp_netif, mac)) {
+    std::memcpy(gateway_mac, mac, sizeof(gateway_mac));
+    gateway_mac_valid = true;
+    return true;
+  }
+
+  auto* lwip_netif =
+      static_cast<struct netif*>(esp_netif_get_netif_impl(esp_netif));
+  if (lwip_netif == nullptr || rtc_ip_info.gw.addr == 0) {
+    return false;
+  }
+
+  GatewayMacLookupCtx req{};
+  req.lwip_netif = lwip_netif;
+  req.gw.addr = rtc_ip_info.gw.addr;
+  (void)esp_netif_tcpip_exec(&RequestGatewayArpTcpip, &req);
+
+  auto const deadline =
+      std::chrono::steady_clock::now() +
+      std::chrono::milliseconds(AETHER_PREPARED_ARP_TIMEOUT_MS);
+  while (std::chrono::steady_clock::now() < deadline) {
+    vTaskDelay(pdMS_TO_TICKS(20));
+    if (LookupGatewayMac(esp_netif, mac)) {
+      std::memcpy(gateway_mac, mac, sizeof(gateway_mac));
+      gateway_mac_valid = true;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool InstallStaticGatewayArp() {
+  if (!gateway_mac_valid || !address_is_valid || rtc_ip_info.gw.addr == 0) {
+    return false;
+  }
+  StaticArpInstallCtx ctx{};
+  ctx.gw.addr = rtc_ip_info.gw.addr;
+  std::memcpy(ctx.eth.addr, gateway_mac, sizeof(gateway_mac));
+  if (esp_netif_tcpip_exec(&InstallStaticGatewayArpTcpip, &ctx) != ESP_OK) {
+    return false;
+  }
+  return ctx.err == ERR_OK;
+}
+
+// Ensure gateway L2 destination is known before UDP sendto.
+// Prefer cached MAC + static ARP; otherwise resolve via ARP (do not drop).
+bool EnsureGatewayArpReady(esp_netif_t* esp_netif) {
+  if (gateway_mac_valid && InstallStaticGatewayArp()) {
+    g_last_send_cache_flags |=
+        static_cast<std::uint8_t>(bench::CacheFlags::kUsedStaticArp);
+    return true;
+  }
+
+  g_last_send_cache_flags |=
+      static_cast<std::uint8_t>(bench::CacheFlags::kArpFallback);
+  if (ResolveAndCacheGatewayMac(esp_netif)) {
+    (void)InstallStaticGatewayArp();
+  }
+  // Do not discard the message if ARP is still unresolved; sendto may queue.
+  return true;
 }
 
 void WifiEventHandler(void*, esp_event_base_t event_base, std::int32_t event_id,
@@ -385,7 +519,17 @@ bool StartWifiAttempt(bool use_bssid_cache, bool use_static_ip) {
 
   esp_wifi_internal_set_fix_rate(WIFI_IF_STA, true, (wifi_phy_rate_t)0x0);
 
-  return (bits & kWifiReadyBit) != 0;
+  if ((bits & kWifiReadyBit) == 0) {
+    return false;
+  }
+
+  // After DHCP (cold) or whenever IP is known, refresh gateway MAC cache.
+  if (address_is_valid && g_wifi_netif != nullptr) {
+    if (!gateway_mac_valid || !use_static_ip) {
+      (void)ResolveAndCacheGatewayMac(g_wifi_netif);
+    }
+  }
+  return true;
 }
 
 bool EnsureWifiConnectedForHotPath() {
@@ -405,6 +549,7 @@ bool EnsureWifiConnectedForHotPath() {
             static_cast<std::uint8_t>(bench::CacheFlags::kUsedStaticIp) |
             static_cast<std::uint8_t>(bench::CacheFlags::kDhcpSkipped);
       }
+      (void)EnsureGatewayArpReady(g_wifi_netif);
       return true;
     }
 
@@ -412,13 +557,14 @@ bool EnsureWifiConnectedForHotPath() {
     CleanupHotPathWifiRuntime();
     InvalidatePreparedWifiCache();
     g_last_send_cache_flags =
-        static_cast<std::uint8_t>(bench::CacheFlags::kFallback);
+        static_cast<std::uint8_t>(bench::CacheFlags::kWifiFallback);
   }
 
   if (!StartWifiAttempt(/*use_bssid_cache=*/false, /*use_static_ip=*/false)) {
     CleanupHotPathWifiRuntime();
     return false;
   }
+  (void)EnsureGatewayArpReady(g_wifi_netif);
   return true;
 }
 
@@ -513,8 +659,37 @@ ae::DataBuffer MakeBenchPayload(std::string_view kind, int sequence) {
 void InvalidatePreparedWifiCache() {
   address_is_valid = false;
   bs_is_valid = false;
+  gateway_mac_valid = false;
   std::memset(&rtc_ip_info, 0, sizeof(rtc_ip_info));
   std::memset(&base_station, 0, sizeof(base_station));
+  std::memset(gateway_mac, 0, sizeof(gateway_mac));
+}
+
+bool CapturePreparedWifiCacheFromActiveConnection() {
+  esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  if (netif == nullptr) {
+    return false;
+  }
+
+  esp_netif_ip_info_t ip_info{};
+  if (esp_netif_get_ip_info(netif, &ip_info) != ESP_OK ||
+      ip_info.ip.addr == 0) {
+    return false;
+  }
+
+  rtc_ip_info = ip_info;
+  address_is_valid = true;
+  CaptureApIntoCache();
+  if (!bs_is_valid) {
+    return false;
+  }
+
+  // Prefer existing ARP entry from the live FULL session; request if needed.
+  if (!ResolveAndCacheGatewayMac(netif)) {
+    // Still keep BSSID/IP cache; prepared path can fall back to ARP wait.
+    gateway_mac_valid = false;
+  }
+  return true;
 }
 
 void ReleaseFullAetherWifiForHotPath() {
@@ -585,7 +760,7 @@ HotSendStatus SendPreparedOnce(ae::DataBuffer const& payload) {
   }
 
 #  ifndef AETHER_PREPARED_POST_SEND_HOLD_MS
-#    define AETHER_PREPARED_POST_SEND_HOLD_MS 450
+#    define AETHER_PREPARED_POST_SEND_HOLD_MS 300
 #  endif
   std::this_thread::sleep_for(
       std::chrono::milliseconds(AETHER_PREPARED_POST_SEND_HOLD_MS));

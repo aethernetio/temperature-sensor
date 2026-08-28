@@ -11,3 +11,7 @@ CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y
 CONFIG_BOOTLOADER_LOG_LEVEL=0
 
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+
+# Needed so etharp_add_static_entry is compiled (via DHCPS_STATIC_ENTRIES mapping
+# in ESP-IDF lwipopts). Already typically enabled; keep explicit for silent builds.
+CONFIG_LWIP_DHCPS_STATIC_ENTRIES=y

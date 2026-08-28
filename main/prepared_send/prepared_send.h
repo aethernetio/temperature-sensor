@@ -51,8 +51,12 @@ std::uint8_t LastSendCacheFlags();
 // No-sleep bench: AetherApp release may leave ESP-IDF Wi-Fi/netif up.
 void ReleaseFullAetherWifiForHotPath();
 
-// Invalidate retained BSSID/channel/IP cache (cold boot / failed cache path).
+// Invalidate retained BSSID/channel/IP/gateway-MAC cache.
 void InvalidatePreparedWifiCache();
+
+// Export Wi-Fi association + IP + gateway MAC from the still-active FULL path.
+// Call before destroying Aether Wi-Fi so prepared #1 can use the fast path.
+bool CapturePreparedWifiCacheFromActiveConnection();
 #endif
 
 HotSendStatus TryHotWakePreparedSend(std::string const& temperature);

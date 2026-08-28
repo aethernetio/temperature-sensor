@@ -206,6 +206,9 @@ static void DoFullWrite() {
       g_app->Exit(1);
       return;
     }
+    // Export association/IP/gateway-MAC into local prepared cache while FULL
+    // Wi-Fi is still up so prepared #1 can take the fast path.
+    (void)prepared_send::CapturePreparedWifiCacheFromActiveConnection();
     g_app->aether().Save();
     g_app->Exit(0);
   });
