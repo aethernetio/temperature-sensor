@@ -31,8 +31,19 @@ set(AE_EXP_PREPARED_WIFI_CACHE_5X20 "" CACHE STRING
     "Silent 5x20 prepared Wi-Fi cache bench (set to 1)")
 set(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 "" CACHE STRING
     "Silent 5x20 keep-Wi-Fi-up prepared bench (set to 1)")
-if(AE_EXP_PREPARED_WIFI_CACHE_5X20 STREQUAL "1" OR
-   AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 STREQUAL "1")
+set(AE_EXP_PREPARED_WIFI_BISECT "" CACHE STRING
+    "Silent single-factor prepared Wi-Fi bisect (set to 1)")
+set(AE_EXP_BISECT_CONSOLE "" CACHE STRING
+    "Bisect USB stage markers / console (set to 1; disables silent)")
+set(AE_EXP_BISECT_SMOKE "" CACHE STRING
+    "Bisect smoke: B1 only, 2 prepared (set to 1)")
+if(AE_EXP_BISECT_CONSOLE STREQUAL "1" AND
+   AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.bench")
+elseif(AE_EXP_PREPARED_WIFI_CACHE_5X20 STREQUAL "1" OR
+   AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 STREQUAL "1" OR
+   AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent")
 elseif(AE_EXP_PREPARED_MESSAGE_E2E STREQUAL "1")

@@ -66,6 +66,54 @@ void InvalidatePreparedWifiCache();
 // Export Wi-Fi association + IP + gateway MAC from the still-active FULL path.
 // Call before destroying Aether Wi-Fi so prepared #1 can use the fast path.
 bool CapturePreparedWifiCacheFromActiveConnection();
+
+// Bench-only single-factor Wi-Fi bisect (does not alter SendPreparedOnce).
+enum class WifiBisectVariant : std::uint8_t {
+  kB0 = 0,
+  kB1,
+  kC1,
+  kC2,
+  kC3,
+  kC4,
+  kC5,
+  kC6,
+  kC7,
+  kC8,
+  kP1,
+  kP2,
+  kP3,
+  kCount,
+};
+
+struct BisectWifiCacheSnapshot {
+  bool valid_bssid{false};
+  bool valid_ip{false};
+  bool valid_gw_mac{false};
+  std::uint8_t bssid[6]{};
+  std::uint8_t channel{0};
+  std::uint32_t ip{0};
+  std::uint32_t netmask{0};
+  std::uint32_t gateway{0};
+  std::uint8_t gw_mac[6]{};
+};
+
+struct BisectSendResult {
+  HotSendStatus status{HotSendStatus::kWifiFailed};
+  std::uint32_t total_us{0};
+  std::uint8_t requested_channel{0};
+  std::uint8_t actual_channel{0};
+  std::uint8_t status_flags{0};
+  std::uint8_t factor_bits{0};
+  std::uint8_t pre_delay_ms{0};
+};
+
+bool FreezeBisectWifiCacheFromActiveConnection();
+BisectWifiCacheSnapshot GetBisectWifiCacheSnapshot();
+
+// One reconnect prepared send under a single-factor Wi-Fi config.
+// Wi-Fi failure before EncodePacket does not consume a prepared nonce.
+BisectSendResult SendPreparedOnceWithBisectFactor(
+    WifiBisectVariant variant, ae::DataBuffer const& payload);
 #endif
 
 HotSendStatus TryHotWakePreparedSend(std::string const& temperature);
