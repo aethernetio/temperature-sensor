@@ -4,7 +4,7 @@
 
 | Repo | Branch | SHA | Notes |
 |------|--------|-----|-------|
-| temperature-sensor | `thermometer-prepared-send-v0` | *(see final commit)* | TX-done diag + FULL reason |
+| temperature-sensor | `thermometer-prepared-send-v0` | `724a1731a53c63963689b4c83da302937eb56a84` | TX-done diag + FULL reason |
 | aether-client-cpp | `exp/esp32c6-wifi-lifecycle-diag` | `157aadbec8e7b852d0f89274307ff7cb8103e5f7` | **unchanged=yes** |
 
 ## Pre-change inventory
