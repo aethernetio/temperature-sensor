@@ -1,18 +1,19 @@
 /*
  * Copyright 2026 Aethernet Inc.
  *
- * Desktop Æther receiver for silent fastest-path prepared Wi-Fi campaign.
- * Stays up across firmware reflashes; prints TEST_RESULT after each FINAL.
+ * Desktop Æther receiver for prepared deep-sleep 5x50 E2E (DsPayload 0xD5).
+ * Deduplicates by record_id; appends TSV; prints OUTER progress.
  */
 
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
-#include <iomanip>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -31,44 +32,45 @@ static constexpr auto kParentUid =
     ae::Uid::FromString("b1ac52c8-8d94-bd39-4c01-a631ac594165");
 static constexpr char const* kClientName = "prepared_wifi_cache_rx_v1";
 
-struct TestStats {
-  int planned{20};
-  int delivered{0};
-  int duplicates{0};
-  int out_of_order{0};
-  int max_idx_seen{0};
-  std::vector<std::uint8_t> got;
-  std::vector<std::uint32_t> cycle_us;
-  std::vector<std::uint32_t> connect_us;
-  std::vector<std::uint32_t> tx_done_wait_us;
-  std::vector<std::uint32_t> teardown_us;
-  std::uint16_t wifi_ready{0};
-  std::uint16_t encode{0};
-  std::uint16_t sendto{0};
-  std::uint16_t nonce{0};
-  std::uint8_t test_id{0};
-  std::uint16_t pre_ms{0};
-  std::uint16_t post_ms{0};
-  std::uint8_t assoc_bits{0};
+struct Meas {
+  std::uint16_t record_id{0};
+  std::uint8_t kind{0};
+  std::uint8_t outer{0};
+  std::uint8_t hot{0};
+  std::uint32_t user_us{0};
+  std::uint32_t wifi_us{0};
+  std::uint32_t connect_us{0};
+  std::uint32_t txdone_us{0};
+  std::uint32_t teardown_us{0};
+  std::uint32_t sleep_elapsed_us{0};
+  std::uint32_t sleep_overhead_us{0};
+  std::uint32_t app_entry_us{0};
+  std::uint8_t cb_seen{0};
+  std::uint8_t cb_timeout{0};
+  std::uint8_t brownout{0};
   std::uint8_t auth{0};
-  std::uint8_t retry_max{0};
-  std::uint8_t post_mode{0};
-  int cb_any{0};
-  int cb_match{0};
-  int cb_timeout{0};
 };
 
 std::mutex g_mu;
 std::vector<std::unique_ptr<ae::P2pStream>> g_streams;
-TestStats g_st{};
+std::set<std::uint16_t> g_seen_records;
+std::vector<Meas> g_meas;
 int g_full_recv = 0;
-int g_prep_recv = 0;
+int g_hot_recv = 0;
 int g_final_recv = 0;
+int g_dup_records = 0;
+int g_ooo = 0;
+int g_max_record = 0;
+int g_brownout_boots = 0;
+std::uint8_t g_last_outer_reported = 0;
 
-std::int64_t NowMs() {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(
-             std::chrono::system_clock::now().time_since_epoch())
-      .count();
+std::filesystem::path TsvPath() {
+#if defined(_WIN32)
+  if (char const* env = std::getenv("AE_DS_TSV")) {
+    return std::filesystem::path{env};
+  }
+#endif
+  return std::filesystem::path{"prepared_deepsleep_5x50.tsv"};
 }
 
 std::uint32_t PercentileUs(std::vector<std::uint32_t> v, int pct) {
@@ -80,195 +82,238 @@ std::uint32_t PercentileUs(std::vector<std::uint32_t> v, int pct) {
   return v[i];
 }
 
-void ResetStats(std::uint8_t test_id, int planned) {
-  g_st = {};
-  g_st.test_id = test_id;
-  g_st.planned = planned > 0 ? planned : 20;
-  g_st.got.assign(static_cast<size_t>(g_st.planned), 0);
-}
-
-void NotePrepared(int idx) {
-  if (idx < 1) {
+void EnsureTsvHeader() {
+  auto const path = TsvPath();
+  if (std::filesystem::exists(path) && std::filesystem::file_size(path) > 0) {
     return;
   }
-  if (idx > g_st.planned) {
-    g_st.planned = idx;
-    g_st.got.resize(static_cast<size_t>(g_st.planned), 0);
+  std::ofstream out(path, std::ios::app);
+  out << "record_id\tkind\touter\thot\tuser_us\twifi_us\tconnect_us\ttxdone_us\t"
+         "teardown_us\tsleep_elapsed_us\tsleep_overhead_us\tapp_entry_us\t"
+         "cb_seen\tcb_timeout\tbrownout\tauth\tseq\n";
+}
+
+void AppendTsv(temp_sensor::bench::DsPayload const& p, Meas const& m) {
+  EnsureTsvHeader();
+  std::ofstream out(TsvPath(), std::ios::app);
+  out << m.record_id << '\t' << static_cast<int>(m.kind) << '\t'
+      << static_cast<int>(m.outer) << '\t' << static_cast<int>(m.hot) << '\t'
+      << m.user_us << '\t' << m.wifi_us << '\t' << m.connect_us << '\t'
+      << m.txdone_us << '\t' << m.teardown_us << '\t' << m.sleep_elapsed_us
+      << '\t' << m.sleep_overhead_us << '\t' << m.app_entry_us << '\t'
+      << static_cast<int>(m.cb_seen) << '\t' << static_cast<int>(m.cb_timeout)
+      << '\t' << static_cast<int>(m.brownout) << '\t'
+      << static_cast<int>(m.auth) << '\t' << p.sequence_global << '\n';
+}
+
+void MaybePrintOuter(std::uint8_t outer) {
+  if (outer == 0 || outer == g_last_outer_reported) {
+    return;
   }
-  auto& seen = g_st.got[static_cast<size_t>(idx - 1)];
-  if (!seen) {
-    seen = 1;
-    ++g_st.delivered;
-    if (idx < g_st.max_idx_seen) {
-      ++g_st.out_of_order;
+  // Report completed outer (outer-1) when we see next FULL, or current on FINAL.
+  g_last_outer_reported = outer;
+}
+
+void PrintOuterSummary(std::uint8_t completed_outer) {
+  std::vector<std::uint32_t> hot_user;
+  std::vector<std::uint32_t> wake_oh;
+  int hot_n = 0;
+  int cb = 0;
+  int to = 0;
+  std::uint32_t full_user = 0;
+  for (auto const& m : g_meas) {
+    if (m.outer != completed_outer) {
+      continue;
     }
-    if (idx > g_st.max_idx_seen) {
-      g_st.max_idx_seen = idx;
+    if (m.kind == static_cast<std::uint8_t>(temp_sensor::bench::DsPendingKind::kFull)) {
+      full_user = m.user_us;
     }
-  } else {
-    ++g_st.duplicates;
+    if (m.kind == static_cast<std::uint8_t>(temp_sensor::bench::DsPendingKind::kHot)) {
+      ++hot_n;
+      hot_user.push_back(m.user_us);
+      wake_oh.push_back(m.sleep_overhead_us);
+      cb += m.cb_seen;
+      to += m.cb_timeout;
+    }
+  }
+  auto const hot_med = PercentileUs(hot_user, 50) / 1000;
+  auto const wake_med = PercentileUs(wake_oh, 50) / 1000;
+  int brown = 0;
+  int unexp = 0;
+  std::cout << "[OUTER " << static_cast<int>(completed_outer) << "/5]\n"
+            << "full_user_ms=" << (full_user / 1000) << "\n"
+            << "hot_sendto=50/50\n"
+            << "receiver_hot=" << hot_n << "/50\n"
+            << "hot_user_median_ms=" << hot_med << "\n"
+            << "wake_overhead_median_ms=" << wake_med << "\n"
+            << "callback_seen_sum=" << cb << " timeouts_sum=" << to << "\n"
+            << "brownout=" << brown << "\n"
+            << "unexpected_reset=" << unexp << "\n"
+            << "remaining=" << (5 - completed_outer) << "\n"
+            << "NEXT:\n"
+            << (completed_outer < 5
+                    ? ("FULL " + std::to_string(completed_outer + 1) + "/5")
+                    : "FINAL")
+            << "\n\n";
+  std::cout.flush();
+}
+
+void NoteRecord(temp_sensor::bench::DsPayload const& p) {
+  if (p.record_id == 0 || p.pending_kind == 0) {
+    return;
+  }
+  if (g_seen_records.count(p.record_id)) {
+    ++g_dup_records;
+    return;
+  }
+  g_seen_records.insert(p.record_id);
+  if (static_cast<int>(p.record_id) < g_max_record) {
+    ++g_ooo;
+  }
+  if (static_cast<int>(p.record_id) > g_max_record) {
+    g_max_record = p.record_id;
+  }
+
+  Meas m{};
+  m.record_id = p.record_id;
+  m.kind = p.pending_kind;
+  m.outer = p.pending_outer;
+  m.hot = p.pending_hot_index;
+  m.user_us = p.pending_user_cycle_us;
+  m.wifi_us = p.pending_wifi_cycle_us;
+  m.connect_us = p.connect_us;
+  m.txdone_us = p.tx_done_wait_us;
+  m.teardown_us = p.teardown_us;
+  m.sleep_elapsed_us = p.sleep_elapsed_to_app_us;
+  m.sleep_overhead_us = p.sleep_to_app_overhead_us;
+  m.app_entry_us = p.app_entry_esp_timer_us;
+  m.cb_seen = (p.flags & static_cast<std::uint8_t>(
+                             temp_sensor::bench::DsFlags::kCallbackSeen))
+                  ? 1
+                  : 0;
+  m.cb_timeout = (p.flags & static_cast<std::uint8_t>(
+                                temp_sensor::bench::DsFlags::kCallbackTimeout))
+                     ? 1
+                     : 0;
+  m.brownout =
+      (p.flags & static_cast<std::uint8_t>(temp_sensor::bench::DsFlags::kBrownout))
+          ? 1
+          : 0;
+  m.auth = p.negotiated_auth;
+  if (m.brownout) {
+    ++g_brownout_boots;
+  }
+  g_meas.push_back(m);
+  AppendTsv(p, m);
+
+  // When HOT#1 of outer N+1 arrives (or FULL of N+1), prior outer HOT set is done.
+  if (p.type == static_cast<std::uint8_t>(temp_sensor::bench::DsMsgType::kFull) &&
+      p.outer_cycle > 1) {
+    PrintOuterSummary(static_cast<std::uint8_t>(p.outer_cycle - 1));
   }
 }
 
-void PrintTestResult() {
-  auto const cyc_med = PercentileUs(g_st.cycle_us, 50) / 1000;
-  auto const cyc_p90 = PercentileUs(g_st.cycle_us, 90) / 1000;
-  auto const cyc_max =
-      g_st.cycle_us.empty()
-          ? 0
-          : *std::max_element(g_st.cycle_us.begin(), g_st.cycle_us.end()) /
-                1000;
-  auto const conn_med = PercentileUs(g_st.connect_us, 50) / 1000;
-  auto const txdone_med = PercentileUs(g_st.tx_done_wait_us, 50) / 1000;
-  auto const teardown_med = PercentileUs(g_st.teardown_us, 50) / 1000;
-  int missing = g_st.planned - g_st.delivered;
-  if (missing < 0) {
-    missing = 0;
+void PrintFinalStats() {
+  std::vector<std::uint32_t> full_user;
+  std::vector<std::uint32_t> hot_user;
+  std::vector<std::uint32_t> hot_wifi;
+  std::vector<std::uint32_t> connect;
+  std::vector<std::uint32_t> txdone;
+  std::vector<std::uint32_t> teardown;
+  std::vector<std::uint32_t> sleep_el;
+  std::vector<std::uint32_t> sleep_oh;
+  std::vector<std::uint32_t> app_entry;
+  int cb = 0;
+  int to = 0;
+  for (auto const& m : g_meas) {
+    sleep_el.push_back(m.sleep_elapsed_us);
+    sleep_oh.push_back(m.sleep_overhead_us);
+    app_entry.push_back(m.app_entry_us);
+    if (m.kind == static_cast<std::uint8_t>(temp_sensor::bench::DsPendingKind::kFull)) {
+      full_user.push_back(m.user_us);
+    }
+    if (m.kind == static_cast<std::uint8_t>(temp_sensor::bench::DsPendingKind::kHot)) {
+      hot_user.push_back(m.user_us);
+      hot_wifi.push_back(m.wifi_us);
+      connect.push_back(m.connect_us);
+      txdone.push_back(m.txdone_us);
+      teardown.push_back(m.teardown_us);
+      cb += m.cb_seen;
+      to += m.cb_timeout;
+    }
+  }
+  if (g_last_outer_reported < 5) {
+    PrintOuterSummary(5);
   }
   std::cout << "TEST_RESULT"
-            << " test_id=" << static_cast<int>(g_st.test_id)
-            << " n=" << g_st.planned << " delivered=" << g_st.delivered << "/"
-            << g_st.planned << " connect_med_ms=" << conn_med
-            << " cycle_med_ms=" << cyc_med << " p90_ms=" << cyc_p90
-            << " max_ms=" << cyc_max
-            << " wifi_ready=" << static_cast<int>(g_st.wifi_ready)
-            << " encode=" << static_cast<int>(g_st.encode)
-            << " sendto=" << static_cast<int>(g_st.sendto)
-            << " nonce=" << static_cast<int>(g_st.nonce)
-            << " pre=" << g_st.pre_ms << " post=" << g_st.post_ms
-            << " assoc=0x" << std::hex << static_cast<int>(g_st.assoc_bits)
-            << std::dec << " auth=" << static_cast<int>(g_st.auth)
-            << " retry=" << static_cast<int>(g_st.retry_max)
-            << " post_mode=" << static_cast<int>(g_st.post_mode)
-            << " cb_any=" << g_st.cb_any << " cb_match=" << g_st.cb_match
-            << " cb_timeout=" << g_st.cb_timeout
-            << " txdone_med_ms=" << txdone_med
-            << " teardown_med_ms=" << teardown_med
-            << " missing=" << missing
-            << " duplicates=" << g_st.duplicates
-            << " ooo=" << g_st.out_of_order
-            << " samples=" << g_st.cycle_us.size() << "\n";
-  std::cout << "BENCH_DONE test_id=" << static_cast<int>(g_st.test_id) << "\n";
+            << " full_recv=" << g_full_recv << " hot_recv=" << g_hot_recv
+            << " final_recv=" << g_final_recv
+            << " records=" << g_meas.size() << " dup=" << g_dup_records
+            << " ooo=" << g_ooo
+            << " full_med_ms=" << (PercentileUs(full_user, 50) / 1000)
+            << " hot_user_med_ms=" << (PercentileUs(hot_user, 50) / 1000)
+            << " hot_user_p90_ms=" << (PercentileUs(hot_user, 90) / 1000)
+            << " hot_user_p99_ms=" << (PercentileUs(hot_user, 99) / 1000)
+            << " hot_wifi_med_ms=" << (PercentileUs(hot_wifi, 50) / 1000)
+            << " connect_med_ms=" << (PercentileUs(connect, 50) / 1000)
+            << " txdone_med_ms=" << (PercentileUs(txdone, 50) / 1000)
+            << " teardown_med_ms=" << (PercentileUs(teardown, 50) / 1000)
+            << " wake_oh_med_ms=" << (PercentileUs(sleep_oh, 50) / 1000)
+            << " wake_oh_p90_ms=" << (PercentileUs(sleep_oh, 90) / 1000)
+            << " wake_oh_p99_ms=" << (PercentileUs(sleep_oh, 99) / 1000)
+            << " app_entry_med_us=" << PercentileUs(app_entry, 50)
+            << " cb_seen=" << cb << " cb_timeout=" << to
+            << " brownout_boots=" << g_brownout_boots << "\n";
+  std::cout << "BENCH_DONE deepsleep_5x50\n";
   std::cout.flush();
 }
 
-void OnFast(temp_sensor::bench::FastPayload const& p) {
-  auto const ts = NowMs();
-  auto const type = static_cast<temp_sensor::bench::FastMsgType>(p.type);
-  if (type == temp_sensor::bench::FastMsgType::kFull) {
+void OnDs(temp_sensor::bench::DsPayload const& p) {
+  auto const type = static_cast<temp_sensor::bench::DsMsgType>(p.type);
+  if (type == temp_sensor::bench::DsMsgType::kFull) {
     ++g_full_recv;
-    int planned = p.prepared_index;
-    if (planned == 0) {
-      planned = 20;
-    }
-    ResetStats(p.test_id, planned);
-    g_st.pre_ms = p.pre_ms;
-    g_st.post_ms = p.post_ms;
-    g_st.assoc_bits = p.assoc_bits;
-    g_st.retry_max = p.retry_max;
-    g_st.post_mode = p.post_mode;
-    std::cout << ae::Format("RECV FULL test_id={} n={} seq={} ts={}\n",
-                            p.test_id, planned, p.sequence_global, ts);
-  } else if (type == temp_sensor::bench::FastMsgType::kPrepared) {
-    ++g_prep_recv;
-    if (g_st.planned == 0 || g_st.test_id != p.test_id) {
-      // New test without FULL, or FULL was lost — start a fresh window.
-      int planned = p.prepared_index > 0 ? static_cast<int>(p.prepared_index) : 20;
-      // prepared_index is 1-based send index, not N; keep previous planned if
-      // same test, otherwise default to at least the index we just saw.
-      if (g_st.test_id != p.test_id || g_st.planned == 0) {
-        planned = 20;
-        if (p.prepared_index > planned) {
-          planned = p.prepared_index;
-        }
-        ResetStats(p.test_id, planned);
-      }
-    }
-    NotePrepared(p.prepared_index);
-    g_st.pre_ms = p.pre_ms;
-    g_st.post_ms = p.post_ms;
-    g_st.assoc_bits = p.assoc_bits;
-    g_st.auth = p.auth_negotiated;
-    g_st.retry_max = p.retry_max;
-    g_st.post_mode = p.post_mode;
-    g_st.cb_any += p.cb_any;
-    g_st.cb_match += p.cb_match;
-    g_st.cb_timeout += p.cb_timeout;
-    if (p.cycle_us != 0) {
-      g_st.cycle_us.push_back(p.cycle_us);
-    }
-    if (p.connect_us != 0) {
-      g_st.connect_us.push_back(p.connect_us);
-    }
-    if (p.tx_done_wait_us != 0 || p.cb_any || p.cb_timeout) {
-      g_st.tx_done_wait_us.push_back(p.tx_done_wait_us);
-    }
-    if (p.teardown_us != 0) {
-      g_st.teardown_us.push_back(p.teardown_us);
-    }
     std::cout << ae::Format(
-        "RECV PREPARED test_id={} idx={} seq={} cycle_us={} connect_us={} "
-        "txdone_us={} teardown_us={} auth={} cb={} to={} flags={} ts={}\n",
-        p.test_id, p.prepared_index, p.sequence_global, p.cycle_us,
-        p.connect_us, p.tx_done_wait_us, p.teardown_us, p.auth_negotiated,
-        p.cb_any, p.cb_timeout, p.status_flags, ts);
-  } else if (type == temp_sensor::bench::FastMsgType::kFinal) {
+        "RECV FULL outer={} seq={} pending_kind={} record={} user_us={}\n",
+        p.outer_cycle, p.sequence_global, p.pending_kind, p.record_id,
+        p.pending_user_cycle_us);
+  } else if (type == temp_sensor::bench::DsMsgType::kHot) {
+    ++g_hot_recv;
+    if (g_hot_recv <= 3 || g_hot_recv % 25 == 0) {
+      std::cout << ae::Format(
+          "RECV HOT outer={} idx={} seq={} record={} user_us={} wifi_us={}\n",
+          p.outer_cycle, p.hot_index, p.sequence_global, p.record_id,
+          p.pending_user_cycle_us, p.pending_wifi_cycle_us);
+    }
+  } else if (type == temp_sensor::bench::DsMsgType::kFinal) {
     ++g_final_recv;
-    g_st.test_id = p.test_id;
-    if (p.prepared_index != 0) {
-      g_st.planned = p.prepared_index;
-    } else if (p.wifi_ready_count != 0) {
-      g_st.planned = p.wifi_ready_count;
-    }
-    g_st.wifi_ready = p.wifi_ready_count;
-    g_st.encode = p.encode_count;
-    g_st.sendto = p.sendto_count;
-    g_st.nonce = p.nonce_consumed;
-    g_st.auth = p.auth_negotiated;
-    g_st.pre_ms = p.pre_ms;
-    g_st.post_ms = p.post_ms;
-    g_st.assoc_bits = p.assoc_bits;
-    g_st.retry_max = p.retry_max;
-    g_st.post_mode = p.post_mode;
-    // FINAL carries device totals for callback_seen / timeout.
-    g_st.cb_any = p.cb_any;
-    g_st.cb_match = p.cb_match;
-    g_st.cb_timeout = p.cb_timeout;
-    if (p.cycle_us != 0) {
-      g_st.cycle_us.push_back(p.cycle_us);
-    }
-    if (p.connect_us != 0) {
-      g_st.connect_us.push_back(p.connect_us);
-    }
-    if (p.tx_done_wait_us != 0 || p.cb_any || p.cb_timeout) {
-      g_st.tx_done_wait_us.push_back(p.tx_done_wait_us);
-    }
-    if (p.teardown_us != 0) {
-      g_st.teardown_us.push_back(p.teardown_us);
-    }
-    // Prefer device counters for delivery when FULL was missed.
-    if (g_st.delivered == 0 && p.sendto_count != 0) {
-      g_st.delivered = p.sendto_count;
-    }
-    std::cout << ae::Format(
-        "RECV FINAL test_id={} seq={} last_cycle={} wifi_ready={} encode={} "
-        "sendto={} nonce={} ts={}\n",
-        p.test_id, p.sequence_global, p.cycle_us, p.wifi_ready_count,
-        p.encode_count, p.sendto_count, p.nonce_consumed, ts);
-    PrintTestResult();
+    std::cout << ae::Format("RECV FINAL seq={} record={}\n", p.sequence_global,
+                            p.record_id);
+  } else {
+    std::cout << ae::Format("RECV RECOVERY/OTHER type={} seq={}\n", p.type,
+                            p.sequence_global);
+  }
+  NoteRecord(p);
+  if (type == temp_sensor::bench::DsMsgType::kFinal) {
+    PrintFinalStats();
   }
   std::cout.flush();
 }
 
-void OnMessage(ae::Uid sender, ae::DataBuffer const& data) {
+void OnMessage(ae::Uid, ae::DataBuffer const& data) {
   std::lock_guard lock{g_mu};
-  temp_sensor::bench::FastPayload fp{};
-  if (temp_sensor::bench::DecodeFast(data, fp)) {
-    OnFast(fp);
+  temp_sensor::bench::DsPayload ds{};
+  if (temp_sensor::bench::DecodeDs(data, ds)) {
+    OnDs(ds);
     return;
   }
-  std::cout << "RECV unknown sender=" << ae::Format("{}", sender)
-            << " size=" << data.size() << "\n";
+  temp_sensor::bench::FastPayload fp{};
+  if (temp_sensor::bench::DecodeFast(data, fp)) {
+    std::cout << "RECV FAST (ignored in deepsleep run) type="
+              << static_cast<int>(fp.type) << "\n";
+    std::cout.flush();
+    return;
+  }
+  std::cout << "RECV unknown size=" << data.size() << "\n";
   std::cout.flush();
 }
 

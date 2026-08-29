@@ -33,6 +33,12 @@ elseif(AE_EXP_PREPARED_WIFI_FASTEST)
     "prepared_wifi_fastest_path_bench.cpp"
     "prepared_send/prepared_send.cpp"
   )
+elseif(AE_EXP_PREPARED_DEEPSLEEP_5X50)
+  list(APPEND src_list
+    "prepared_deepsleep_5x50_bench.cpp"
+    "experiment_early_entry.cpp"
+    "prepared_send/prepared_send.cpp"
+  )
 elseif(AE_EXP_PREPARED_WIFI_BISECT)
   list(APPEND src_list
     "prepared_wifi_single_factor_bisect_bench.cpp"
@@ -172,6 +178,7 @@ set(AE_EXP_PREPARED_WIFI_CACHE_5X20 "" CACHE STRING "Silent 5x20 prepared Wi-Fi 
 set(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 "" CACHE STRING "Silent 5x20 keep-Wi-Fi-up prepared bench (set to 1)")
 set(AE_EXP_PREPARED_WIFI_BISECT "" CACHE STRING "Silent single-factor prepared Wi-Fi bisect (set to 1)")
 set(AE_EXP_PREPARED_WIFI_FASTEST "" CACHE STRING "Silent fastest-path prepared campaign (set to 1)")
+set(AE_EXP_PREPARED_DEEPSLEEP_5X50 "" CACHE STRING "Silent deep-sleep 5x50 prepared E2E (set to 1)")
 set(AE_EXP_FAST_N "" CACHE STRING "Fastest-path prepared count")
 set(AE_EXP_FAST_TEST_ID "" CACHE STRING "Fastest-path test id")
 set(AE_EXP_FAST_PRE_MS "" CACHE STRING "Fastest-path pre-send delay ms")
@@ -225,6 +232,7 @@ ae_exp_define_if_set(AE_EXP_PREPARED_WIFI_CACHE_5X20)
 ae_exp_define_if_set(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20)
 ae_exp_define_if_set(AE_EXP_PREPARED_WIFI_BISECT)
 ae_exp_define_if_set(AE_EXP_PREPARED_WIFI_FASTEST)
+ae_exp_define_if_set(AE_EXP_PREPARED_DEEPSLEEP_5X50)
 ae_exp_define_if_set(AE_EXP_FAST_N)
 ae_exp_define_if_set(AE_EXP_FAST_TEST_ID)
 ae_exp_define_if_set(AE_EXP_FAST_PRE_MS)
@@ -241,6 +249,7 @@ ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
 if(AE_EXP_PREPARED_WIFI_CACHE_5X20 STREQUAL "1" OR
    AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 STREQUAL "1" OR
    AE_EXP_PREPARED_WIFI_FASTEST STREQUAL "1" OR
+   AE_EXP_PREPARED_DEEPSLEEP_5X50 STREQUAL "1" OR
    (AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1" AND
     NOT AE_EXP_BISECT_CONSOLE STREQUAL "1"))
   target_compile_definitions(aether PUBLIC "AE_EXP_SILENT=1")

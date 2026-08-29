@@ -162,8 +162,32 @@ struct FastSendResult {
 
 // BASE = cached channel + static IPv4/netmask/gw + static ARP. No BSSID.
 // Wi-Fi 4, WIFI_PS_NONE, auto PHY rate, max TX power. Timer excludes 1 s gap.
-FastSendResult SendPreparedOnceWithFastPath(FastPathConfig const& cfg,
-                                            ae::DataBuffer const& payload);
+// Optional wifi_cache overrides the in-RAM bisect cache (for deep-sleep RTC).
+FastSendResult SendPreparedOnceWithFastPath(
+    FastPathConfig const& cfg, ae::DataBuffer const& payload,
+    BisectWifiCacheSnapshot const* wifi_cache = nullptr);
+
+// RTC-retained Wi-Fi cache for deep-sleep experiments (not BSSID reconnect).
+struct PreparedWifiRtcCache {
+  std::uint32_t magic{0};
+  std::uint16_t version{0};
+  std::uint16_t flags{0};  // bit0=ip, bit1=channel, bit2=gw_mac, bit3=bssid_diag
+  std::uint8_t channel{0};
+  std::uint8_t bssid[6]{};
+  std::uint8_t gw_mac[6]{};
+  std::uint32_t ip{0};
+  std::uint32_t netmask{0};
+  std::uint32_t gateway{0};
+  std::uint32_t crc{0};
+};
+
+static constexpr std::uint32_t kPreparedWifiRtcMagic = 0x57434631u;  // WCF1
+static constexpr std::uint16_t kPreparedWifiRtcVersion = 1;
+
+bool CapturePreparedWifiRtcCache(PreparedWifiRtcCache* out);
+bool PreparedWifiRtcCacheIsValid(PreparedWifiRtcCache const& cache);
+BisectWifiCacheSnapshot SnapshotFromPreparedWifiRtcCache(
+    PreparedWifiRtcCache const& cache);
 #endif
 
 HotSendStatus TryHotWakePreparedSend(std::string const& temperature);

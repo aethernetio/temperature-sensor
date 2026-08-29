@@ -1,0 +1,32 @@
+/*
+ * Copyright 2026 Aethernet Inc.
+ *
+ * First-instruction app_main hook for deep-sleep timing experiments.
+ * No heap, no logging, no formatting.
+ */
+
+#ifndef TEMP_SENSOR_EXPERIMENT_EARLY_ENTRY_H_
+#define TEMP_SENSOR_EXPERIMENT_EARLY_ENTRY_H_
+
+#include <cstdint>
+
+struct ExperimentEarlyEntrySnapshot {
+  std::int64_t app_entry_esp_timer_us{0};
+  std::uint64_t app_entry_rtc_us{0};
+  std::uint8_t reset_reason{0};
+  std::uint8_t wakeup_cause{0};
+  std::uint8_t valid{0};
+};
+
+#if defined(ESP_PLATFORM) && defined(AE_EXP_PREPARED_DEEPSLEEP_5X50)
+extern "C" void ExperimentEarlyAppEntry();
+ExperimentEarlyEntrySnapshot const& GetExperimentEarlyEntrySnapshot();
+#else
+inline void ExperimentEarlyAppEntry() {}
+inline ExperimentEarlyEntrySnapshot const& GetExperimentEarlyEntrySnapshot() {
+  static ExperimentEarlyEntrySnapshot empty{};
+  return empty;
+}
+#endif
+
+#endif  // TEMP_SENSOR_EXPERIMENT_EARLY_ENTRY_H_

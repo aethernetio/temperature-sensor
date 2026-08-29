@@ -1268,7 +1268,8 @@ std::uint8_t ReadNegotiatedAuth() {
   return static_cast<std::uint8_t>(ap_info.authmode);
 }
 
-bool StartFastWifi(FastPathConfig const& cfg) {
+bool StartFastWifi(FastPathConfig const& cfg,
+                   BisectWifiCacheSnapshot const* cache_override) {
 #  ifndef WIFI_SSID
   return false;
 #  endif
@@ -1276,12 +1277,15 @@ bool StartFastWifi(FastPathConfig const& cfg) {
   return false;
 #  endif
 
+  BisectWifiCacheSnapshot const& cache =
+      cache_override != nullptr ? *cache_override : g_bisect_cache;
+
   CleanupHotPathWifiRuntime();
   g_bisect_actual_channel = 0;
 
-  bool const need_static_ip = cfg.use_static_ip && g_bisect_cache.valid_ip;
+  bool const need_static_ip = cfg.use_static_ip && cache.valid_ip;
   g_wait_got_ip = !need_static_ip;
-  g_using_bssid_cache = cfg.use_bssid && g_bisect_cache.valid_bssid;
+  g_using_bssid_cache = cfg.use_bssid && cache.valid_bssid;
   g_max_wifi_retry = cfg.retry_max;
 
   wifi_init_config_t wifi_init_cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -1325,9 +1329,9 @@ bool StartFastWifi(FastPathConfig const& cfg) {
   if (need_static_ip) {
     esp_netif_dhcpc_stop(g_wifi_netif);
     esp_netif_ip_info_t ip_info = {
-        .ip = {.addr = g_bisect_cache.ip},
-        .netmask = {.addr = g_bisect_cache.netmask},
-        .gw = {.addr = g_bisect_cache.gateway}};
+        .ip = {.addr = cache.ip},
+        .netmask = {.addr = cache.netmask},
+        .gw = {.addr = cache.gateway}};
     esp_netif_set_ip_info(g_wifi_netif, &ip_info);
     rtc_ip_info = ip_info;
     address_is_valid = true;
@@ -1388,14 +1392,14 @@ bool StartFastWifi(FastPathConfig const& cfg) {
     wifi_config.sta.scan_method = WIFI_FAST_SCAN;
   }
 
-  if (cfg.use_bssid && g_bisect_cache.valid_bssid) {
+  if (cfg.use_bssid && cache.valid_bssid) {
     wifi_config.sta.bssid_set = true;
-    std::memcpy(wifi_config.sta.bssid, g_bisect_cache.bssid,
+    std::memcpy(wifi_config.sta.bssid, cache.bssid,
                 sizeof(wifi_config.sta.bssid));
   }
 
-  if (cfg.use_channel && g_bisect_cache.channel != 0) {
-    wifi_config.sta.channel = g_bisect_cache.channel;
+  if (cfg.use_channel && cache.channel != 0) {
+    wifi_config.sta.channel = cache.channel;
   }
 
   err = esp_wifi_set_mode(WIFI_MODE_STA);
@@ -1435,9 +1439,8 @@ bool StartFastWifi(FastPathConfig const& cfg) {
 
   g_bisect_actual_channel = ReadActualChannel();
 
-  if (cfg.use_static_arp && g_bisect_cache.valid_gw_mac &&
-      g_bisect_cache.valid_ip) {
-    std::memcpy(gateway_mac, g_bisect_cache.gw_mac, sizeof(gateway_mac));
+  if (cfg.use_static_arp && cache.valid_gw_mac && cache.valid_ip) {
+    std::memcpy(gateway_mac, cache.gw_mac, sizeof(gateway_mac));
     gateway_mac_valid = true;
     (void)InstallStaticGatewayArp();
   }
@@ -1558,12 +1561,14 @@ BisectSendResult SendPreparedOnceWithBisectFactor(
   return out;
 }
 
-FastSendResult SendPreparedOnceWithFastPath(FastPathConfig const& cfg,
-                                            ae::DataBuffer const& payload) {
+FastSendResult SendPreparedOnceWithFastPath(
+    FastPathConfig const& cfg, ae::DataBuffer const& payload,
+    BisectWifiCacheSnapshot const* wifi_cache) {
   FastSendResult out{};
+  BisectWifiCacheSnapshot const& cache =
+      wifi_cache != nullptr ? *wifi_cache : g_bisect_cache;
   out.requested_channel =
-      (cfg.use_channel && g_bisect_cache.channel != 0) ? g_bisect_cache.channel
-                                                       : 0;
+      (cfg.use_channel && cache.channel != 0) ? cache.channel : 0;
 
   if (!g_prepared_send_message_block.is_valid()) {
     out.status = HotSendStatus::kNoPreparedBlock;
@@ -1575,7 +1580,7 @@ FastSendResult SendPreparedOnceWithFastPath(FastPathConfig const& cfg,
   }
 
   auto const t0 = esp_timer_get_time();
-  if (!StartFastWifi(cfg)) {
+  if (!StartFastWifi(cfg, wifi_cache)) {
     CleanupHotPathWifiRuntime();
     out.status = HotSendStatus::kWifiFailed;
     out.actual_channel = g_bisect_actual_channel;
@@ -1648,6 +1653,91 @@ FastSendResult SendPreparedOnceWithFastPath(FastPathConfig const& cfg,
   out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
   out.status = encode_status;
   return out;
+}
+
+namespace {
+std::uint32_t Crc32Bytes(void const* data, std::size_t len) {
+  auto const* p = static_cast<std::uint8_t const*>(data);
+  std::uint32_t crc = 0xffffffffu;
+  for (std::size_t i = 0; i < len; ++i) {
+    crc ^= p[i];
+    for (int b = 0; b < 8; ++b) {
+      std::uint32_t const mask = -(crc & 1u);
+      crc = (crc >> 1) ^ (0xedb88320u & mask);
+    }
+  }
+  return ~crc;
+}
+}  // namespace
+
+bool PreparedWifiRtcCacheIsValid(PreparedWifiRtcCache const& cache) {
+  if (cache.magic != kPreparedWifiRtcMagic ||
+      cache.version != kPreparedWifiRtcVersion) {
+    return false;
+  }
+  PreparedWifiRtcCache tmp = cache;
+  tmp.crc = 0;
+  auto const expect = Crc32Bytes(&tmp, sizeof(tmp));
+  if (expect != cache.crc) {
+    return false;
+  }
+  bool const have_ip = (cache.flags & 1u) != 0;
+  bool const have_ch = (cache.flags & 2u) != 0;
+  bool const have_gw = (cache.flags & 4u) != 0;
+  return have_ip && have_ch && have_gw && cache.channel != 0 && cache.ip != 0;
+}
+
+BisectWifiCacheSnapshot SnapshotFromPreparedWifiRtcCache(
+    PreparedWifiRtcCache const& cache) {
+  BisectWifiCacheSnapshot s{};
+  if (!PreparedWifiRtcCacheIsValid(cache)) {
+    return s;
+  }
+  s.valid_ip = true;
+  s.valid_gw_mac = true;
+  s.valid_bssid = (cache.flags & 8u) != 0;
+  s.channel = cache.channel;
+  s.ip = cache.ip;
+  s.netmask = cache.netmask;
+  s.gateway = cache.gateway;
+  std::memcpy(s.gw_mac, cache.gw_mac, sizeof(s.gw_mac));
+  std::memcpy(s.bssid, cache.bssid, sizeof(s.bssid));
+  return s;
+}
+
+bool CapturePreparedWifiRtcCache(PreparedWifiRtcCache* out) {
+  if (out == nullptr) {
+    return false;
+  }
+  if (!FreezeBisectWifiCacheFromActiveConnection()) {
+    return false;
+  }
+  PreparedWifiRtcCache c{};
+  c.magic = kPreparedWifiRtcMagic;
+  c.version = kPreparedWifiRtcVersion;
+  c.flags = 0;
+  if (g_bisect_cache.valid_ip) {
+    c.flags |= 1u;
+    c.ip = g_bisect_cache.ip;
+    c.netmask = g_bisect_cache.netmask;
+    c.gateway = g_bisect_cache.gateway;
+  }
+  if (g_bisect_cache.channel != 0) {
+    c.flags |= 2u;
+    c.channel = g_bisect_cache.channel;
+  }
+  if (g_bisect_cache.valid_gw_mac) {
+    c.flags |= 4u;
+    std::memcpy(c.gw_mac, g_bisect_cache.gw_mac, sizeof(c.gw_mac));
+  }
+  if (g_bisect_cache.valid_bssid) {
+    c.flags |= 8u;
+    std::memcpy(c.bssid, g_bisect_cache.bssid, sizeof(c.bssid));
+  }
+  c.crc = 0;
+  c.crc = Crc32Bytes(&c, sizeof(c));
+  *out = c;
+  return PreparedWifiRtcCacheIsValid(*out);
 }
 #endif
 

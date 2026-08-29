@@ -288,6 +288,78 @@ inline bool DecodeFast(Buffer const& data, FastPayload& out) {
   return out.magic == kFastMagic;
 }
 
+static constexpr std::uint8_t kDsMagic = 0xD5;
+
+enum class DsMsgType : std::uint8_t {
+  kFull = 1,
+  kHot = 2,
+  kFinal = 3,
+  kRecovery = 4,
+};
+
+enum class DsFlags : std::uint8_t {
+  kBrownout = 1 << 0,
+  kCallbackSeen = 1 << 1,
+  kCallbackTimeout = 1 << 2,
+  kCacheValid = 1 << 3,
+  kStateValid = 1 << 4,
+};
+
+enum class DsPendingKind : std::uint8_t {
+  kNone = 0,
+  kFull = 1,
+  kHot = 2,
+};
+
+#pragma pack(push, 1)
+struct DsPayload {
+  std::uint8_t magic{kDsMagic};
+  std::uint8_t type{0};
+  std::uint8_t outer_cycle{0};
+  std::uint8_t hot_index{0};
+  std::uint16_t sequence_global{0};
+  std::uint16_t record_id{0};
+  std::uint8_t reset_reason{0};
+  std::uint8_t wake_cause{0};
+  std::uint8_t flags{0};
+  std::uint8_t brownout_count{0};
+  std::uint8_t unexpected_reset_count{0};
+  std::uint8_t negotiated_auth{0};
+  std::uint32_t requested_sleep_us{0};
+  std::uint32_t sleep_elapsed_to_app_us{0};
+  std::uint32_t sleep_to_app_overhead_us{0};
+  std::uint32_t app_entry_esp_timer_us{0};
+  std::uint32_t pending_user_cycle_us{0};
+  std::uint32_t pending_wifi_cycle_us{0};
+  std::uint32_t connect_us{0};
+  std::uint32_t tx_done_wait_us{0};
+  std::uint32_t teardown_us{0};
+  std::uint16_t prepared_message_left{0};
+  std::uint8_t pending_kind{0};
+  std::uint8_t pending_outer{0};
+  std::uint8_t pending_hot_index{0};
+  std::uint8_t reserved{0};
+};
+#pragma pack(pop)
+
+static_assert(sizeof(DsPayload) == 56, "ds payload size");
+
+template <typename Buffer>
+inline Buffer EncodeDs(DsPayload const& p) {
+  Buffer out(sizeof(DsPayload));
+  std::memcpy(out.data(), &p, sizeof(DsPayload));
+  return out;
+}
+
+template <typename Buffer>
+inline bool DecodeDs(Buffer const& data, DsPayload& out) {
+  if (data.size() < sizeof(DsPayload)) {
+    return false;
+  }
+  std::memcpy(&out, data.data(), sizeof(DsPayload));
+  return out.magic == kDsMagic;
+}
+
 }  // namespace temp_sensor::bench
 
 #endif  // TEMP_SENSOR_BENCH_PAYLOAD_H_

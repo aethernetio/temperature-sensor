@@ -1,0 +1,21 @@
+# Deep-sleep 5x50 prepared E2E overlay (applied after silent+fastest+wpa2only).
+
+# External RTC crystal (do not use INT_RC for this experiment).
+CONFIG_RTC_CLK_SRC_EXT_CRYS=y
+# CONFIG_RTC_CLK_SRC_INT_RC is not set
+CONFIG_RTC_CLK_CAL_CYCLES=0
+
+# Hardware brownout detector ON.
+CONFIG_ESP_BROWNOUT_DET=y
+CONFIG_ESP_BROWNOUT_DET_LVL_SEL_7=y
+
+# No power management / DFS during measurement.
+# CONFIG_PM_ENABLE is not set
+# CONFIG_FREERTOS_USE_TICKLESS_IDLE is not set
+
+# Deep-sleep boot acceleration.
+CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP=y
+
+# CPU 160 MHz (also in fastest overlay; keep explicit).
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_160=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=160

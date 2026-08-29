@@ -20,11 +20,15 @@
 #  include <esp_task_wdt.h>
 #endif
 
+#include "experiment_early_entry.h"
+
 extern void setup();
 extern void loop();
 
 #if defined ESP_PLATFORM
 extern "C" void app_main(void) {
+  ExperimentEarlyAppEntry();
+
   esp_task_wdt_config_t config_wdt = {
       /*.timeout_ms = */ 60000,
       /*.idle_core_mask = */ 0,  // i.e. do not watch any idle task
