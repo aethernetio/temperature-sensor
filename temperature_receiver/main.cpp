@@ -35,6 +35,8 @@ struct TestStats {
   int planned{20};
   int delivered{0};
   int duplicates{0};
+  int out_of_order{0};
+  int max_idx_seen{0};
   std::vector<std::uint8_t> got;
   std::vector<std::uint32_t> cycle_us;
   std::vector<std::uint32_t> connect_us;
@@ -97,6 +99,12 @@ void NotePrepared(int idx) {
   if (!seen) {
     seen = 1;
     ++g_st.delivered;
+    if (idx < g_st.max_idx_seen) {
+      ++g_st.out_of_order;
+    }
+    if (idx > g_st.max_idx_seen) {
+      g_st.max_idx_seen = idx;
+    }
   } else {
     ++g_st.duplicates;
   }
@@ -113,6 +121,10 @@ void PrintTestResult() {
   auto const conn_med = PercentileUs(g_st.connect_us, 50) / 1000;
   auto const txdone_med = PercentileUs(g_st.tx_done_wait_us, 50) / 1000;
   auto const teardown_med = PercentileUs(g_st.teardown_us, 50) / 1000;
+  int missing = g_st.planned - g_st.delivered;
+  if (missing < 0) {
+    missing = 0;
+  }
   std::cout << "TEST_RESULT"
             << " test_id=" << static_cast<int>(g_st.test_id)
             << " n=" << g_st.planned << " delivered=" << g_st.delivered << "/"
@@ -132,6 +144,9 @@ void PrintTestResult() {
             << " cb_timeout=" << g_st.cb_timeout
             << " txdone_med_ms=" << txdone_med
             << " teardown_med_ms=" << teardown_med
+            << " missing=" << missing
+            << " duplicates=" << g_st.duplicates
+            << " ooo=" << g_st.out_of_order
             << " samples=" << g_st.cycle_us.size() << "\n";
   std::cout << "BENCH_DONE test_id=" << static_cast<int>(g_st.test_id) << "\n";
   std::cout.flush();
