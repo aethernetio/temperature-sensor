@@ -20,7 +20,8 @@ struct ExperimentEarlyEntrySnapshot {
 
 #if defined(ESP_PLATFORM) && \
     (defined(AE_EXP_PREPARED_DEEPSLEEP_5X50) || \
-     defined(AE_EXP_PREPARED_TX_DONE_DIAG))
+     defined(AE_EXP_PREPARED_TX_DONE_DIAG) || \
+     defined(AE_EXP_PREPARED_MAC_RETRY_DIAG))
 extern "C" void ExperimentEarlyAppEntry();
 ExperimentEarlyEntrySnapshot const& GetExperimentEarlyEntrySnapshot();
 #else
@@ -30,5 +31,4 @@ inline ExperimentEarlyEntrySnapshot const& GetExperimentEarlyEntrySnapshot() {
   return empty;
 }
 #endif
-
 #endif  // TEMP_SENSOR_EXPERIMENT_EARLY_ENTRY_H_

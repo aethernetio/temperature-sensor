@@ -45,6 +45,12 @@ elseif(AE_EXP_PREPARED_TX_DONE_DIAG)
     "experiment_early_entry.cpp"
     "prepared_send/prepared_send.cpp"
   )
+elseif(AE_EXP_PREPARED_MAC_RETRY_DIAG)
+  list(APPEND src_list
+    "prepared_mac_retry_diag_bench.cpp"
+    "experiment_early_entry.cpp"
+    "prepared_send/prepared_send.cpp"
+  )
 elseif(AE_EXP_PREPARED_WIFI_BISECT)
   list(APPEND src_list
     "prepared_wifi_single_factor_bisect_bench.cpp"
@@ -186,6 +192,7 @@ set(AE_EXP_PREPARED_WIFI_BISECT "" CACHE STRING "Silent single-factor prepared W
 set(AE_EXP_PREPARED_WIFI_FASTEST "" CACHE STRING "Silent fastest-path prepared campaign (set to 1)")
 set(AE_EXP_PREPARED_DEEPSLEEP_5X50 "" CACHE STRING "Silent deep-sleep 5x50 prepared E2E (set to 1)")
 set(AE_EXP_PREPARED_TX_DONE_DIAG "" CACHE STRING "Silent TX-done callback diagnostic 1x50 (set to 1)")
+set(AE_EXP_PREPARED_MAC_RETRY_DIAG "" CACHE STRING "Silent MAC retry-limit diagnostic 7x50 (set to 1)")
 set(AE_EXP_TX_DIAG_MODE "" CACHE STRING "TX-done diag mode 0=FIRST_ANY 1=FIRST_SUCCESS")
 set(AE_EXP_FAST_N "" CACHE STRING "Fastest-path prepared count")
 set(AE_EXP_FAST_TEST_ID "" CACHE STRING "Fastest-path test id")
@@ -242,6 +249,7 @@ ae_exp_define_if_set(AE_EXP_PREPARED_WIFI_BISECT)
 ae_exp_define_if_set(AE_EXP_PREPARED_WIFI_FASTEST)
 ae_exp_define_if_set(AE_EXP_PREPARED_DEEPSLEEP_5X50)
 ae_exp_define_if_set(AE_EXP_PREPARED_TX_DONE_DIAG)
+ae_exp_define_if_set(AE_EXP_PREPARED_MAC_RETRY_DIAG)
 ae_exp_define_if_set(AE_EXP_TX_DIAG_MODE)
 ae_exp_define_if_set(AE_EXP_FAST_N)
 ae_exp_define_if_set(AE_EXP_FAST_TEST_ID)
@@ -261,6 +269,7 @@ ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
    AE_EXP_PREPARED_WIFI_FASTEST STREQUAL "1" OR
    AE_EXP_PREPARED_DEEPSLEEP_5X50 STREQUAL "1" OR
    AE_EXP_PREPARED_TX_DONE_DIAG STREQUAL "1" OR
+   AE_EXP_PREPARED_MAC_RETRY_DIAG STREQUAL "1" OR
    (AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1" AND
     NOT AE_EXP_BISECT_CONSOLE STREQUAL "1"))
   target_compile_definitions(aether PUBLIC "AE_EXP_SILENT=1")

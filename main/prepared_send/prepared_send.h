@@ -148,6 +148,11 @@ struct FastPathConfig {
   std::uint16_t post_delay_ms{300};
   FastPostMode post_mode{FastPostMode::kFixedDelay};
   FastTxDoneWaitMode tx_done_wait{FastTxDoneWaitMode::kFirstAny};
+  // Experiment-only: MAC short/long retry via esp_wifi_internal_set_retry_counter.
+  // Association retry_max is independent and must stay unchanged.
+  bool set_mac_retry_limit{false};
+  std::uint8_t mac_short_retry{0};
+  std::uint8_t mac_long_retry{0};
 };
 
 struct FastSendResult {
@@ -181,6 +186,12 @@ struct FastSendResult {
   std::uint8_t disconnect_count{0};
   std::uint8_t last_disconnect_reason{0};
   std::uint8_t reconnect_count{0};
+  // MAC retry-limit diagnostics (experiment).
+  std::int16_t mac_retry_set_rc{-1};  // -1 = not called
+  std::uint8_t mac_short_retry{0};
+  std::uint8_t mac_long_retry{0};
+  std::uint8_t mac_retry_called{0};
+  std::uint32_t retry_cfg_us{0};
 };
 
 // BASE = cached channel + static IPv4/netmask/gw + static ARP. No BSSID.

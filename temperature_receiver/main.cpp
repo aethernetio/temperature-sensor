@@ -1,8 +1,8 @@
 /*
  * Copyright 2026 Aethernet Inc.
  *
- * Desktop Æther receiver for prepared TX-done diagnostics (TxDiagPayload 0xD6)
- * and deep-sleep E2E (DsPayload 0xD5). Deduplicates by record_id; appends TSV.
+ * Desktop Æther receiver for prepared MAC-retry diagnostics (MacRetryPayload 0xD7),
+ * TX-done (0xD6) and deep-sleep E2E (0xD5). Deduplicates by record_id; appends TSV.
  */
 
 #include <algorithm>
@@ -65,6 +65,14 @@ struct Meas {
   std::uint8_t reconnect_count{0};
   std::uint8_t ap_primary{0};
   std::uint16_t seq{0};
+  std::uint8_t variant{0};
+  std::uint8_t short_retry{0};
+  std::uint8_t long_retry{0};
+  std::uint8_t retry_called{0};
+  std::int16_t retry_set_rc{-1};
+  std::uint32_t retry_cfg_us{0};
+  std::uint32_t encode_us{0};
+  std::uint8_t actual_channel{0};
 };
 
 std::mutex g_mu;
@@ -85,7 +93,7 @@ std::filesystem::path TsvPath() {
     return std::filesystem::path{env};
   }
 #endif
-  return std::filesystem::path{"prepared_tx_done_diag.tsv"};
+  return std::filesystem::path{"prepared_mac_retry_diag.tsv"};
 }
 
 std::uint32_t PercentileUs(std::vector<std::uint32_t> v, int pct) {
@@ -109,7 +117,9 @@ void EnsureTsvHeader() {
          "tx_cb_success\ttx_cb_failed\tfirst_status\tfirst_cb_delta_us\t"
          "first_success_delta_us\tfirst_failed_delta_us\tlast_cb_delta_us\t"
          "callbacks_after_success\trssi\tdisconnect_count\t"
-         "last_disconnect_reason\treconnect_count\tap_primary\n";
+         "last_disconnect_reason\treconnect_count\tap_primary\t"
+         "variant\tshort_retry\tlong_retry\tretry_called\tretry_set_rc\t"
+         "retry_cfg_us\tencode_us\tactual_channel\n";
 }
 
 void AppendTsv(Meas const& m) {
@@ -135,7 +145,13 @@ void AppendTsv(Meas const& m) {
       << static_cast<int>(m.disconnect_count) << '\t'
       << static_cast<int>(m.last_disconnect_reason) << '\t'
       << static_cast<int>(m.reconnect_count) << '\t'
-      << static_cast<int>(m.ap_primary) << '\n';
+      << static_cast<int>(m.ap_primary) << '\t'
+      << static_cast<int>(m.variant) << '\t'
+      << static_cast<int>(m.short_retry) << '\t'
+      << static_cast<int>(m.long_retry) << '\t'
+      << static_cast<int>(m.retry_called) << '\t'
+      << static_cast<int>(m.retry_set_rc) << '\t' << m.retry_cfg_us << '\t'
+      << m.encode_us << '\t' << static_cast<int>(m.actual_channel) << '\n';
 }
 
 void NoteRecord(Meas m) {
@@ -244,6 +260,97 @@ void PrintFinalStats(char const* tag) {
             << " fail_before_succ=" << fail_before_succ
             << " brownout_boots=" << g_brownout_boots << "\n";
   std::cout << "BENCH_DONE " << tag << "\n";
+  std::cout.flush();
+}
+
+void OnMacRetry(temp_sensor::bench::MacRetryPayload const& p) {
+  auto const type = static_cast<temp_sensor::bench::MacRetryMsgType>(p.type);
+  static int hot_by_var[8] = {};
+  if (type == temp_sensor::bench::MacRetryMsgType::kFull) {
+    ++g_full_recv;
+    std::cout << "MAC_FULL seq=" << p.sequence_global
+              << " variant=" << static_cast<unsigned>(p.variant_id)
+              << " name=" << temp_sensor::bench::MacRetryVariantName(p.variant_id)
+              << " prev_v=" << static_cast<unsigned>(p.prev_variant_id)
+              << " prev_sends=" << static_cast<unsigned>(p.prev_hot_send_count)
+              << " prev_tx_ok=" << static_cast<unsigned>(p.prev_tx_success_count)
+              << " prev_tx_fail=" << static_cast<unsigned>(p.prev_tx_fail_count)
+              << "\n";
+  } else if (type == temp_sensor::bench::MacRetryMsgType::kHot) {
+    ++g_hot_recv;
+    auto vid = p.pending_kind == 2 ? p.pending_variant : p.variant_id;
+    if (vid < 8) {
+      ++hot_by_var[vid];
+    }
+    char const* tx = "NA";
+    if (p.first_status == 1) {
+      tx = "OK";
+    } else if (p.first_status == 0) {
+      tx = "FAIL";
+    }
+    char const* cb = "none";
+    if (p.cb_timeout) {
+      cb = "timeout";
+    } else if (p.tx_cb_success) {
+      cb = "success";
+    } else if (p.tx_cb_failed) {
+      cb = "fail";
+    }
+    std::cout << "RETRY V" << static_cast<unsigned>(vid) << " "
+              << (vid < 8 ? hot_by_var[vid] : 0) << "/50"
+              << " s/l=" << static_cast<unsigned>(p.short_retry) << "/"
+              << static_cast<unsigned>(p.long_retry)
+              << " tx=" << tx << " cb=" << cb
+              << " txdone=" << (p.tx_done_wait_us / 1000.0) << "ms"
+              << " wifi=" << (p.pending_wifi_cycle_us / 1000.0) << "ms"
+              << " rssi=" << static_cast<int>(p.rssi)
+              << " rc=" << p.retry_set_rc
+              << " recv=yes\n";
+  } else if (type == temp_sensor::bench::MacRetryMsgType::kFinal) {
+    ++g_final_recv;
+    std::cout << "MAC_FINAL seq=" << p.sequence_global << "\n";
+  }
+
+  Meas m{};
+  m.record_id = p.record_id;
+  m.kind = p.pending_kind;
+  m.outer = p.pending_variant;
+  m.hot = p.pending_hot_index;
+  m.user_us = p.pending_user_cycle_us;
+  m.wifi_us = p.pending_wifi_cycle_us;
+  m.connect_us = p.connect_us;
+  m.txdone_us = p.tx_done_wait_us;
+  m.teardown_us = p.teardown_us;
+  m.encode_us = p.encode_send_us;
+  m.cb_seen = (p.flags & 2) ? 1 : 0;
+  m.cb_timeout = p.cb_timeout;
+  m.brownout = (p.flags & 1) ? 1 : 0;
+  m.auth = p.authmode;
+  m.tx_cb_total = p.tx_cb_total;
+  m.tx_cb_success = p.tx_cb_success;
+  m.tx_cb_failed = p.tx_cb_failed;
+  m.first_status = p.first_status;
+  m.first_cb_delta_us = p.first_cb_delta_us;
+  m.first_success_delta_us = p.first_success_delta_us;
+  m.first_failed_delta_us = p.first_failed_delta_us;
+  m.last_cb_delta_us = p.last_cb_delta_us;
+  m.rssi = p.rssi;
+  m.disconnect_count = p.disconnect_count;
+  m.reconnect_count = p.reconnect_count;
+  m.actual_channel = p.actual_channel;
+  m.ap_primary = p.actual_channel;
+  m.seq = p.sequence_global;
+  m.variant = p.pending_kind == 2 ? p.pending_variant : p.variant_id;
+  m.short_retry = p.short_retry;
+  m.long_retry = p.long_retry;
+  m.retry_called = p.retry_function_called;
+  m.retry_set_rc = p.retry_set_rc;
+  m.retry_cfg_us = p.retry_cfg_us;
+  NoteRecord(m);
+
+  if (type == temp_sensor::bench::MacRetryMsgType::kFinal) {
+    PrintFinalStats("mac_retry");
+  }
   std::cout.flush();
 }
 
@@ -387,6 +494,11 @@ void OnDs(temp_sensor::bench::DsPayload const& p) {
 
 void OnMessage(ae::Uid, ae::DataBuffer const& data) {
   std::lock_guard lock{g_mu};
+  temp_sensor::bench::MacRetryPayload mr{};
+  if (temp_sensor::bench::DecodeMacRetry(data, mr)) {
+    OnMacRetry(mr);
+    return;
+  }
   temp_sensor::bench::TxDiagPayload td{};
   if (temp_sensor::bench::DecodeTxDiag(data, td)) {
     OnTxDiag(td);

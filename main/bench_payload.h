@@ -519,6 +519,117 @@ inline bool DecodeTxDiag(Buffer const& data, TxDiagPayload& out) {
   return out.magic == kTxDiagMagic;
 }
 
+// MAC retry-limit diagnostic payload (experiment only).
+static constexpr std::uint8_t kMacRetryMagic = 0xD7;
+
+enum class MacRetryMsgType : std::uint8_t {
+  kFull = 1,
+  kHot = 2,
+  kFinal = 3,
+};
+
+enum class MacRetryVariant : std::uint8_t {
+  kControl = 0,
+  k0_0 = 1,
+  k1_1 = 2,
+  k2_2 = 3,
+  k3_3 = 4,
+  k1_7 = 5,
+  k7_1 = 6,
+  kCount = 7,
+};
+
+inline char const* MacRetryVariantName(std::uint8_t id) {
+  switch (static_cast<MacRetryVariant>(id)) {
+    case MacRetryVariant::kControl:
+      return "CONTROL";
+    case MacRetryVariant::k0_0:
+      return "0/0";
+    case MacRetryVariant::k1_1:
+      return "1/1";
+    case MacRetryVariant::k2_2:
+      return "2/2";
+    case MacRetryVariant::k3_3:
+      return "3/3";
+    case MacRetryVariant::k1_7:
+      return "1/7";
+    case MacRetryVariant::k7_1:
+      return "7/1";
+    default:
+      return "?";
+  }
+}
+
+#pragma pack(push, 1)
+struct MacRetryPayload {
+  std::uint8_t magic{kMacRetryMagic};
+  std::uint8_t type{0};
+  std::uint8_t variant_id{0};
+  std::uint8_t hot_index{0};
+  std::uint16_t sequence_global{0};
+  std::uint16_t record_id{0};
+  std::uint8_t short_retry{0};
+  std::uint8_t long_retry{0};
+  std::uint8_t retry_function_called{0};
+  std::int16_t retry_set_rc{-1};
+  std::uint32_t retry_cfg_us{0};
+  std::uint8_t reset_reason{0};
+  std::uint8_t wake_cause{0};
+  std::uint8_t brownout_count{0};
+  std::uint8_t flags{0};
+  std::uint32_t pending_user_cycle_us{0};
+  std::uint32_t pending_wifi_cycle_us{0};
+  std::uint32_t connect_us{0};
+  std::uint32_t encode_send_us{0};
+  std::uint32_t tx_done_wait_us{0};
+  std::uint32_t teardown_us{0};
+  std::uint8_t tx_cb_total{0};
+  std::uint8_t tx_cb_success{0};
+  std::uint8_t tx_cb_failed{0};
+  std::uint8_t first_status{0xff};
+  std::uint8_t cb_timeout{0};
+  std::uint32_t first_cb_delta_us{0xffffffffu};
+  std::uint32_t first_success_delta_us{0xffffffffu};
+  std::uint32_t first_failed_delta_us{0xffffffffu};
+  std::uint32_t last_cb_delta_us{0xffffffffu};
+  std::int8_t rssi{0};
+  std::uint8_t actual_channel{0};
+  std::uint8_t authmode{0};
+  std::uint8_t disconnect_count{0};
+  std::uint8_t reconnect_count{0};
+  std::uint16_t prepared_message_left{0};
+  std::uint8_t prev_variant_id{0xff};
+  std::uint8_t prev_hot_send_count{0};
+  std::uint8_t prev_hot_attempt_count{0};
+  std::uint8_t prev_tx_success_count{0};
+  std::uint8_t prev_tx_fail_count{0};
+  std::uint8_t prev_cb_timeout_count{0};
+  std::uint32_t prev_txdone_sum_us{0};
+  std::uint8_t pending_kind{0};
+  std::uint8_t pending_variant{0};
+  std::uint8_t pending_hot_index{0};
+  std::uint8_t pad0{0};
+};
+#pragma pack(pop)
+
+static_assert(sizeof(MacRetryPayload) == 87, "macretry payload size");
+
+template <typename Buffer>
+inline Buffer EncodeMacRetry(MacRetryPayload const& p) {
+  Buffer out(sizeof(MacRetryPayload));
+  std::memcpy(out.data(), &p, sizeof(MacRetryPayload));
+  return out;
+}
+
+template <typename Buffer>
+inline bool DecodeMacRetry(Buffer const& data, MacRetryPayload& out) {
+  if (data.size() < sizeof(MacRetryPayload)) {
+    return false;
+  }
+  std::memcpy(&out, data.data(), sizeof(MacRetryPayload));
+  return out.magic == kMacRetryMagic;
+}
+
 }  // namespace temp_sensor::bench
 
 #endif  // TEMP_SENSOR_BENCH_PAYLOAD_H_

@@ -790,9 +790,18 @@ HotSendStatus EncodeAndUdpSendTracked(ae::DataBuffer const& payload) {
 // MODE A (kFirstAny): wait first callback regardless of txStatus.
 // MODE B (kFirstSuccess): wait first txStatus==true, then 5 ms observe window.
 // Safety timeout: 100 ms from sendto return. Socket open until unregister.
+#if defined(ESP_PLATFORM)
+extern "C" esp_err_t esp_wifi_internal_set_retry_counter(uint8_t short_retry,
+                                                         uint8_t long_retry);
+#endif
+
+// Prefer: EncodePacket + socket, then optional MAC retry counter, then
+// ResetFastTxDone + tx-done cb + immediate sendto. No Wi-Fi ops between
+// set_retry_counter and sendto. CONTROL leaves set_mac_retry_limit=false.
 HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
                                              FastSendResult* timing,
-                                             FastTxDoneWaitMode wait_mode) {
+                                             FastPathConfig const& cfg) {
+  auto const wait_mode = cfg.tx_done_wait;
   if (!g_prepared_send_message_block.is_valid()) {
     return HotSendStatus::kNoPreparedBlock;
   }
@@ -825,6 +834,26 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
       SOCK_DGRAM, IPPROTO_IP);
   if (sock < 0) {
     return HotSendStatus::kSendFailed;
+  }
+
+  if (timing != nullptr) {
+    timing->mac_retry_called = 0;
+    timing->mac_retry_set_rc = -1;
+    timing->mac_short_retry = cfg.mac_short_retry;
+    timing->mac_long_retry = cfg.mac_long_retry;
+    timing->retry_cfg_us = 0;
+  }
+  if (cfg.set_mac_retry_limit) {
+    auto const t_rc0 = esp_timer_get_time();
+    esp_err_t const rc = esp_wifi_internal_set_retry_counter(
+        cfg.mac_short_retry, cfg.mac_long_retry);
+    auto const t_rc1 = esp_timer_get_time();
+    if (timing != nullptr) {
+      timing->mac_retry_called = 1;
+      timing->mac_retry_set_rc = static_cast<std::int16_t>(rc);
+      auto const d = t_rc1 - t_rc0;
+      timing->retry_cfg_us = d < 0 ? 0 : static_cast<std::uint32_t>(d);
+    }
   }
 
   ResetFastTxDone();
@@ -1753,7 +1782,7 @@ FastSendResult SendPreparedOnceWithFastPath(
   auto const t_post0 = esp_timer_get_time();
   if (cfg.post_mode != FastPostMode::kFixedDelay) {
     encode_status =
-        EncodeAndUdpSendWithLateTxDone(payload, &out, cfg.tx_done_wait);
+        EncodeAndUdpSendWithLateTxDone(payload, &out, cfg);
     std::uint16_t extra_ms = 0;
     if (cfg.post_mode == FastPostMode::kTxDoneCbPlus10) {
       extra_ms = 10;
