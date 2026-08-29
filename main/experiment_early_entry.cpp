@@ -1,12 +1,14 @@
 /*
  * Copyright 2026 Aethernet Inc.
  *
- * Early app_main capture for AE_EXP_PREPARED_DEEPSLEEP_5X50.
+ * Early app_main capture for deep-sleep prepared experiments.
  */
 
 #include "experiment_early_entry.h"
 
-#if defined(ESP_PLATFORM) && defined(AE_EXP_PREPARED_DEEPSLEEP_5X50)
+#if defined(ESP_PLATFORM) && \
+    (defined(AE_EXP_PREPARED_DEEPSLEEP_5X50) || \
+     defined(AE_EXP_PREPARED_TX_DONE_DIAG))
 
 #  include <esp_sleep.h>
 #  include <esp_system.h>

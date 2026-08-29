@@ -128,6 +128,12 @@ enum class FastPostMode : std::uint8_t {
   kTxDoneCbPlus25 = 3,
 };
 
+// Diagnostic wait policy for late TX-done callback (experiment only).
+enum class FastTxDoneWaitMode : std::uint8_t {
+  kFirstAny = 0,      // current production-like: first callback
+  kFirstSuccess = 1,  // wait first txStatus==true + 5 ms observe
+};
+
 struct FastPathConfig {
   bool use_bssid{false};
   bool use_channel{true};
@@ -141,6 +147,7 @@ struct FastPathConfig {
   std::uint16_t pre_delay_ms{200};
   std::uint16_t post_delay_ms{300};
   FastPostMode post_mode{FastPostMode::kFixedDelay};
+  FastTxDoneWaitMode tx_done_wait{FastTxDoneWaitMode::kFirstAny};
 };
 
 struct FastSendResult {
@@ -154,10 +161,26 @@ struct FastSendResult {
   std::uint8_t actual_channel{0};
   std::uint8_t negotiated_auth{0};
   std::uint8_t status_flags{0};
-  std::uint8_t cb_any{0};       // first tx-done callback seen
-  std::uint8_t cb_match{0};     // legacy fingerprint match (unused)
-  std::uint8_t cb_timeout{0};   // 1 if no callback within window
+  std::uint8_t cb_any{0};
+  std::uint8_t cb_match{0};
+  std::uint8_t cb_timeout{0};
   std::uint8_t cb_count{0};
+  // TX-done diagnostics (experiment).
+  std::uint8_t diag_mode{0};
+  std::uint8_t first_status{0xff};  // 0xff none, 0 fail, 1 success
+  std::uint8_t tx_cb_total{0};
+  std::uint8_t tx_cb_success{0};
+  std::uint8_t tx_cb_failed{0};
+  std::uint8_t callbacks_after_success{0};
+  std::uint32_t first_cb_delta_us{0xffffffffu};
+  std::uint32_t first_success_delta_us{0xffffffffu};
+  std::uint32_t first_failed_delta_us{0xffffffffu};
+  std::uint32_t last_cb_delta_us{0xffffffffu};
+  std::int8_t rssi{0};
+  std::uint8_t ap_primary{0};
+  std::uint8_t disconnect_count{0};
+  std::uint8_t last_disconnect_reason{0};
+  std::uint8_t reconnect_count{0};
 };
 
 // BASE = cached channel + static IPv4/netmask/gw + static ARP. No BSSID.

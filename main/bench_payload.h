@@ -360,6 +360,165 @@ inline bool DecodeDs(Buffer const& data, DsPayload& out) {
   return out.magic == kDsMagic;
 }
 
+// TX-done diagnostic deep-sleep payload (experiment only).
+static constexpr std::uint8_t kTxDiagMagic = 0xD6;
+
+enum class TxDiagMsgType : std::uint8_t {
+  kFull = 1,
+  kHot = 2,
+  kFinal = 3,
+};
+
+enum class TxDiagFlags : std::uint8_t {
+  kBrownout = 1 << 0,
+  kCallbackSeen = 1 << 1,
+  kCallbackTimeout = 1 << 2,
+  kCacheValid = 1 << 3,
+  kStateValid = 1 << 4,
+};
+
+// Why firmware chose FULL instead of HOT (set at decision site).
+enum class FullReason : std::uint8_t {
+  kNone = 0,
+  kColdBoot = 1,
+  kRtcStateInvalid = 2,
+  kRtcWifiCacheInvalid = 3,
+  kPreparedBlockInvalid = 4,
+  kPreparedNonceEmpty = 5,
+  kUnexpectedResetReason = 6,
+  kPhaseInvalid = 7,
+  kHotWifiFailed = 8,
+  kHotEncodeFailed = 9,
+  kHotSendFailed = 10,
+  kCallbackTimeoutRecovery = 11,
+  kForcedRecovery = 12,
+  kStateBoundsInvalid = 13,
+  kWifiCacheCaptureFailed = 14,
+  kPreparedExportFailed = 15,
+  kUnknown = 255,
+};
+
+inline char const* FullReasonName(std::uint8_t r) {
+  switch (static_cast<FullReason>(r)) {
+    case FullReason::kNone:
+      return "NONE";
+    case FullReason::kColdBoot:
+      return "COLD_BOOT";
+    case FullReason::kRtcStateInvalid:
+      return "RTC_STATE_INVALID";
+    case FullReason::kRtcWifiCacheInvalid:
+      return "RTC_WIFI_CACHE_INVALID";
+    case FullReason::kPreparedBlockInvalid:
+      return "PREPARED_BLOCK_INVALID";
+    case FullReason::kPreparedNonceEmpty:
+      return "PREPARED_NONCE_EMPTY";
+    case FullReason::kUnexpectedResetReason:
+      return "UNEXPECTED_RESET";
+    case FullReason::kPhaseInvalid:
+      return "PHASE_INVALID";
+    case FullReason::kHotWifiFailed:
+      return "HOT_WIFI_FAILED";
+    case FullReason::kHotEncodeFailed:
+      return "HOT_ENCODE_FAILED";
+    case FullReason::kHotSendFailed:
+      return "HOT_SEND_FAILED";
+    case FullReason::kCallbackTimeoutRecovery:
+      return "CALLBACK_TIMEOUT_RECOVERY";
+    case FullReason::kForcedRecovery:
+      return "FORCED_RECOVERY";
+    case FullReason::kStateBoundsInvalid:
+      return "STATE_BOUNDS_INVALID";
+    case FullReason::kWifiCacheCaptureFailed:
+      return "WIFI_CACHE_CAPTURE_FAILED";
+    case FullReason::kPreparedExportFailed:
+      return "PREPARED_EXPORT_FAILED";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+#pragma pack(push, 1)
+struct TxDiagPayload {
+  std::uint8_t magic{kTxDiagMagic};
+  std::uint8_t type{0};
+  std::uint8_t outer_cycle{0};
+  std::uint8_t hot_index{0};
+  std::uint16_t sequence_global{0};
+  std::uint16_t record_id{0};
+  std::uint8_t reset_reason{0};
+  std::uint8_t wake_cause{0};
+  std::uint8_t flags{0};
+  std::uint8_t brownout_count{0};
+  std::uint8_t unexpected_reset_count{0};
+  std::uint8_t negotiated_auth{0};
+  std::uint32_t requested_sleep_us{0};
+  std::uint32_t sleep_elapsed_to_app_us{0};
+  std::uint32_t sleep_to_app_overhead_us{0};
+  std::uint32_t app_entry_esp_timer_us{0};
+  std::uint32_t pending_user_cycle_us{0};
+  std::uint32_t pending_wifi_cycle_us{0};
+  std::uint32_t connect_us{0};
+  std::uint32_t tx_done_wait_us{0};
+  std::uint32_t teardown_us{0};
+  std::uint16_t prepared_message_left{0};
+  std::uint8_t pending_kind{0};
+  std::uint8_t pending_outer{0};
+  std::uint8_t pending_hot_index{0};
+  std::uint8_t diag_mode{0};
+  std::uint8_t tx_cb_total{0};
+  std::uint8_t tx_cb_success{0};
+  std::uint8_t tx_cb_failed{0};
+  std::uint8_t first_status{0xff};
+  std::uint32_t first_cb_delta_us{0xffffffffu};
+  std::uint32_t first_success_delta_us{0xffffffffu};
+  std::uint32_t first_failed_delta_us{0xffffffffu};
+  std::uint32_t last_cb_delta_us{0xffffffffu};
+  std::uint8_t callbacks_after_success{0};
+  std::int8_t rssi{0};
+  std::uint8_t disconnect_count{0};
+  std::uint8_t last_disconnect_reason{0};
+  std::uint8_t reconnect_count{0};
+  std::uint8_t ap_primary{0};
+  std::uint8_t cb_timeout{0};
+  std::uint8_t full_reason{0};
+  std::uint8_t rtc_state_crc_ok{0};
+  std::uint8_t rtc_state_valid{0};
+  std::uint8_t rtc_wifi_crc_ok{0};
+  std::uint8_t rtc_wifi_valid{0};
+  std::uint8_t prepared_block_valid{0};
+  std::uint8_t phase{0};
+  std::uint32_t rtc_state_magic{0};
+  std::uint16_t rtc_state_version{0};
+  std::uint32_t rtc_wifi_magic{0};
+  std::uint16_t rtc_wifi_version{0};
+  std::uint8_t pre_sleep_phase{0};
+  std::uint8_t pre_sleep_outer{0};
+  std::uint8_t pre_sleep_hot{0};
+  std::uint8_t pre_sleep_prepared_left{0};
+  std::uint32_t pre_sleep_state_crc{0};
+  std::uint32_t pre_sleep_wifi_crc{0};
+  std::uint32_t app_entry_rtc_us{0};
+};
+#pragma pack(pop)
+
+static_assert(sizeof(TxDiagPayload) == 118, "txdiag payload size");
+
+template <typename Buffer>
+inline Buffer EncodeTxDiag(TxDiagPayload const& p) {
+  Buffer out(sizeof(TxDiagPayload));
+  std::memcpy(out.data(), &p, sizeof(TxDiagPayload));
+  return out;
+}
+
+template <typename Buffer>
+inline bool DecodeTxDiag(Buffer const& data, TxDiagPayload& out) {
+  if (data.size() < sizeof(TxDiagPayload)) {
+    return false;
+  }
+  std::memcpy(&out, data.data(), sizeof(TxDiagPayload));
+  return out.magic == kTxDiagMagic;
+}
+
 }  // namespace temp_sensor::bench
 
 #endif  // TEMP_SENSOR_BENCH_PAYLOAD_H_

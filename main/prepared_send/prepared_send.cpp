@@ -98,6 +98,13 @@ static constexpr char const* kTag = "prepared-send";
 
 static std::uint8_t g_last_send_cache_flags = 0;
 static bool g_prepared_wifi_session_active = false;
+
+#if defined(ESP_PLATFORM)
+// Per hot-cycle Wi-Fi event counters (reset at StartFastWifi).
+std::atomic<std::uint32_t> g_wifi_disconnect_count{0};
+std::atomic<std::uint8_t> g_wifi_last_disconnect_reason{0};
+std::atomic<std::uint32_t> g_wifi_reconnect_count{0};
+#endif
 static std::uint32_t g_last_wifi_session_start_us = 0;
 
 #if defined(ESP_PLATFORM)
@@ -324,9 +331,15 @@ void WifiEventHandler(void*, esp_event_base_t event_base, std::int32_t event_id,
     auto const* event =
         static_cast<wifi_event_sta_disconnected_t const*>(event_data);
     auto const reason = event != nullptr ? static_cast<int>(event->reason) : -1;
+    g_wifi_disconnect_count.fetch_add(1, std::memory_order_relaxed);
+    if (reason >= 0 && reason <= 255) {
+      g_wifi_last_disconnect_reason.store(static_cast<std::uint8_t>(reason),
+                                          std::memory_order_relaxed);
+    }
 
     if (g_wifi_retry_count < g_max_wifi_retry) {
       ++g_wifi_retry_count;
+      g_wifi_reconnect_count.fetch_add(1, std::memory_order_relaxed);
       PS_LOGW("Wi-Fi hot path disconnected reason=%d; retry %d/%d", reason,
               g_wifi_retry_count, g_max_wifi_retry);
       auto err = esp_wifi_connect();
@@ -621,18 +634,113 @@ HotSendStatus EncodeAndUdpSend(ae::DataBuffer const& payload) {
 }
 
 #if defined(ESP_PLATFORM)
-// Late TX-done callback state: first completion after sendto, no fingerprint.
-std::atomic<bool> g_fast_tx_done_seen{false};
-std::atomic<int> g_fast_cb_count{0};
+// Late TX-done diagnostic state (fixed-size; no heap/log in callback).
+struct TxDoneDiag {
+  std::atomic<std::uint32_t> total{0};
+  std::atomic<std::uint32_t> success{0};
+  std::atomic<std::uint32_t> failed{0};
+  std::atomic<std::int64_t> first_cb_us{0};
+  std::atomic<std::int64_t> first_success_us{0};
+  std::atomic<std::int64_t> first_failed_us{0};
+  std::atomic<std::int64_t> last_cb_us{0};
+  std::atomic<int> first_status{-1};  // -1 none, 0 fail, 1 success
+};
 
-void FastTxDoneCb(std::uint8_t, std::uint8_t*, std::uint16_t*, bool) {
+std::atomic<bool> g_fast_tx_done_seen{false};      // any callback
+std::atomic<bool> g_fast_tx_done_success{false};   // first success
+std::atomic<int> g_fast_cb_count{0};
+std::atomic<int> g_tx_wait_mode{0};  // FastTxDoneWaitMode as int
+TxDoneDiag g_tx_diag{};
+
+void ResetTxDoneDiag() {
+  g_tx_diag.total.store(0, std::memory_order_relaxed);
+  g_tx_diag.success.store(0, std::memory_order_relaxed);
+  g_tx_diag.failed.store(0, std::memory_order_relaxed);
+  g_tx_diag.first_cb_us.store(0, std::memory_order_relaxed);
+  g_tx_diag.first_success_us.store(0, std::memory_order_relaxed);
+  g_tx_diag.first_failed_us.store(0, std::memory_order_relaxed);
+  g_tx_diag.last_cb_us.store(0, std::memory_order_relaxed);
+  g_tx_diag.first_status.store(-1, std::memory_order_relaxed);
+  g_fast_tx_done_seen.store(false, std::memory_order_release);
+  g_fast_tx_done_success.store(false, std::memory_order_release);
+  g_fast_cb_count.store(0, std::memory_order_relaxed);
+}
+
+void FastTxDoneCb(std::uint8_t, std::uint8_t*, std::uint16_t*, bool txStatus) {
+  auto const now = esp_timer_get_time();
+  g_tx_diag.total.fetch_add(1, std::memory_order_relaxed);
   g_fast_cb_count.fetch_add(1, std::memory_order_relaxed);
+  g_tx_diag.last_cb_us.store(now, std::memory_order_relaxed);
+
+  int expected_first = -1;
+  if (g_tx_diag.first_status.compare_exchange_strong(
+          expected_first, txStatus ? 1 : 0, std::memory_order_relaxed)) {
+    g_tx_diag.first_cb_us.store(now, std::memory_order_relaxed);
+  }
+
+  if (txStatus) {
+    g_tx_diag.success.fetch_add(1, std::memory_order_relaxed);
+    std::int64_t expected_fs = 0;
+    if (g_tx_diag.first_success_us.compare_exchange_strong(
+            expected_fs, now, std::memory_order_relaxed)) {
+      g_fast_tx_done_success.store(true, std::memory_order_release);
+    }
+  } else {
+    g_tx_diag.failed.fetch_add(1, std::memory_order_relaxed);
+    std::int64_t expected_ff = 0;
+    (void)g_tx_diag.first_failed_us.compare_exchange_strong(
+        expected_ff, now, std::memory_order_relaxed);
+  }
+
   g_fast_tx_done_seen.store(true, std::memory_order_release);
 }
 
-void ResetFastTxDone() {
-  g_fast_tx_done_seen.store(false, std::memory_order_release);
-  g_fast_cb_count.store(0, std::memory_order_relaxed);
+void ResetFastTxDone() { ResetTxDoneDiag(); }
+
+static std::uint32_t DeltaOrMissing(std::int64_t abs_us,
+                                    std::int64_t sendto_return_us) {
+  if (abs_us <= 0) {
+    return 0xffffffffu;
+  }
+  auto const d = abs_us - sendto_return_us;
+  if (d < 0) {
+    return 0xffffffffu;
+  }
+  return d > 0xffffffffll ? 0xffffffffu : static_cast<std::uint32_t>(d);
+}
+
+static void FillTxDoneTiming(FastSendResult* timing, std::int64_t sendto_return_us,
+                             bool condition_met, std::uint8_t after_success,
+                             FastTxDoneWaitMode wait_mode) {
+  if (timing == nullptr) {
+    return;
+  }
+  auto const total = g_tx_diag.total.load(std::memory_order_relaxed);
+  auto const success = g_tx_diag.success.load(std::memory_order_relaxed);
+  auto const failed = g_tx_diag.failed.load(std::memory_order_relaxed);
+  auto const first_st = g_tx_diag.first_status.load(std::memory_order_relaxed);
+  timing->diag_mode = static_cast<std::uint8_t>(wait_mode);
+  timing->tx_cb_total = total > 255 ? 255 : static_cast<std::uint8_t>(total);
+  timing->tx_cb_success =
+      success > 255 ? 255 : static_cast<std::uint8_t>(success);
+  timing->tx_cb_failed = failed > 255 ? 255 : static_cast<std::uint8_t>(failed);
+  timing->first_status =
+      first_st < 0 ? 0xff : static_cast<std::uint8_t>(first_st);
+  timing->first_cb_delta_us = DeltaOrMissing(
+      g_tx_diag.first_cb_us.load(std::memory_order_relaxed), sendto_return_us);
+  timing->first_success_delta_us = DeltaOrMissing(
+      g_tx_diag.first_success_us.load(std::memory_order_relaxed),
+      sendto_return_us);
+  timing->first_failed_delta_us = DeltaOrMissing(
+      g_tx_diag.first_failed_us.load(std::memory_order_relaxed),
+      sendto_return_us);
+  timing->last_cb_delta_us = DeltaOrMissing(
+      g_tx_diag.last_cb_us.load(std::memory_order_relaxed), sendto_return_us);
+  timing->callbacks_after_success = after_success;
+  timing->cb_any = condition_met ? 1 : 0;
+  timing->cb_timeout = condition_met ? 0 : 1;
+  timing->cb_count = timing->tx_cb_total;
+  timing->cb_match = 0;
 }
 
 HotSendStatus EncodeAndUdpSendTracked(ae::DataBuffer const& payload) {
@@ -678,11 +786,13 @@ HotSendStatus EncodeAndUdpSendTracked(ae::DataBuffer const& payload) {
   return HotSendStatus::kSent;
 }
 
-// Encode → socket → set_tx_done_cb → sendto → wait first cb → unset → close.
-// Socket stays open until callback (or timeout). No Wi-Fi ops between set and
-// sendto.
+// Encode → socket → set_tx_done_cb → sendto → wait condition → unset → close.
+// MODE A (kFirstAny): wait first callback regardless of txStatus.
+// MODE B (kFirstSuccess): wait first txStatus==true, then 5 ms observe window.
+// Safety timeout: 100 ms from sendto return. Socket open until unregister.
 HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
-                                             FastSendResult* timing) {
+                                             FastSendResult* timing,
+                                             FastTxDoneWaitMode wait_mode) {
   if (!g_prepared_send_message_block.is_valid()) {
     return HotSendStatus::kNoPreparedBlock;
   }
@@ -718,6 +828,7 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
   }
 
   ResetFastTxDone();
+  g_tx_wait_mode.store(static_cast<int>(wait_mode), std::memory_order_relaxed);
   (void)esp_wifi_set_tx_done_cb(&FastTxDoneCb);
 
   auto sent = sendto(sock, packet.data(), packet.size(), 0,
@@ -735,23 +846,30 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
     return HotSendStatus::kSendFailed;
   }
 
-  // Primary wait 50 ms; extend to 100 ms total if needed.
-  constexpr std::int64_t kPrimaryUs = 50000;
   constexpr std::int64_t kMaxUs = 100000;
-  bool seen = false;
-  while ((esp_timer_get_time() - t_send_ret) < kPrimaryUs) {
-    if (g_fast_tx_done_seen.load(std::memory_order_acquire)) {
-      seen = true;
+  constexpr std::int64_t kObserveUs = 5000;
+  bool condition_met = false;
+  std::uint32_t total_at_success = 0;
+
+  auto condition_ready = [&]() -> bool {
+    if (wait_mode == FastTxDoneWaitMode::kFirstSuccess) {
+      return g_fast_tx_done_success.load(std::memory_order_acquire);
+    }
+    return g_fast_tx_done_seen.load(std::memory_order_acquire);
+  };
+
+  while ((esp_timer_get_time() - t_send_ret) < kMaxUs) {
+    if (condition_ready()) {
+      condition_met = true;
       break;
     }
     vTaskDelay(pdMS_TO_TICKS(1));
   }
-  if (!seen) {
-    while ((esp_timer_get_time() - t_send_ret) < kMaxUs) {
-      if (g_fast_tx_done_seen.load(std::memory_order_acquire)) {
-        seen = true;
-        break;
-      }
+
+  if (condition_met && wait_mode == FastTxDoneWaitMode::kFirstSuccess) {
+    total_at_success = g_tx_diag.total.load(std::memory_order_relaxed);
+    auto const t_obs0 = esp_timer_get_time();
+    while ((esp_timer_get_time() - t_obs0) < kObserveUs) {
       vTaskDelay(pdMS_TO_TICKS(1));
     }
   }
@@ -760,15 +878,20 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
   (void)esp_wifi_set_tx_done_cb(nullptr);
   close(sock);
 
+  std::uint8_t after_success = 0;
+  if (condition_met && wait_mode == FastTxDoneWaitMode::kFirstSuccess) {
+    auto const total_end = g_tx_diag.total.load(std::memory_order_relaxed);
+    auto const delta =
+        total_end > total_at_success ? (total_end - total_at_success) : 0u;
+    after_success = delta > 255 ? 255 : static_cast<std::uint8_t>(delta);
+  }
+
   if (timing != nullptr) {
     auto const wait = t_cb_done - t_send_ret;
     timing->tx_done_wait_us =
         wait < 0 ? 0 : static_cast<std::uint32_t>(wait);
-    timing->cb_any = seen ? 1 : 0;
-    timing->cb_timeout = seen ? 0 : 1;
-    auto const cb_n = g_fast_cb_count.load(std::memory_order_relaxed);
-    timing->cb_count = cb_n > 255 ? 255 : static_cast<std::uint8_t>(cb_n);
-    timing->cb_match = 0;
+    FillTxDoneTiming(timing, t_send_ret, condition_met, after_success,
+                     wait_mode);
   }
   return HotSendStatus::kSent;
 }
@@ -1282,6 +1405,9 @@ bool StartFastWifi(FastPathConfig const& cfg,
 
   CleanupHotPathWifiRuntime();
   g_bisect_actual_channel = 0;
+  g_wifi_disconnect_count.store(0, std::memory_order_relaxed);
+  g_wifi_last_disconnect_reason.store(0, std::memory_order_relaxed);
+  g_wifi_reconnect_count.store(0, std::memory_order_relaxed);
 
   bool const need_static_ip = cfg.use_static_ip && cache.valid_ip;
   g_wait_got_ip = !need_static_ip;
@@ -1600,6 +1726,24 @@ FastSendResult SendPreparedOnceWithFastPath(
       static_cast<std::uint8_t>(bench::BisectStatusBits::kWifiReady);
   out.actual_channel = g_bisect_actual_channel;
   out.negotiated_auth = ReadNegotiatedAuth();
+  {
+    auto const d = g_wifi_disconnect_count.load(std::memory_order_relaxed);
+    out.disconnect_count = d > 255 ? 255 : static_cast<std::uint8_t>(d);
+  }
+  out.last_disconnect_reason =
+      g_wifi_last_disconnect_reason.load(std::memory_order_relaxed);
+  {
+    auto const r = g_wifi_reconnect_count.load(std::memory_order_relaxed);
+    out.reconnect_count = r > 255 ? 255 : static_cast<std::uint8_t>(r);
+  }
+
+  {
+    wifi_ap_record_t ap{};
+    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
+      out.rssi = ap.rssi;
+      out.ap_primary = ap.primary;
+    }
+  }
 
   if (cfg.pre_delay_ms > 0) {
     vTaskDelay(pdMS_TO_TICKS(cfg.pre_delay_ms));
@@ -1608,7 +1752,8 @@ FastSendResult SendPreparedOnceWithFastPath(
   HotSendStatus encode_status = HotSendStatus::kWifiFailed;
   auto const t_post0 = esp_timer_get_time();
   if (cfg.post_mode != FastPostMode::kFixedDelay) {
-    encode_status = EncodeAndUdpSendWithLateTxDone(payload, &out);
+    encode_status =
+        EncodeAndUdpSendWithLateTxDone(payload, &out, cfg.tx_done_wait);
     std::uint16_t extra_ms = 0;
     if (cfg.post_mode == FastPostMode::kTxDoneCbPlus10) {
       extra_ms = 10;
@@ -1684,7 +1829,9 @@ bool PreparedWifiRtcCacheIsValid(PreparedWifiRtcCache const& cache) {
   bool const have_ip = (cache.flags & 1u) != 0;
   bool const have_ch = (cache.flags & 2u) != 0;
   bool const have_gw = (cache.flags & 4u) != 0;
-  return have_ip && have_ch && have_gw && cache.channel != 0 && cache.ip != 0;
+  (void)have_gw;
+  // Gateway MAC is preferred but optional: hot path can ARP on miss.
+  return have_ip && have_ch && cache.channel != 0 && cache.ip != 0;
 }
 
 BisectWifiCacheSnapshot SnapshotFromPreparedWifiRtcCache(
@@ -1694,7 +1841,7 @@ BisectWifiCacheSnapshot SnapshotFromPreparedWifiRtcCache(
     return s;
   }
   s.valid_ip = true;
-  s.valid_gw_mac = true;
+  s.valid_gw_mac = (cache.flags & 4u) != 0;
   s.valid_bssid = (cache.flags & 8u) != 0;
   s.channel = cache.channel;
   s.ip = cache.ip;
@@ -1710,7 +1857,22 @@ bool CapturePreparedWifiRtcCache(PreparedWifiRtcCache* out) {
     return false;
   }
   if (!FreezeBisectWifiCacheFromActiveConnection()) {
-    return false;
+    // Fallback: production-style capture then freeze again.
+    if (!CapturePreparedWifiCacheFromActiveConnection()) {
+      return false;
+    }
+    if (!FreezeBisectWifiCacheFromActiveConnection()) {
+      return false;
+    }
+  }
+  // Some APs report primary=0 briefly; HOT path needs a non-zero channel.
+  if (g_bisect_cache.channel == 0) {
+    wifi_ap_record_t ap{};
+    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK && ap.primary != 0) {
+      g_bisect_cache.channel = ap.primary;
+    } else {
+      g_bisect_cache.channel = 1;
+    }
   }
   PreparedWifiRtcCache c{};
   c.magic = kPreparedWifiRtcMagic;

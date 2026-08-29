@@ -18,7 +18,9 @@ struct ExperimentEarlyEntrySnapshot {
   std::uint8_t valid{0};
 };
 
-#if defined(ESP_PLATFORM) && defined(AE_EXP_PREPARED_DEEPSLEEP_5X50)
+#if defined(ESP_PLATFORM) && \
+    (defined(AE_EXP_PREPARED_DEEPSLEEP_5X50) || \
+     defined(AE_EXP_PREPARED_TX_DONE_DIAG))
 extern "C" void ExperimentEarlyAppEntry();
 ExperimentEarlyEntrySnapshot const& GetExperimentEarlyEntrySnapshot();
 #else
