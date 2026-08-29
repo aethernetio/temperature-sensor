@@ -154,12 +154,19 @@ struct FastPayload {
   std::uint8_t cb_match{0};
   std::uint8_t cb_count{0};
   std::uint8_t post_mode{0};
+  std::uint32_t encode_send_us{0};
+  std::uint32_t tx_done_wait_us{0};
+  std::uint32_t teardown_us{0};
+  std::uint8_t cb_timeout{0};
+  std::uint8_t reserved0{0};
+  std::uint8_t reserved1{0};
+  std::uint8_t reserved2{0};
 };
 #pragma pack(pop)
 
 static_assert(sizeof(Payload) == 19, "bench payload size");
 static_assert(sizeof(BisectPayload) == 34, "bisect payload size");
-static_assert(sizeof(FastPayload) == 34, "fast payload size");
+static_assert(sizeof(FastPayload) == 50, "fast payload size");
 
 inline char const* BisectVariantName(std::uint8_t id) {
   switch (static_cast<BisectVariant>(id)) {

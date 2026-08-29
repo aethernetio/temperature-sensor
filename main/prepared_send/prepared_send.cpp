@@ -621,34 +621,17 @@ HotSendStatus EncodeAndUdpSend(ae::DataBuffer const& payload) {
 }
 
 #if defined(ESP_PLATFORM)
-std::uint8_t g_fast_fp[16]{};
-std::uint16_t g_fast_fp_len = 0;
-std::atomic<int> g_fast_cb_any{0};
-std::atomic<int> g_fast_cb_match{0};
+// Late TX-done callback state: first completion after sendto, no fingerprint.
+std::atomic<bool> g_fast_tx_done_seen{false};
 std::atomic<int> g_fast_cb_count{0};
 
-void FastTxDoneCb(std::uint8_t, std::uint8_t* data, std::uint16_t* data_len,
-                  bool) {
+void FastTxDoneCb(std::uint8_t, std::uint8_t*, std::uint16_t*, bool) {
   g_fast_cb_count.fetch_add(1, std::memory_order_relaxed);
-  g_fast_cb_any.store(1, std::memory_order_relaxed);
-  if (data == nullptr || data_len == nullptr || g_fast_fp_len == 0) {
-    return;
-  }
-  std::uint16_t const n = *data_len;
-  if (n < g_fast_fp_len) {
-    return;
-  }
-  for (std::uint16_t i = 0; i + g_fast_fp_len <= n; ++i) {
-    if (std::memcmp(data + i, g_fast_fp, g_fast_fp_len) == 0) {
-      g_fast_cb_match.store(1, std::memory_order_relaxed);
-      return;
-    }
-  }
+  g_fast_tx_done_seen.store(true, std::memory_order_release);
 }
 
 void ResetFastTxDone() {
-  g_fast_cb_any.store(0, std::memory_order_relaxed);
-  g_fast_cb_match.store(0, std::memory_order_relaxed);
+  g_fast_tx_done_seen.store(false, std::memory_order_release);
   g_fast_cb_count.store(0, std::memory_order_relaxed);
 }
 
@@ -668,11 +651,53 @@ HotSendStatus EncodeAndUdpSendTracked(ae::DataBuffer const& payload) {
     return HotSendStatus::kEncodeFailed;
   }
 
-  g_fast_fp_len = static_cast<std::uint16_t>(
-      packet.size() < sizeof(g_fast_fp) ? packet.size() : sizeof(g_fast_fp));
-  if (g_fast_fp_len > 0) {
-    std::memcpy(g_fast_fp, packet.data() + (packet.size() - g_fast_fp_len),
-                g_fast_fp_len);
+  auto const resolved_block = g_prepared_send_message_block.Resolve();
+  auto endpoint = resolved_block->endpoint;
+
+  sockaddr_storage dest_storage{};
+  socklen_t dest_len = 0;
+  if (!FillUdpDestination(endpoint, reinterpret_cast<sockaddr*>(&dest_storage),
+                          &dest_len)) {
+    return HotSendStatus::kSendFailed;
+  }
+
+  int sock = socket(
+      endpoint.address.Index() == ae::AddrVersion::kIpV6 ? AF_INET6 : AF_INET,
+      SOCK_DGRAM, IPPROTO_IP);
+  if (sock < 0) {
+    return HotSendStatus::kSendFailed;
+  }
+
+  auto sent = sendto(sock, packet.data(), packet.size(), 0,
+                     reinterpret_cast<sockaddr*>(&dest_storage), dest_len);
+  close(sock);
+
+  if (sent != static_cast<ssize_t>(packet.size())) {
+    return HotSendStatus::kSendFailed;
+  }
+  return HotSendStatus::kSent;
+}
+
+// Encode → socket → set_tx_done_cb → sendto → wait first cb → unset → close.
+// Socket stays open until callback (or timeout). No Wi-Fi ops between set and
+// sendto.
+HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
+                                             FastSendResult* timing) {
+  if (!g_prepared_send_message_block.is_valid()) {
+    return HotSendStatus::kNoPreparedBlock;
+  }
+  if (g_prepared_send_message_block.Resolve()->message_left == 0) {
+    return HotSendStatus::kNonceExhausted;
+  }
+
+  auto const t_encode0 = esp_timer_get_time();
+
+  ae::DataBuffer packet;
+  auto encode_result = ae::prepared_packet::EncodePacket(
+      g_prepared_send_message_block, payload, packet);
+  if (!encode_result) {
+    ClearPreparedSendBlock();
+    return HotSendStatus::kEncodeFailed;
   }
 
   auto const resolved_block = g_prepared_send_message_block.Resolve();
@@ -693,12 +718,57 @@ HotSendStatus EncodeAndUdpSendTracked(ae::DataBuffer const& payload) {
   }
 
   ResetFastTxDone();
+  (void)esp_wifi_set_tx_done_cb(&FastTxDoneCb);
+
   auto sent = sendto(sock, packet.data(), packet.size(), 0,
                      reinterpret_cast<sockaddr*>(&dest_storage), dest_len);
-  close(sock);
+  auto const t_send_ret = esp_timer_get_time();
+  if (timing != nullptr) {
+    auto const es = t_send_ret - t_encode0;
+    timing->encode_send_us =
+        es < 0 ? 0 : static_cast<std::uint32_t>(es);
+  }
 
   if (sent != static_cast<ssize_t>(packet.size())) {
+    (void)esp_wifi_set_tx_done_cb(nullptr);
+    close(sock);
     return HotSendStatus::kSendFailed;
+  }
+
+  // Primary wait 50 ms; extend to 100 ms total if needed.
+  constexpr std::int64_t kPrimaryUs = 50000;
+  constexpr std::int64_t kMaxUs = 100000;
+  bool seen = false;
+  while ((esp_timer_get_time() - t_send_ret) < kPrimaryUs) {
+    if (g_fast_tx_done_seen.load(std::memory_order_acquire)) {
+      seen = true;
+      break;
+    }
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }
+  if (!seen) {
+    while ((esp_timer_get_time() - t_send_ret) < kMaxUs) {
+      if (g_fast_tx_done_seen.load(std::memory_order_acquire)) {
+        seen = true;
+        break;
+      }
+      vTaskDelay(pdMS_TO_TICKS(1));
+    }
+  }
+
+  auto const t_cb_done = esp_timer_get_time();
+  (void)esp_wifi_set_tx_done_cb(nullptr);
+  close(sock);
+
+  if (timing != nullptr) {
+    auto const wait = t_cb_done - t_send_ret;
+    timing->tx_done_wait_us =
+        wait < 0 ? 0 : static_cast<std::uint32_t>(wait);
+    timing->cb_any = seen ? 1 : 0;
+    timing->cb_timeout = seen ? 0 : 1;
+    auto const cb_n = g_fast_cb_count.load(std::memory_order_relaxed);
+    timing->cb_count = cb_n > 255 ? 255 : static_cast<std::uint8_t>(cb_n);
+    timing->cb_match = 0;
   }
   return HotSendStatus::kSent;
 }
@@ -1352,10 +1422,8 @@ bool StartFastWifi(FastPathConfig const& cfg) {
 
   (void)esp_wifi_set_max_tx_power(80);
   (void)esp_wifi_set_ps(WIFI_PS_NONE);
-
-  if (cfg.post_mode != FastPostMode::kFixedDelay) {
-    (void)esp_wifi_set_tx_done_cb(&FastTxDoneCb);
-  }
+  // TX-done callback is installed immediately before sendto() for callback
+  // post modes — never here (association / PRE would fire unrelated TX).
 
   EventBits_t bits = xEventGroupWaitBits(
       g_wifi_event_group, kWifiReadyBit | kWifiFailBit, pdFALSE, pdFALSE,
@@ -1532,29 +1600,10 @@ FastSendResult SendPreparedOnceWithFastPath(FastPathConfig const& cfg,
     vTaskDelay(pdMS_TO_TICKS(cfg.pre_delay_ms));
   }
 
-  auto const encode_status = EncodeAndUdpSendTracked(payload);
-  if (encode_status == HotSendStatus::kSent) {
-    out.status_flags |=
-        static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk) |
-        static_cast<std::uint8_t>(bench::BisectStatusBits::kSendtoOk);
-  } else if (encode_status == HotSendStatus::kSendFailed) {
-    out.status_flags |=
-        static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk);
-  }
-
-  if (encode_status == HotSendStatus::kSent &&
-      cfg.post_mode != FastPostMode::kFixedDelay) {
-    auto const t_cb = esp_timer_get_time();
-    while ((esp_timer_get_time() - t_cb) < 100000) {
-      if (g_fast_cb_match.load(std::memory_order_relaxed) != 0) {
-        break;
-      }
-      vTaskDelay(pdMS_TO_TICKS(1));
-    }
-    out.cb_any = g_fast_cb_any.load(std::memory_order_relaxed) != 0 ? 1 : 0;
-    out.cb_match = g_fast_cb_match.load(std::memory_order_relaxed) != 0 ? 1 : 0;
-    auto const cb_n = g_fast_cb_count.load(std::memory_order_relaxed);
-    out.cb_count = cb_n > 255 ? 255 : static_cast<std::uint8_t>(cb_n);
+  HotSendStatus encode_status = HotSendStatus::kWifiFailed;
+  auto const t_post0 = esp_timer_get_time();
+  if (cfg.post_mode != FastPostMode::kFixedDelay) {
+    encode_status = EncodeAndUdpSendWithLateTxDone(payload, &out);
     std::uint16_t extra_ms = 0;
     if (cfg.post_mode == FastPostMode::kTxDoneCbPlus10) {
       extra_ms = 10;
@@ -1564,14 +1613,38 @@ FastSendResult SendPreparedOnceWithFastPath(FastPathConfig const& cfg,
     if (extra_ms > 0) {
       vTaskDelay(pdMS_TO_TICKS(extra_ms));
     }
-    (void)esp_wifi_set_tx_done_cb(nullptr);
-  } else if (encode_status == HotSendStatus::kSent && cfg.post_delay_ms > 0) {
-    vTaskDelay(pdMS_TO_TICKS(cfg.post_delay_ms));
+  } else {
+    encode_status = EncodeAndUdpSendTracked(payload);
+    auto const t_send_done = esp_timer_get_time();
+    {
+      auto const es = t_send_done - t_post0;
+      out.encode_send_us = es < 0 ? 0 : static_cast<std::uint32_t>(es);
+    }
+    if (encode_status == HotSendStatus::kSent && cfg.post_delay_ms > 0) {
+      vTaskDelay(pdMS_TO_TICKS(cfg.post_delay_ms));
+    }
   }
 
-  CleanupHotPathWifiRuntime();
+  if (encode_status == HotSendStatus::kSent) {
+    out.status_flags |=
+        static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk) |
+        static_cast<std::uint8_t>(bench::BisectStatusBits::kSendtoOk);
+  } else if (encode_status == HotSendStatus::kSendFailed) {
+    out.status_flags |=
+        static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk);
+  } else if (encode_status == HotSendStatus::kEncodeFailed) {
+    // encode failed: no sendto bit
+  }
 
-  auto const elapsed = esp_timer_get_time() - t0;
+  auto const t_teardown0 = esp_timer_get_time();
+  CleanupHotPathWifiRuntime();
+  auto const t_end = esp_timer_get_time();
+  {
+    auto const td = t_end - t_teardown0;
+    out.teardown_us = td < 0 ? 0 : static_cast<std::uint32_t>(td);
+  }
+
+  auto const elapsed = t_end - t0;
   out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
   out.status = encode_status;
   return out;

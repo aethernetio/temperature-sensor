@@ -147,12 +147,16 @@ struct FastSendResult {
   HotSendStatus status{HotSendStatus::kWifiFailed};
   std::uint32_t cycle_us{0};
   std::uint32_t connect_us{0};
+  std::uint32_t encode_send_us{0};
+  std::uint32_t tx_done_wait_us{0};
+  std::uint32_t teardown_us{0};
   std::uint8_t requested_channel{0};
   std::uint8_t actual_channel{0};
   std::uint8_t negotiated_auth{0};
   std::uint8_t status_flags{0};
-  std::uint8_t cb_any{0};
-  std::uint8_t cb_match{0};
+  std::uint8_t cb_any{0};       // first tx-done callback seen
+  std::uint8_t cb_match{0};     // legacy fingerprint match (unused)
+  std::uint8_t cb_timeout{0};   // 1 if no callback within window
   std::uint8_t cb_count{0};
 };
 

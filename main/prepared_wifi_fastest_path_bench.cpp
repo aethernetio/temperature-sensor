@@ -150,6 +150,9 @@ static std::uint16_t g_wifi_ready_count = 0;
 static std::uint16_t g_encode_count = 0;
 static std::uint16_t g_sendto_count = 0;
 static std::uint16_t g_nonce_start = 0;
+static std::uint16_t g_cb_seen_count = 0;
+static std::uint16_t g_cb_timeout_count = 0;
+static std::uint16_t g_auth_ok_count = 0;
 
 static prepared_send::FastSendResult g_last_result{};
 static prepared_send::BisectWifiCacheSnapshot g_cache{};
@@ -219,7 +222,10 @@ static std::uint8_t AssocBitsOf(prepared_send::FastPathConfig const& c) {
 static void FillCommon(bench::FastPayload& p) {
   p.test_id = kTestId;
   p.pre_ms = g_cfg.pre_delay_ms;
-  p.post_ms = g_cfg.post_delay_ms;
+  // post_ms=0 means POST=callback for late tx-done mode.
+  p.post_ms = (g_cfg.post_mode == prepared_send::FastPostMode::kFixedDelay)
+                  ? g_cfg.post_delay_ms
+                  : 0;
   p.assoc_bits = g_assoc_bits;
   p.retry_max = g_cfg.retry_max;
   p.post_mode = static_cast<std::uint8_t>(g_cfg.post_mode);
@@ -247,11 +253,15 @@ static ae::DataBuffer MakePreparedPayload(int index) {
   if (index > 1) {
     p.cycle_us = g_last_result.cycle_us;
     p.connect_us = g_last_result.connect_us;
+    p.encode_send_us = g_last_result.encode_send_us;
+    p.tx_done_wait_us = g_last_result.tx_done_wait_us;
+    p.teardown_us = g_last_result.teardown_us;
     p.status_flags = g_last_result.status_flags;
     p.auth_negotiated = g_last_result.negotiated_auth;
     p.cb_any = g_last_result.cb_any;
     p.cb_match = g_last_result.cb_match;
     p.cb_count = g_last_result.cb_count;
+    p.cb_timeout = g_last_result.cb_timeout;
   }
   return bench::EncodeFast<ae::DataBuffer>(p);
 }
@@ -265,6 +275,9 @@ static ae::DataBuffer MakeFinalPayload() {
   p.sequence_global = NextSeq();
   p.cycle_us = g_last_result.cycle_us;
   p.connect_us = g_last_result.connect_us;
+  p.encode_send_us = g_last_result.encode_send_us;
+  p.tx_done_wait_us = g_last_result.tx_done_wait_us;
+  p.teardown_us = g_last_result.teardown_us;
   p.status_flags = g_last_result.status_flags;
   p.auth_negotiated = g_last_result.negotiated_auth;
   p.wifi_ready_count = g_wifi_ready_count;
@@ -279,9 +292,12 @@ static ae::DataBuffer MakeFinalPayload() {
   }
   p.nonce_consumed = consumed > 0xffffu ? 0xffffu
                                         : static_cast<std::uint16_t>(consumed);
-  p.cb_any = g_last_result.cb_any;
-  p.cb_match = g_last_result.cb_match;
-  p.cb_count = g_last_result.cb_count;
+  p.cb_any = static_cast<std::uint8_t>(g_cb_seen_count > 255 ? 255
+                                                             : g_cb_seen_count);
+  p.cb_match = 0;
+  p.cb_count = 0;
+  p.cb_timeout = static_cast<std::uint8_t>(
+      g_cb_timeout_count > 255 ? 255 : g_cb_timeout_count);
   return bench::EncodeFast<ae::DataBuffer>(p);
 }
 
@@ -386,6 +402,9 @@ static void StartPreparedPhase() {
   g_wifi_ready_count = 0;
   g_encode_count = 0;
   g_sendto_count = 0;
+  g_cb_seen_count = 0;
+  g_cb_timeout_count = 0;
+  g_auth_ok_count = 0;
   g_last_result = {};
   g_nonce_start =
       static_cast<std::uint16_t>(prepared_send::PreparedMessageLeft());
@@ -569,6 +588,15 @@ void loop() {
     if (result.status_flags &
         static_cast<std::uint8_t>(bench::BisectStatusBits::kSendtoOk)) {
       ++g_sendto_count;
+    }
+    if (result.cb_any) {
+      ++g_cb_seen_count;
+    }
+    if (result.cb_timeout) {
+      ++g_cb_timeout_count;
+    }
+    if (result.negotiated_auth == 3) {
+      ++g_auth_ok_count;
     }
 
     ++g_prepared_index;

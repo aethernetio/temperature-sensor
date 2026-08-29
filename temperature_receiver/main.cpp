@@ -38,6 +38,8 @@ struct TestStats {
   std::vector<std::uint8_t> got;
   std::vector<std::uint32_t> cycle_us;
   std::vector<std::uint32_t> connect_us;
+  std::vector<std::uint32_t> tx_done_wait_us;
+  std::vector<std::uint32_t> teardown_us;
   std::uint16_t wifi_ready{0};
   std::uint16_t encode{0};
   std::uint16_t sendto{0};
@@ -51,6 +53,7 @@ struct TestStats {
   std::uint8_t post_mode{0};
   int cb_any{0};
   int cb_match{0};
+  int cb_timeout{0};
 };
 
 std::mutex g_mu;
@@ -108,6 +111,8 @@ void PrintTestResult() {
           : *std::max_element(g_st.cycle_us.begin(), g_st.cycle_us.end()) /
                 1000;
   auto const conn_med = PercentileUs(g_st.connect_us, 50) / 1000;
+  auto const txdone_med = PercentileUs(g_st.tx_done_wait_us, 50) / 1000;
+  auto const teardown_med = PercentileUs(g_st.teardown_us, 50) / 1000;
   std::cout << "TEST_RESULT"
             << " test_id=" << static_cast<int>(g_st.test_id)
             << " n=" << g_st.planned << " delivered=" << g_st.delivered << "/"
@@ -124,6 +129,9 @@ void PrintTestResult() {
             << " retry=" << static_cast<int>(g_st.retry_max)
             << " post_mode=" << static_cast<int>(g_st.post_mode)
             << " cb_any=" << g_st.cb_any << " cb_match=" << g_st.cb_match
+            << " cb_timeout=" << g_st.cb_timeout
+            << " txdone_med_ms=" << txdone_med
+            << " teardown_med_ms=" << teardown_med
             << " samples=" << g_st.cycle_us.size() << "\n";
   std::cout << "BENCH_DONE test_id=" << static_cast<int>(g_st.test_id) << "\n";
   std::cout.flush();
@@ -170,17 +178,25 @@ void OnFast(temp_sensor::bench::FastPayload const& p) {
     g_st.post_mode = p.post_mode;
     g_st.cb_any += p.cb_any;
     g_st.cb_match += p.cb_match;
+    g_st.cb_timeout += p.cb_timeout;
     if (p.cycle_us != 0) {
       g_st.cycle_us.push_back(p.cycle_us);
     }
     if (p.connect_us != 0) {
       g_st.connect_us.push_back(p.connect_us);
     }
+    if (p.tx_done_wait_us != 0 || p.cb_any || p.cb_timeout) {
+      g_st.tx_done_wait_us.push_back(p.tx_done_wait_us);
+    }
+    if (p.teardown_us != 0) {
+      g_st.teardown_us.push_back(p.teardown_us);
+    }
     std::cout << ae::Format(
         "RECV PREPARED test_id={} idx={} seq={} cycle_us={} connect_us={} "
-        "auth={} flags={} ts={}\n",
+        "txdone_us={} teardown_us={} auth={} cb={} to={} flags={} ts={}\n",
         p.test_id, p.prepared_index, p.sequence_global, p.cycle_us,
-        p.connect_us, p.auth_negotiated, p.status_flags, ts);
+        p.connect_us, p.tx_done_wait_us, p.teardown_us, p.auth_negotiated,
+        p.cb_any, p.cb_timeout, p.status_flags, ts);
   } else if (type == temp_sensor::bench::FastMsgType::kFinal) {
     ++g_final_recv;
     g_st.test_id = p.test_id;
@@ -199,13 +215,21 @@ void OnFast(temp_sensor::bench::FastPayload const& p) {
     g_st.assoc_bits = p.assoc_bits;
     g_st.retry_max = p.retry_max;
     g_st.post_mode = p.post_mode;
-    g_st.cb_any += p.cb_any;
-    g_st.cb_match += p.cb_match;
+    // FINAL carries device totals for callback_seen / timeout.
+    g_st.cb_any = p.cb_any;
+    g_st.cb_match = p.cb_match;
+    g_st.cb_timeout = p.cb_timeout;
     if (p.cycle_us != 0) {
       g_st.cycle_us.push_back(p.cycle_us);
     }
     if (p.connect_us != 0) {
       g_st.connect_us.push_back(p.connect_us);
+    }
+    if (p.tx_done_wait_us != 0 || p.cb_any || p.cb_timeout) {
+      g_st.tx_done_wait_us.push_back(p.tx_done_wait_us);
+    }
+    if (p.teardown_us != 0) {
+      g_st.teardown_us.push_back(p.teardown_us);
     }
     // Prefer device counters for delivery when FULL was missed.
     if (g_st.delivered == 0 && p.sendto_count != 0) {
