@@ -11,6 +11,7 @@
 #include "prepared_send/prepared_send.h"
 
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <limits>
@@ -619,6 +620,90 @@ HotSendStatus EncodeAndUdpSend(ae::DataBuffer const& payload) {
   return HotSendStatus::kSent;
 }
 
+#if defined(ESP_PLATFORM)
+std::uint8_t g_fast_fp[16]{};
+std::uint16_t g_fast_fp_len = 0;
+std::atomic<int> g_fast_cb_any{0};
+std::atomic<int> g_fast_cb_match{0};
+std::atomic<int> g_fast_cb_count{0};
+
+void FastTxDoneCb(std::uint8_t, std::uint8_t* data, std::uint16_t* data_len,
+                  bool) {
+  g_fast_cb_count.fetch_add(1, std::memory_order_relaxed);
+  g_fast_cb_any.store(1, std::memory_order_relaxed);
+  if (data == nullptr || data_len == nullptr || g_fast_fp_len == 0) {
+    return;
+  }
+  std::uint16_t const n = *data_len;
+  if (n < g_fast_fp_len) {
+    return;
+  }
+  for (std::uint16_t i = 0; i + g_fast_fp_len <= n; ++i) {
+    if (std::memcmp(data + i, g_fast_fp, g_fast_fp_len) == 0) {
+      g_fast_cb_match.store(1, std::memory_order_relaxed);
+      return;
+    }
+  }
+}
+
+void ResetFastTxDone() {
+  g_fast_cb_any.store(0, std::memory_order_relaxed);
+  g_fast_cb_match.store(0, std::memory_order_relaxed);
+  g_fast_cb_count.store(0, std::memory_order_relaxed);
+}
+
+HotSendStatus EncodeAndUdpSendTracked(ae::DataBuffer const& payload) {
+  if (!g_prepared_send_message_block.is_valid()) {
+    return HotSendStatus::kNoPreparedBlock;
+  }
+  if (g_prepared_send_message_block.Resolve()->message_left == 0) {
+    return HotSendStatus::kNonceExhausted;
+  }
+
+  ae::DataBuffer packet;
+  auto encode_result = ae::prepared_packet::EncodePacket(
+      g_prepared_send_message_block, payload, packet);
+  if (!encode_result) {
+    ClearPreparedSendBlock();
+    return HotSendStatus::kEncodeFailed;
+  }
+
+  g_fast_fp_len = static_cast<std::uint16_t>(
+      packet.size() < sizeof(g_fast_fp) ? packet.size() : sizeof(g_fast_fp));
+  if (g_fast_fp_len > 0) {
+    std::memcpy(g_fast_fp, packet.data() + (packet.size() - g_fast_fp_len),
+                g_fast_fp_len);
+  }
+
+  auto const resolved_block = g_prepared_send_message_block.Resolve();
+  auto endpoint = resolved_block->endpoint;
+
+  sockaddr_storage dest_storage{};
+  socklen_t dest_len = 0;
+  if (!FillUdpDestination(endpoint, reinterpret_cast<sockaddr*>(&dest_storage),
+                          &dest_len)) {
+    return HotSendStatus::kSendFailed;
+  }
+
+  int sock = socket(
+      endpoint.address.Index() == ae::AddrVersion::kIpV6 ? AF_INET6 : AF_INET,
+      SOCK_DGRAM, IPPROTO_IP);
+  if (sock < 0) {
+    return HotSendStatus::kSendFailed;
+  }
+
+  ResetFastTxDone();
+  auto sent = sendto(sock, packet.data(), packet.size(), 0,
+                     reinterpret_cast<sockaddr*>(&dest_storage), dest_len);
+  close(sock);
+
+  if (sent != static_cast<ssize_t>(packet.size())) {
+    return HotSendStatus::kSendFailed;
+  }
+  return HotSendStatus::kSent;
+}
+#endif
+
 #else
 
 bool EnsureWifiConnectedForHotPath() { return true; }
@@ -1105,6 +1190,193 @@ bool StartBisectWifi(BisectFactorConfig const& cfg) {
   return true;
 }
 
+std::uint8_t ReadNegotiatedAuth() {
+  wifi_ap_record_t ap_info{};
+  if (esp_wifi_sta_get_ap_info(&ap_info) != ESP_OK) {
+    return 0;
+  }
+  return static_cast<std::uint8_t>(ap_info.authmode);
+}
+
+bool StartFastWifi(FastPathConfig const& cfg) {
+#  ifndef WIFI_SSID
+  return false;
+#  endif
+#  ifndef WIFI_PASSWORD
+  return false;
+#  endif
+
+  CleanupHotPathWifiRuntime();
+  g_bisect_actual_channel = 0;
+
+  bool const need_static_ip = cfg.use_static_ip && g_bisect_cache.valid_ip;
+  g_wait_got_ip = !need_static_ip;
+  g_using_bssid_cache = cfg.use_bssid && g_bisect_cache.valid_bssid;
+  g_max_wifi_retry = cfg.retry_max;
+
+  wifi_init_config_t wifi_init_cfg = WIFI_INIT_CONFIG_DEFAULT();
+  if (cfg.ampdu_tx_off) {
+    wifi_init_cfg.ampdu_tx_enable = 0;
+  }
+
+  auto err = nvs_flash_init();
+  if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
+      err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    ESP_ERROR_CHECK(nvs_flash_erase());
+    err = nvs_flash_init();
+  }
+  if (err != ESP_OK && err != ESP_ERR_NVS_NO_FREE_PAGES) {
+    return false;
+  }
+
+  (void)esp_netif_init();
+  err = esp_event_loop_create_default();
+  if (err == ESP_OK) {
+    g_default_event_loop_created = true;
+  } else if (err != ESP_ERR_INVALID_STATE) {
+    return false;
+  }
+
+  g_wifi_event_group = xEventGroupCreate();
+  if (g_wifi_event_group == nullptr) {
+    CleanupHotPathWifiRuntime();
+    return false;
+  }
+
+  g_wifi_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  if (g_wifi_netif == nullptr) {
+    g_wifi_netif = esp_netif_create_default_wifi_sta();
+  }
+  if (g_wifi_netif == nullptr) {
+    CleanupHotPathWifiRuntime();
+    return false;
+  }
+
+  if (need_static_ip) {
+    esp_netif_dhcpc_stop(g_wifi_netif);
+    esp_netif_ip_info_t ip_info = {
+        .ip = {.addr = g_bisect_cache.ip},
+        .netmask = {.addr = g_bisect_cache.netmask},
+        .gw = {.addr = g_bisect_cache.gateway}};
+    esp_netif_set_ip_info(g_wifi_netif, &ip_info);
+    rtc_ip_info = ip_info;
+    address_is_valid = true;
+  }
+
+  err = esp_wifi_init(&wifi_init_cfg);
+  if (err == ESP_ERR_WIFI_INIT_STATE) {
+    g_wifi_initialized = true;
+  } else if (err != ESP_OK) {
+    CleanupHotPathWifiRuntime();
+    return false;
+  } else {
+    g_wifi_initialized = true;
+  }
+
+  if (cfg.wifi_storage_ram) {
+    (void)esp_wifi_set_storage(WIFI_STORAGE_RAM);
+  }
+
+  err = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                            &WifiEventHandler, nullptr,
+                                            &g_wifi_any_id_handler);
+  if (err != ESP_OK) {
+    CleanupHotPathWifiRuntime();
+    return false;
+  }
+
+  err = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
+                                            &WifiEventHandler, nullptr,
+                                            &g_wifi_got_ip_handler);
+  if (err != ESP_OK) {
+    CleanupHotPathWifiRuntime();
+    return false;
+  }
+
+  wifi_config_t wifi_config{};
+  std::strncpy(reinterpret_cast<char*>(wifi_config.sta.ssid), WIFI_SSID,
+               sizeof(wifi_config.sta.ssid));
+  std::strncpy(reinterpret_cast<char*>(wifi_config.sta.password), WIFI_PASSWORD,
+               sizeof(wifi_config.sta.password));
+
+  wifi_config.sta.pmf_cfg.capable = true;
+  if (cfg.auth == FastAuthMode::kWpa2) {
+    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    wifi_config.sta.sae_pwe_h2e = WPA3_SAE_PWE_UNSPECIFIED;
+    wifi_config.sta.pmf_cfg.required = false;
+  } else if (cfg.auth == FastAuthMode::kWpa3H2eOnly) {
+    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA3_PSK;
+    wifi_config.sta.sae_pwe_h2e = WPA3_SAE_PWE_HASH_TO_ELEMENT;
+    wifi_config.sta.pmf_cfg.required = true;
+  } else {
+    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA3_PSK;
+    wifi_config.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
+    wifi_config.sta.pmf_cfg.required = true;
+  }
+
+  if (cfg.use_fast_scan) {
+    wifi_config.sta.scan_method = WIFI_FAST_SCAN;
+  }
+
+  if (cfg.use_bssid && g_bisect_cache.valid_bssid) {
+    wifi_config.sta.bssid_set = true;
+    std::memcpy(wifi_config.sta.bssid, g_bisect_cache.bssid,
+                sizeof(wifi_config.sta.bssid));
+  }
+
+  if (cfg.use_channel && g_bisect_cache.channel != 0) {
+    wifi_config.sta.channel = g_bisect_cache.channel;
+  }
+
+  err = esp_wifi_set_mode(WIFI_MODE_STA);
+  if (err != ESP_OK) {
+    CleanupHotPathWifiRuntime();
+    return false;
+  }
+
+  err = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+  if (err != ESP_OK) {
+    CleanupHotPathWifiRuntime();
+    return false;
+  }
+
+  (void)esp_wifi_set_protocol(
+      WIFI_IF_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N);
+
+  err = esp_wifi_start();
+  if (err != ESP_OK) {
+    CleanupHotPathWifiRuntime();
+    return false;
+  }
+  g_wifi_started = true;
+
+  (void)esp_wifi_set_max_tx_power(80);
+  (void)esp_wifi_set_ps(WIFI_PS_NONE);
+
+  if (cfg.post_mode != FastPostMode::kFixedDelay) {
+    (void)esp_wifi_set_tx_done_cb(&FastTxDoneCb);
+  }
+
+  EventBits_t bits = xEventGroupWaitBits(
+      g_wifi_event_group, kWifiReadyBit | kWifiFailBit, pdFALSE, pdFALSE,
+      pdMS_TO_TICKS(AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS));
+
+  if ((bits & kWifiReadyBit) == 0) {
+    return false;
+  }
+
+  g_bisect_actual_channel = ReadActualChannel();
+
+  if (cfg.use_static_arp && g_bisect_cache.valid_gw_mac &&
+      g_bisect_cache.valid_ip) {
+    std::memcpy(gateway_mac, g_bisect_cache.gw_mac, sizeof(gateway_mac));
+    gateway_mac_valid = true;
+    (void)InstallStaticGatewayArp();
+  }
+
+  return true;
+}
+
 }  // namespace
 
 bool FreezeBisectWifiCacheFromActiveConnection() {
@@ -1214,6 +1486,93 @@ BisectSendResult SendPreparedOnceWithBisectFactor(
 
   auto const elapsed = esp_timer_get_time() - t0;
   out.total_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
+  out.status = encode_status;
+  return out;
+}
+
+FastSendResult SendPreparedOnceWithFastPath(FastPathConfig const& cfg,
+                                            ae::DataBuffer const& payload) {
+  FastSendResult out{};
+  out.requested_channel =
+      (cfg.use_channel && g_bisect_cache.channel != 0) ? g_bisect_cache.channel
+                                                       : 0;
+
+  if (!g_prepared_send_message_block.is_valid()) {
+    out.status = HotSendStatus::kNoPreparedBlock;
+    return out;
+  }
+  if (g_prepared_send_message_block.Resolve()->message_left == 0) {
+    out.status = HotSendStatus::kNonceExhausted;
+    return out;
+  }
+
+  auto const t0 = esp_timer_get_time();
+  if (!StartFastWifi(cfg)) {
+    CleanupHotPathWifiRuntime();
+    out.status = HotSendStatus::kWifiFailed;
+    out.actual_channel = g_bisect_actual_channel;
+    out.negotiated_auth = ReadNegotiatedAuth();
+    auto const elapsed = esp_timer_get_time() - t0;
+    out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
+    out.connect_us = out.cycle_us;
+    return out;
+  }
+
+  auto const t_ready = esp_timer_get_time();
+  {
+    auto const elapsed = t_ready - t0;
+    out.connect_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
+  }
+  out.status_flags |=
+      static_cast<std::uint8_t>(bench::BisectStatusBits::kWifiReady);
+  out.actual_channel = g_bisect_actual_channel;
+  out.negotiated_auth = ReadNegotiatedAuth();
+
+  if (cfg.pre_delay_ms > 0) {
+    vTaskDelay(pdMS_TO_TICKS(cfg.pre_delay_ms));
+  }
+
+  auto const encode_status = EncodeAndUdpSendTracked(payload);
+  if (encode_status == HotSendStatus::kSent) {
+    out.status_flags |=
+        static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk) |
+        static_cast<std::uint8_t>(bench::BisectStatusBits::kSendtoOk);
+  } else if (encode_status == HotSendStatus::kSendFailed) {
+    out.status_flags |=
+        static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk);
+  }
+
+  if (encode_status == HotSendStatus::kSent &&
+      cfg.post_mode != FastPostMode::kFixedDelay) {
+    auto const t_cb = esp_timer_get_time();
+    while ((esp_timer_get_time() - t_cb) < 100000) {
+      if (g_fast_cb_match.load(std::memory_order_relaxed) != 0) {
+        break;
+      }
+      vTaskDelay(pdMS_TO_TICKS(1));
+    }
+    out.cb_any = g_fast_cb_any.load(std::memory_order_relaxed) != 0 ? 1 : 0;
+    out.cb_match = g_fast_cb_match.load(std::memory_order_relaxed) != 0 ? 1 : 0;
+    auto const cb_n = g_fast_cb_count.load(std::memory_order_relaxed);
+    out.cb_count = cb_n > 255 ? 255 : static_cast<std::uint8_t>(cb_n);
+    std::uint16_t extra_ms = 0;
+    if (cfg.post_mode == FastPostMode::kTxDoneCbPlus10) {
+      extra_ms = 10;
+    } else if (cfg.post_mode == FastPostMode::kTxDoneCbPlus25) {
+      extra_ms = 25;
+    }
+    if (extra_ms > 0) {
+      vTaskDelay(pdMS_TO_TICKS(extra_ms));
+    }
+    (void)esp_wifi_set_tx_done_cb(nullptr);
+  } else if (encode_status == HotSendStatus::kSent && cfg.post_delay_ms > 0) {
+    vTaskDelay(pdMS_TO_TICKS(cfg.post_delay_ms));
+  }
+
+  CleanupHotPathWifiRuntime();
+
+  auto const elapsed = esp_timer_get_time() - t0;
+  out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
   out.status = encode_status;
   return out;
 }

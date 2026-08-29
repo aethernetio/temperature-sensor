@@ -33,6 +33,10 @@ set(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 "" CACHE STRING
     "Silent 5x20 keep-Wi-Fi-up prepared bench (set to 1)")
 set(AE_EXP_PREPARED_WIFI_BISECT "" CACHE STRING
     "Silent single-factor prepared Wi-Fi bisect (set to 1)")
+set(AE_EXP_PREPARED_WIFI_FASTEST "" CACHE STRING
+    "Silent fastest-path prepared Wi-Fi campaign (set to 1)")
+set(AE_EXP_FAST_DISABLE_WPA3 "" CACHE STRING
+    "Benchmark-only: disable CONFIG_ESP_WIFI_ENABLE_WPA3_SAE (set to 1)")
 set(AE_EXP_BISECT_CONSOLE "" CACHE STRING
     "Bisect USB stage markers / console (set to 1; disables silent)")
 set(AE_EXP_BISECT_SMOKE "" CACHE STRING
@@ -41,6 +45,14 @@ if(AE_EXP_BISECT_CONSOLE STREQUAL "1" AND
    AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.bench")
+elseif(AE_EXP_PREPARED_WIFI_FASTEST STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.fastest")
+  if(AE_EXP_FAST_DISABLE_WPA3 STREQUAL "1")
+    list(APPEND SDKCONFIG_DEFAULTS
+         "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.wpa2only")
+  endif()
 elseif(AE_EXP_PREPARED_WIFI_CACHE_5X20 STREQUAL "1" OR
    AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 STREQUAL "1" OR
    AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1")

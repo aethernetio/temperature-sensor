@@ -1,0 +1,6 @@
+# Fastest-path measurement extras on top of sdkconfig.defaults.silent.
+# CPU: 160 MHz, no DFS / no power-management experiments.
+
+# CONFIG_PM_ENABLE is not set
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_160=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=160

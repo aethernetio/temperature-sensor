@@ -1,14 +1,15 @@
 /*
  * Copyright 2026 Aethernet Inc.
  *
- * Desktop Æther receiver for prepared Wi-Fi single-factor bisect.
+ * Desktop Æther receiver for silent fastest-path prepared Wi-Fi campaign.
+ * Stays up across firmware reflashes; prints TEST_RESULT after each FINAL.
  */
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -28,44 +29,36 @@ namespace {
 
 static constexpr auto kParentUid =
     ae::Uid::FromString("b1ac52c8-8d94-bd39-4c01-a631ac594165");
-// Reuse the stable cache-bench receiver identity (UID 5aade50f-...).
 static constexpr char const* kClientName = "prepared_wifi_cache_rx_v1";
-static constexpr int kVariants =
-    static_cast<int>(temp_sensor::bench::BisectVariant::kCount);
-static constexpr int kPreparedPer = 20;
 
-struct VariantStats {
+struct TestStats {
+  int planned{20};
   int delivered{0};
   int duplicates{0};
-  std::array<bool, kPreparedPer> got{};
-  std::array<bool, kPreparedPer> have_us{};
-  std::array<std::uint32_t, kPreparedPer> us{};
-  std::array<std::uint8_t, kPreparedPer> req_ch{};
-  std::array<std::uint8_t, kPreparedPer> act_ch{};
-  std::uint8_t wifi_ready{0};
-  std::uint8_t encode{0};
-  std::uint8_t sendto{0};
-  std::uint8_t nonce{0};
-  bool have_summary{false};
-  bool have_meta{false};
-  std::uint8_t cached_channel{0};
-  std::uint32_t cached_ip{0};
-  std::uint8_t pre_delay_ms{0};
-  int channel_match{0};
-  int channel_mismatch{0};
+  std::vector<std::uint8_t> got;
+  std::vector<std::uint32_t> cycle_us;
+  std::vector<std::uint32_t> connect_us;
+  std::uint16_t wifi_ready{0};
+  std::uint16_t encode{0};
+  std::uint16_t sendto{0};
+  std::uint16_t nonce{0};
+  std::uint8_t test_id{0};
+  std::uint16_t pre_ms{0};
+  std::uint16_t post_ms{0};
+  std::uint8_t assoc_bits{0};
+  std::uint8_t auth{0};
+  std::uint8_t retry_max{0};
+  std::uint8_t post_mode{0};
+  int cb_any{0};
+  int cb_match{0};
 };
 
 std::mutex g_mu;
 std::vector<std::unique_ptr<ae::P2pStream>> g_streams;
-std::array<VariantStats, kVariants> g_var{};
-std::vector<std::uint16_t> g_seen_seq;
-int g_last_seq = 0;
-int g_out_of_order = 0;
+TestStats g_st{};
 int g_full_recv = 0;
-int g_meta_recv = 0;
 int g_prep_recv = 0;
 int g_final_recv = 0;
-bool g_done = false;
 
 std::int64_t NowMs() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -73,236 +66,166 @@ std::int64_t NowMs() {
       .count();
 }
 
-std::uint32_t MedianUs(std::vector<std::uint32_t> v) {
+std::uint32_t PercentileUs(std::vector<std::uint32_t> v, int pct) {
   if (v.empty()) {
     return 0;
   }
   std::sort(v.begin(), v.end());
-  return v[v.size() / 2];
+  auto const i = static_cast<size_t>((v.size() - 1) * pct / 100);
+  return v[i];
 }
 
-char const* Verdict(int delivered, int wifi_ready) {
-  if (wifi_ready > 0 && wifi_ready < 10) {
-    return "INCONCLUSIVE";
-  }
-  if (delivered >= 18) {
-    return "OK";
-  }
-  if (delivered >= 10) {
-    return "DEGRADES";
-  }
-  return "BREAKS";
+void ResetStats(std::uint8_t test_id, int planned) {
+  g_st = {};
+  g_st.test_id = test_id;
+  g_st.planned = planned > 0 ? planned : 20;
+  g_st.got.assign(static_cast<size_t>(g_st.planned), 0);
 }
 
-void PrintSummary() {
-  std::cout << "BISECT_TABLE\n";
-  std::cout << "Variant\tSingle change\tDelivered/20\tMissing\tMedian_ms\t"
-               "WifiReady\tEncode\tSendto\tNonce\tVerdict\n";
-  for (int v = 0; v < kVariants; ++v) {
-    auto const& s = g_var[static_cast<size_t>(v)];
-    int missing = kPreparedPer - s.delivered;
-    if (missing < 0) {
-      missing = 0;
-    }
-    std::vector<std::uint32_t> times;
-    for (int i = 0; i < kPreparedPer; ++i) {
-      if (s.have_us[static_cast<size_t>(i)]) {
-        times.push_back(s.us[static_cast<size_t>(i)]);
-      }
-    }
-    auto const med_ms = MedianUs(times) / 1000;
-    std::cout << temp_sensor::bench::BisectVariantName(
-                     static_cast<std::uint8_t>(v))
-              << '\t'
-              << temp_sensor::bench::BisectVariantChange(
-                     static_cast<std::uint8_t>(v))
-              << '\t' << s.delivered << "/20\t" << missing << '\t' << med_ms
-              << '\t' << static_cast<int>(s.wifi_ready) << '\t'
-              << static_cast<int>(s.encode) << '\t'
-              << static_cast<int>(s.sendto) << '\t'
-              << static_cast<int>(s.nonce) << '\t'
-              << Verdict(s.delivered, s.wifi_ready) << '\n';
+void NotePrepared(int idx) {
+  if (idx < 1) {
+    return;
   }
-
-  auto get = [](int id) {
-    return g_var[static_cast<size_t>(id)].delivered;
-  };
-  std::cout << "CHANNEL_HYPOTHESIS\n";
-  std::cout << "B1 no cache = " << get(1) << "/20\n";
-  std::cout << "C1 BSSID only = " << get(2) << "/20\n";
-  std::cout << "C2 channel only = " << get(3) << "/20\n";
-  std::cout << "C3 BSSID+channel = " << get(4) << "/20\n";
-  std::cout << "C7 BSSID+static IP = " << get(8) << "/20\n";
-  std::cout << "C8 channel+static IP = " << get(9) << "/20\n";
-
-  bool channel_bad = false;
-  bool channel_ok = false;
-  // Correlate: variants that set channel (C2,C3,C8) vs without (B1,C1,C7)
-  auto const with_ch = get(3) + get(4) + get(9);
-  auto const without_ch = get(1) + get(2) + get(8);
-  if (without_ch - with_ch >= 15) {
-    channel_bad = true;
+  if (idx > g_st.planned) {
+    g_st.planned = idx;
+    g_st.got.resize(static_cast<size_t>(g_st.planned), 0);
   }
-  if (with_ch >= without_ch - 3) {
-    channel_ok = true;
-  }
-  std::cout << "Does cached channel independently correlate with loss? ";
-  if (channel_bad && !channel_ok) {
-    std::cout << "YES\n";
-  } else if (!channel_bad && channel_ok) {
-    std::cout << "NO\n";
+  auto& seen = g_st.got[static_cast<size_t>(idx - 1)];
+  if (!seen) {
+    seen = 1;
+    ++g_st.delivered;
   } else {
-    std::cout << "INCONCLUSIVE\n";
+    ++g_st.duplicates;
   }
+}
 
-  std::cout << "CHANNEL_MATCH_COUNTS\n";
-  for (int v : {3, 4, 9}) {
-    auto const& s = g_var[static_cast<size_t>(v)];
-    std::cout << temp_sensor::bench::BisectVariantName(
-                     static_cast<std::uint8_t>(v))
-              << " match=" << s.channel_match
-              << " mismatch=" << s.channel_mismatch
-              << " cached_ch=" << static_cast<int>(s.cached_channel) << '\n';
-  }
-
-  std::cout << "DELIVERY_TOTALS\n";
-  std::cout << "  full=" << g_full_recv << "/" << kVariants << "\n";
-  std::cout << "  meta=" << g_meta_recv << "/" << kVariants << "\n";
-  std::cout << "  prepared=" << g_prep_recv << "/" << (kVariants * kPreparedPer)
-            << "\n";
-  std::cout << "  final=" << g_final_recv << "/1\n";
-  std::cout << "  out_of_order=" << g_out_of_order << "\n";
-  std::cout << "BENCH_DONE\n";
+void PrintTestResult() {
+  auto const cyc_med = PercentileUs(g_st.cycle_us, 50) / 1000;
+  auto const cyc_p90 = PercentileUs(g_st.cycle_us, 90) / 1000;
+  auto const cyc_max =
+      g_st.cycle_us.empty()
+          ? 0
+          : *std::max_element(g_st.cycle_us.begin(), g_st.cycle_us.end()) /
+                1000;
+  auto const conn_med = PercentileUs(g_st.connect_us, 50) / 1000;
+  std::cout << "TEST_RESULT"
+            << " test_id=" << static_cast<int>(g_st.test_id)
+            << " n=" << g_st.planned << " delivered=" << g_st.delivered << "/"
+            << g_st.planned << " connect_med_ms=" << conn_med
+            << " cycle_med_ms=" << cyc_med << " p90_ms=" << cyc_p90
+            << " max_ms=" << cyc_max
+            << " wifi_ready=" << static_cast<int>(g_st.wifi_ready)
+            << " encode=" << static_cast<int>(g_st.encode)
+            << " sendto=" << static_cast<int>(g_st.sendto)
+            << " nonce=" << static_cast<int>(g_st.nonce)
+            << " pre=" << g_st.pre_ms << " post=" << g_st.post_ms
+            << " assoc=0x" << std::hex << static_cast<int>(g_st.assoc_bits)
+            << std::dec << " auth=" << static_cast<int>(g_st.auth)
+            << " retry=" << static_cast<int>(g_st.retry_max)
+            << " post_mode=" << static_cast<int>(g_st.post_mode)
+            << " cb_any=" << g_st.cb_any << " cb_match=" << g_st.cb_match
+            << " samples=" << g_st.cycle_us.size() << "\n";
+  std::cout << "BENCH_DONE test_id=" << static_cast<int>(g_st.test_id) << "\n";
   std::cout.flush();
 }
 
-void NoteSeq(std::uint16_t seq) {
-  if (std::find(g_seen_seq.begin(), g_seen_seq.end(), seq) !=
-      g_seen_seq.end()) {
-    return;
-  }
-  g_seen_seq.push_back(seq);
-  if (seq != 0 && g_last_seq != 0 &&
-      seq < static_cast<std::uint16_t>(g_last_seq)) {
-    ++g_out_of_order;
-  }
-  g_last_seq = seq;
-}
-
-void ApplyPreparedMetrics(int v, int slot,
-                          temp_sensor::bench::BisectPayload const& p) {
-  if (v < 0 || v >= kVariants || slot < 0 || slot >= kPreparedPer) {
-    return;
-  }
-  auto& s = g_var[static_cast<size_t>(v)];
-  if (p.time_us != 0) {
-    s.us[static_cast<size_t>(slot)] = p.time_us;
-    s.have_us[static_cast<size_t>(slot)] = true;
-  }
-  s.req_ch[static_cast<size_t>(slot)] = p.requested_channel;
-  s.act_ch[static_cast<size_t>(slot)] = p.actual_channel;
-  if (p.requested_channel != 0) {
-    if (p.requested_channel == p.actual_channel) {
-      ++s.channel_match;
-    } else if (p.actual_channel != 0) {
-      ++s.channel_mismatch;
-    }
-  }
-}
-
-void OnBisect(temp_sensor::bench::BisectPayload const& p) {
+void OnFast(temp_sensor::bench::FastPayload const& p) {
   auto const ts = NowMs();
-  NoteSeq(p.sequence_global);
-  int const v = static_cast<int>(p.variant_id);
-  auto type = static_cast<temp_sensor::bench::BisectMsgType>(p.type);
-
-  if (type == temp_sensor::bench::BisectMsgType::kFull) {
+  auto const type = static_cast<temp_sensor::bench::FastMsgType>(p.type);
+  if (type == temp_sensor::bench::FastMsgType::kFull) {
     ++g_full_recv;
-    if (v >= 1 && v < kVariants) {
-      // Previous variant summary rides on this FULL.
-      auto& prev = g_var[static_cast<size_t>(v - 1)];
-      prev.wifi_ready = p.wifi_ready_count;
-      prev.encode = p.encode_count;
-      prev.sendto = p.sendto_count;
-      prev.nonce = p.nonce_consumed;
-      prev.have_summary = true;
+    int planned = p.prepared_index;
+    if (planned == 0) {
+      planned = 20;
     }
-    std::cout << ae::Format(
-        "RECV FULL variant={} seq={} time_us={} ts={}\n",
-        temp_sensor::bench::BisectVariantName(p.variant_id), p.sequence_global,
-        p.time_us, ts);
-  } else if (type == temp_sensor::bench::BisectMsgType::kMeta) {
-    ++g_meta_recv;
-    if (v >= 0 && v < kVariants) {
-      auto& s = g_var[static_cast<size_t>(v)];
-      s.have_meta = true;
-      s.cached_channel = p.cached_channel;
-      s.cached_ip = p.cached_ip;
-      s.pre_delay_ms = p.pre_delay_ms;
-    }
-    std::cout << ae::Format(
-        "RECV META variant={} seq={} cached_ch={} cached_ip={:08x} pre_ms={} "
-        "ts={}\n",
-        temp_sensor::bench::BisectVariantName(p.variant_id), p.sequence_global,
-        p.cached_channel, p.cached_ip, p.pre_delay_ms, ts);
-  } else if (type == temp_sensor::bench::BisectMsgType::kPrepared) {
+    ResetStats(p.test_id, planned);
+    g_st.pre_ms = p.pre_ms;
+    g_st.post_ms = p.post_ms;
+    g_st.assoc_bits = p.assoc_bits;
+    g_st.retry_max = p.retry_max;
+    g_st.post_mode = p.post_mode;
+    std::cout << ae::Format("RECV FULL test_id={} n={} seq={} ts={}\n",
+                            p.test_id, planned, p.sequence_global, ts);
+  } else if (type == temp_sensor::bench::FastMsgType::kPrepared) {
     ++g_prep_recv;
-    if (v >= 0 && v < kVariants) {
-      auto& s = g_var[static_cast<size_t>(v)];
-      int const idx = static_cast<int>(p.prepared_index);
-      if (idx == 1 && p.cached_channel != 0) {
-        s.have_meta = true;
-        s.cached_channel = p.cached_channel;
-        s.cached_ip = p.cached_ip;
-        s.pre_delay_ms = p.pre_delay_ms;
-      }
-      if (idx >= 1 && idx <= kPreparedPer) {
-        auto& seen = s.got[static_cast<size_t>(idx - 1)];
-        if (!seen) {
-          seen = true;
-          ++s.delivered;
-        } else {
-          ++s.duplicates;
+    if (g_st.planned == 0 || g_st.test_id != p.test_id) {
+      // New test without FULL, or FULL was lost — start a fresh window.
+      int planned = p.prepared_index > 0 ? static_cast<int>(p.prepared_index) : 20;
+      // prepared_index is 1-based send index, not N; keep previous planned if
+      // same test, otherwise default to at least the index we just saw.
+      if (g_st.test_id != p.test_id || g_st.planned == 0) {
+        planned = 20;
+        if (p.prepared_index > planned) {
+          planned = p.prepared_index;
         }
-      }
-      if (idx >= 2) {
-        ApplyPreparedMetrics(v, idx - 2, p);
+        ResetStats(p.test_id, planned);
       }
     }
+    NotePrepared(p.prepared_index);
+    g_st.pre_ms = p.pre_ms;
+    g_st.post_ms = p.post_ms;
+    g_st.assoc_bits = p.assoc_bits;
+    g_st.auth = p.auth_negotiated;
+    g_st.retry_max = p.retry_max;
+    g_st.post_mode = p.post_mode;
+    g_st.cb_any += p.cb_any;
+    g_st.cb_match += p.cb_match;
+    if (p.cycle_us != 0) {
+      g_st.cycle_us.push_back(p.cycle_us);
+    }
+    if (p.connect_us != 0) {
+      g_st.connect_us.push_back(p.connect_us);
+    }
     std::cout << ae::Format(
-        "RECV PREPARED variant={} idx={} seq={} prev_us={} req_ch={} act_ch={} "
-        "flags={} ts={}\n",
-        temp_sensor::bench::BisectVariantName(p.variant_id), p.prepared_index,
-        p.sequence_global, p.time_us, p.requested_channel, p.actual_channel,
-        p.status_flags, ts);
-  } else if (type == temp_sensor::bench::BisectMsgType::kFinal) {
+        "RECV PREPARED test_id={} idx={} seq={} cycle_us={} connect_us={} "
+        "auth={} flags={} ts={}\n",
+        p.test_id, p.prepared_index, p.sequence_global, p.cycle_us,
+        p.connect_us, p.auth_negotiated, p.status_flags, ts);
+  } else if (type == temp_sensor::bench::FastMsgType::kFinal) {
     ++g_final_recv;
-    if (v >= 0 && v < kVariants) {
-      auto& s = g_var[static_cast<size_t>(v)];
-      s.wifi_ready = p.wifi_ready_count;
-      s.encode = p.encode_count;
-      s.sendto = p.sendto_count;
-      s.nonce = p.nonce_consumed;
-      s.have_summary = true;
-      ApplyPreparedMetrics(v, kPreparedPer - 1, p);
+    g_st.test_id = p.test_id;
+    if (p.prepared_index != 0) {
+      g_st.planned = p.prepared_index;
+    } else if (p.wifi_ready_count != 0) {
+      g_st.planned = p.wifi_ready_count;
+    }
+    g_st.wifi_ready = p.wifi_ready_count;
+    g_st.encode = p.encode_count;
+    g_st.sendto = p.sendto_count;
+    g_st.nonce = p.nonce_consumed;
+    g_st.auth = p.auth_negotiated;
+    g_st.pre_ms = p.pre_ms;
+    g_st.post_ms = p.post_ms;
+    g_st.assoc_bits = p.assoc_bits;
+    g_st.retry_max = p.retry_max;
+    g_st.post_mode = p.post_mode;
+    g_st.cb_any += p.cb_any;
+    g_st.cb_match += p.cb_match;
+    if (p.cycle_us != 0) {
+      g_st.cycle_us.push_back(p.cycle_us);
+    }
+    if (p.connect_us != 0) {
+      g_st.connect_us.push_back(p.connect_us);
+    }
+    // Prefer device counters for delivery when FULL was missed.
+    if (g_st.delivered == 0 && p.sendto_count != 0) {
+      g_st.delivered = p.sendto_count;
     }
     std::cout << ae::Format(
-        "RECV FINAL variant={} seq={} last_us={} wifi_ready={} encode={} "
+        "RECV FINAL test_id={} seq={} last_cycle={} wifi_ready={} encode={} "
         "sendto={} nonce={} ts={}\n",
-        temp_sensor::bench::BisectVariantName(p.variant_id), p.sequence_global,
-        p.time_us, p.wifi_ready_count, p.encode_count, p.sendto_count,
-        p.nonce_consumed, ts);
-    PrintSummary();
-    g_done = true;
+        p.test_id, p.sequence_global, p.cycle_us, p.wifi_ready_count,
+        p.encode_count, p.sendto_count, p.nonce_consumed, ts);
+    PrintTestResult();
   }
   std::cout.flush();
 }
 
 void OnMessage(ae::Uid sender, ae::DataBuffer const& data) {
   std::lock_guard lock{g_mu};
-  temp_sensor::bench::BisectPayload bp{};
-  if (temp_sensor::bench::DecodeBisect(data, bp)) {
-    OnBisect(bp);
+  temp_sensor::bench::FastPayload fp{};
+  if (temp_sensor::bench::DecodeFast(data, fp)) {
+    OnFast(fp);
     return;
   }
   std::cout << "RECV unknown sender=" << ae::Format("{}", sender)
@@ -360,7 +283,7 @@ int main() {
             });
       });
 
-  while (!aether_app->IsExited() && !g_done) {
+  while (!aether_app->IsExited()) {
     auto t = aether_app->Update(ae::Now());
     aether_app->WaitUntil(t);
   }

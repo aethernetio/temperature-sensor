@@ -112,8 +112,54 @@ struct BisectPayload {
 };
 #pragma pack(pop)
 
+static constexpr std::uint8_t kFastMagic = 0xB1;
+
+enum class FastMsgType : std::uint8_t {
+  kFull = 1,
+  kPrepared = 2,
+  kFinal = 3,
+};
+
+enum class FastAssocBits : std::uint8_t {
+  kBssid = 1 << 0,
+  kChannel = 1 << 1,
+  kFastScan = 1 << 2,
+  kStaticIp = 1 << 3,
+  kStaticArp = 1 << 4,
+  kAmpduTxOff = 1 << 5,
+  kStorageRam = 1 << 6,
+  kCallback = 1 << 7,
+};
+
+#pragma pack(push, 1)
+struct FastPayload {
+  std::uint8_t magic{kFastMagic};
+  std::uint8_t type{0};
+  std::uint8_t test_id{0};
+  std::uint8_t prepared_index{0};
+  std::uint16_t sequence_global{0};
+  std::uint32_t cycle_us{0};
+  std::uint32_t connect_us{0};
+  std::uint16_t pre_ms{0};
+  std::uint16_t post_ms{0};
+  std::uint8_t status_flags{0};
+  std::uint8_t assoc_bits{0};
+  std::uint8_t auth_negotiated{0};
+  std::uint8_t retry_max{0};
+  std::uint16_t wifi_ready_count{0};
+  std::uint16_t encode_count{0};
+  std::uint16_t sendto_count{0};
+  std::uint16_t nonce_consumed{0};
+  std::uint8_t cb_any{0};
+  std::uint8_t cb_match{0};
+  std::uint8_t cb_count{0};
+  std::uint8_t post_mode{0};
+};
+#pragma pack(pop)
+
 static_assert(sizeof(Payload) == 19, "bench payload size");
 static_assert(sizeof(BisectPayload) == 34, "bisect payload size");
+static_assert(sizeof(FastPayload) == 34, "fast payload size");
 
 inline char const* BisectVariantName(std::uint8_t id) {
   switch (static_cast<BisectVariant>(id)) {
@@ -217,6 +263,22 @@ inline bool DecodeBisect(Buffer const& data, BisectPayload& out) {
   }
   std::memcpy(&out, data.data(), sizeof(BisectPayload));
   return out.magic == kBisectMagic;
+}
+
+template <typename Buffer>
+inline Buffer EncodeFast(FastPayload const& p) {
+  Buffer out(sizeof(FastPayload));
+  std::memcpy(out.data(), &p, sizeof(FastPayload));
+  return out;
+}
+
+template <typename Buffer>
+inline bool DecodeFast(Buffer const& data, FastPayload& out) {
+  if (data.size() < sizeof(FastPayload)) {
+    return false;
+  }
+  std::memcpy(&out, data.data(), sizeof(FastPayload));
+  return out.magic == kFastMagic;
 }
 
 }  // namespace temp_sensor::bench

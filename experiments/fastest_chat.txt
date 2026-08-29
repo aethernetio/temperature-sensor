@@ -1,0 +1,570 @@
+[TEST 1/22] BASE
+delivery=20/20
+median_cycle=840 ms
+median_connect=262 ms
+p90=920
+result=PASS
+remaining=21
+best=BASE cycle=840ms connect=262ms del=20/20
+change vs best=NEW BEST
+BEST NOW:
+config=BASE
+pre=200 post/callback=300 mode=0
+median=840
+NEXT: A1 BASE+cached BSSID x20
+
+[TEST 2/22] A1_BSSID
+delivery=19/20
+median_cycle=840 ms
+median_connect=278 ms
+p90=870
+result=FAIL
+remaining=20
+best=BASE cycle=840ms connect=262ms del=20/20
+change vs best=+0 ms
+BEST NOW:
+config=BASE
+pre=200 post/callback=300 mode=0
+median=840
+NEXT: A2 BASE+WIFI_FAST_SCAN x20
+
+[TEST 3/22] A2_FAST_SCAN
+delivery=20/20
+median_cycle=850 ms
+median_connect=270 ms
+p90=880
+result=PASS
+remaining=19
+best=BASE cycle=840ms connect=262ms del=20/20
+change vs best=+10 ms
+BEST NOW:
+config=BASE
+pre=200 post/callback=300 mode=0
+median=840
+NEXT: A3 BASE+BSSID+FAST_SCAN x20
+
+[TEST 4/22] A3_BSSID_FAST_SCAN
+delivery=19/20
+median_cycle=860 ms
+median_connect=276 ms
+p90=880
+result=FAIL
+remaining=18
+best=BASE cycle=840ms connect=262ms del=20/20
+change vs best=+20 ms
+BEST NOW:
+config=BASE
+pre=200 post/callback=300 mode=0
+median=840
+NEXT: AUTH1 WPA3 on BASE x20
+
+[TEST 5/22] AUTH2_H2E
+delivery=18/20
+median_cycle=840 ms
+median_connect=269 ms
+p90=910
+result=FAIL
+remaining=17
+best=BASE cycle=840ms connect=262ms del=20/20
+change vs best=+0 ms
+BEST NOW:
+config=BASE
+pre=200 post/callback=300 mode=0
+median=840
+NEXT: AUTH3 WPA2-only on BASE x20
+
+[TEST 6/22] AUTH3_WPA2
+delivery=20/20
+median_cycle=850 ms
+median_connect=258 ms
+p90=920
+result=PASS
+remaining=16
+best=BASE cycle=840ms connect=262ms del=20/20
+change vs best=+10 ms
+BEST NOW:
+config=BASE
+pre=200 post/callback=300 mode=0
+median=840
+NEXT: R0 no reconnect retry x20
+
+[TEST 7/23] AUTH3B_WPA3SAE_OFF
+delivery=20/20
+median_cycle=830 ms
+median_connect=253 ms
+p90=900
+result=PASS
+remaining=16
+best=BASE cycle=840ms connect=262ms del=20/20
+change vs best=-10 ms
+BEST NOW:
+config=BASE
+pre=200 post/callback=300 mode=0
+median=840
+NEXT: restore WPA3 SAE then R0
+
+[TEST 8/23] AUTH3B_WPA3SAE_OFF_VERIFIED
+delivery=20/20
+median_cycle=710 ms
+median_connect=128 ms
+p90=810
+result=PASS
+remaining=15
+best=AUTH3B_WPA3SAE_OFF_VERIFIED cycle=710ms connect=128ms del=20/20
+change vs best=NEW BEST
+BEST NOW:
+config=AUTH3B_WPA3SAE_OFF_VERIFIED
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: restore WPA3 then R0
+
+[TEST 9/22] R0
+delivery=20/20
+median_cycle=730 ms
+median_connect=149 ms
+p90=760
+result=PASS
+remaining=13
+best=AUTH3B_WPA3SAE_OFF_VERIFIED cycle=710ms connect=128ms del=20/20
+change vs best=+20 ms
+BEST NOW:
+config=AUTH3B_WPA3SAE_OFF_VERIFIED
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: R1 retry=1 x20
+
+[TEST 10/22] R1
+delivery=20/20
+median_cycle=720 ms
+median_connect=149 ms
+p90=750
+result=PASS
+remaining=12
+best=AUTH3B_WPA3SAE_OFF_VERIFIED cycle=710ms connect=128ms del=20/20
+change vs best=+10 ms
+BEST NOW:
+config=AUTH3B_WPA3SAE_OFF_VERIFIED
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: R3 retry=3 x20
+
+[TEST 11/22] R3
+delivery=20/20
+median_cycle=740 ms
+median_connect=153 ms
+p90=750
+result=PASS
+remaining=11
+best=AUTH3B_WPA3SAE_OFF_VERIFIED cycle=710ms connect=128ms del=20/20
+change vs best=+30 ms
+BEST NOW:
+config=AUTH3B_WPA3SAE_OFF_VERIFIED
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: CB0 tx-done callback POST=0 x20
+
+[TEST 12/22] CB0
+delivery=18/20
+median_cycle=530 ms
+median_connect=154 ms
+p90=550
+result=CALLBACK_NOT_USABLE
+remaining=10
+best=AUTH3B_WPA3SAE_OFF_VERIFIED cycle=710ms connect=128ms del=20/20
+change vs best=-180 ms
+BEST NOW:
+config=AUTH3B_WPA3SAE_OFF_VERIFIED
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: PRE sweep from 200ms (fixed POST=300)
+
+[TEST 13/22] PRE_200
+delivery=13/20
+median_cycle=740 ms
+median_connect=151 ms
+p90=750
+result=FAIL
+remaining=9
+best=AUTH3B_WPA3SAE_OFF_VERIFIED cycle=710ms connect=128ms del=20/20
+change vs best=+30 ms
+BEST NOW:
+config=AUTH3B_WPA3SAE_OFF_VERIFIED
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: PRE stop at 200; use best_pre=200
+
+[TEST 13/25] PRE_200_R0FAIL
+delivery=13/20
+median_cycle=740 ms
+median_connect=151 ms
+p90=750
+result=FAIL
+remaining=12
+best=AUTH3B_WPA3SAE_OFF_VERIFIED cycle=710ms connect=128ms del=20/20
+change vs best=+30 ms
+BEST NOW:
+config=AUTH3B_WPA3SAE_OFF_VERIFIED
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: PRE_200 with retry=10
+
+[TEST 14/25] PRE_200
+delivery=19/20
+median_cycle=730 ms
+median_connect=144 ms
+p90=750
+result=FAIL
+remaining=11
+best=AUTH3B_WPA3SAE_OFF_VERIFIED cycle=710ms connect=128ms del=20/20
+change vs best=+20 ms
+BEST NOW:
+config=AUTH3B_WPA3SAE_OFF_VERIFIED
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: PRE_200 repeat
+
+[TEST 15/25] PRE_200_R
+delivery=20/20
+median_cycle=700 ms
+median_connect=123 ms
+p90=750
+result=PASS
+remaining=10
+best=PRE_200_R cycle=700ms connect=123ms del=20/20
+change vs best=NEW BEST
+BEST NOW:
+config=PRE_200_R
+pre=200 post/callback=300 mode=0
+median=700
+NEXT: PRE_150
+
+[TEST 16/25] PRE_150
+delivery=14/20
+median_cycle=640 ms
+median_connect=124 ms
+p90=670
+result=FAIL
+remaining=9
+best=PRE_200_R cycle=700ms connect=123ms del=20/20
+change vs best=-60 ms
+BEST NOW:
+config=PRE_200_R
+pre=200 post/callback=300 mode=0
+median=700
+NEXT: PRE stop at 150; best_pre=200
+
+[TEST 17/25] POST_300
+delivery=20/20
+median_cycle=700 ms
+median_connect=120 ms
+p90=740
+result=PASS
+remaining=8
+best=PRE_200_R cycle=700ms connect=123ms del=20/20
+change vs best=+0 ms
+BEST NOW:
+config=PRE_200_R
+pre=200 post/callback=300 mode=0
+median=700
+NEXT: POST_250
+
+[TEST 18/25] POST_250
+delivery=20/20
+median_cycle=640 ms
+median_connect=121 ms
+p90=690
+result=PASS
+remaining=7
+best=POST_250 cycle=640ms connect=121ms del=20/20
+change vs best=NEW BEST
+BEST NOW:
+config=POST_250
+pre=200 post/callback=250 mode=0
+median=640
+NEXT: POST_200
+
+[TEST 19/25] POST_200
+delivery=20/20
+median_cycle=620 ms
+median_connect=132 ms
+p90=650
+result=PASS
+remaining=6
+best=POST_200 cycle=620ms connect=132ms del=20/20
+change vs best=NEW BEST
+BEST NOW:
+config=POST_200
+pre=200 post/callback=200 mode=0
+median=620
+NEXT: POST_150
+
+[TEST 20/25] POST_150
+delivery=19/20
+median_cycle=540 ms
+median_connect=124 ms
+p90=550
+result=FAIL
+remaining=5
+best=POST_200 cycle=620ms connect=132ms del=20/20
+change vs best=-80 ms
+BEST NOW:
+config=POST_200
+pre=200 post/callback=200 mode=0
+median=620
+NEXT: POST_150 repeat
+
+[TEST 21/25] POST_150_R
+delivery=20/20
+median_cycle=550 ms
+median_connect=125 ms
+p90=580
+result=PASS
+remaining=4
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=NEW BEST
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: POST_100
+
+[TEST 22/25] POST_100
+delivery=13/20
+median_cycle=490 ms
+median_connect=113 ms
+p90=510
+result=FAIL
+remaining=3
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=-60 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: POST stop; best_post=150
+
+[TEST 23/25] 2D_p175_q175
+delivery=18/20
+median_cycle=530 ms
+median_connect=127 ms
+p90=550
+result=FAIL
+remaining=2
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=-20 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: next 2D or VAL100
+
+[TEST 24/25] 2D_p225_q125
+delivery=19/20
+median_cycle=530 ms
+median_connect=127 ms
+p90=550
+result=FAIL
+remaining=1
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=-20 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: next 2D or VAL100
+
+[TEST 25/25] 2D_p150_q200
+delivery=20/20
+median_cycle=540 ms
+median_connect=125 ms
+p90=580
+result=PASS
+remaining=0
+best=2D_p150_q200 cycle=540ms connect=125ms del=20/20
+change vs best=NEW BEST
+BEST NOW:
+config=2D_p150_q200
+pre=150 post/callback=200 mode=0
+median=540
+NEXT: next 2D or VAL100
+
+[TEST 26/33] VAL100_PRIMARY
+delivery=94/100
+median_cycle=560 ms
+median_connect=131 ms
+p90=620
+result=FAIL
+remaining=7
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=+10 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: VAL100 secondary
+
+[TEST 27/33] VAL100_SECONDARY
+delivery=97/100
+median_cycle=560 ms
+median_connect=131 ms
+p90=610
+result=FAIL
+remaining=6
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=+10 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: pick winner VAL200
+
+[TEST 28/37] VAL100_SAFE_200_300
+delivery=98/100
+median_cycle=730 ms
+median_connect=138 ms
+p90=770
+result=FAIL
+remaining=9
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=+180 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: next candidate or VAL200
+
+[TEST 29/37] VAL100_SAFE_200_300_R
+delivery=96/100
+median_cycle=720 ms
+median_connect=124 ms
+p90=750
+result=FAIL
+remaining=8
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=+170 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: next
+
+[TEST 30/37] VAL100_MID_200_200
+delivery=91/100
+median_cycle=620 ms
+median_connect=125 ms
+p90=660
+result=FAIL
+remaining=7
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=+70 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: next candidate or VAL200
+
+[TEST 31/37] VAL100_FAST_200_150
+delivery=79/100
+median_cycle=560 ms
+median_connect=122 ms
+p90=600
+result=FAIL
+remaining=6
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=+10 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: next candidate or VAL200
+
+[TEST 32/37] VAL100_FAST_150_200
+delivery=84/100
+median_cycle=540 ms
+median_connect=118 ms
+p90=580
+result=FAIL
+remaining=5
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=-10 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: next candidate or VAL200
+
+[TEST 33/37] VAL200
+delivery=198/200
+median_cycle=710 ms
+median_connect=125 ms
+p90=750
+result=FAIL
+remaining=4
+best=POST_150_R cycle=550ms connect=125ms del=20/20
+change vs best=+160 ms
+BEST NOW:
+config=POST_150_R
+pre=200 post/callback=150 mode=0
+median=550
+NEXT: D1 AMPDU
+
+[TEST 34/37] D1_AMPDU_TX_OFF
+delivery=198/200
+median_cycle=710 ms
+median_connect=125 ms
+p90=750
+result=FAIL
+remaining=3
+best=VAL100_SAFE_200_300 cycle=710ms connect=125ms del=198/200
+change vs best=+0 ms
+BEST NOW:
+config=VAL100_SAFE_200_300
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: STORAGE_RAM
+
+[TEST 35/37] STORAGE_RAM
+delivery=198/200
+median_cycle=710 ms
+median_connect=125 ms
+p90=750
+result=FAIL
+remaining=2
+best=VAL100_SAFE_200_300 cycle=710ms connect=125ms del=198/200
+change vs best=+0 ms
+BEST NOW:
+config=VAL100_SAFE_200_300
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: write report + restore WPA3
+
+[TEST 36/38] D1_AMPDU_TX_OFF_RERUN
+delivery=17/20
+median_cycle=710 ms
+median_connect=122 ms
+p90=750
+result=FAIL
+remaining=2
+best=VAL200 cycle=710ms connect=125ms del=198/200
+change vs best=+0 ms
+BEST NOW:
+config=VAL200
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: STORAGE_RAM rerun
+
+[TEST 37/38] STORAGE_RAM_RERUN
+delivery=19/20
+median_cycle=670 ms
+median_connect=112 ms
+p90=720
+result=FAIL
+remaining=1
+best=VAL200 cycle=710ms connect=125ms del=198/200
+change vs best=-40 ms
+BEST NOW:
+config=VAL200
+pre=200 post/callback=300 mode=0
+median=710
+NEXT: finalize report + commit
+

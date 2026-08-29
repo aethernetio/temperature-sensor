@@ -28,6 +28,11 @@ elseif(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20)
     "prepared_keep_wifi_up_5x20_bench.cpp"
     "prepared_send/prepared_send.cpp"
   )
+elseif(AE_EXP_PREPARED_WIFI_FASTEST)
+  list(APPEND src_list
+    "prepared_wifi_fastest_path_bench.cpp"
+    "prepared_send/prepared_send.cpp"
+  )
 elseif(AE_EXP_PREPARED_WIFI_BISECT)
   list(APPEND src_list
     "prepared_wifi_single_factor_bisect_bench.cpp"
@@ -166,6 +171,18 @@ set(AE_EXP_PREPARED_MESSAGE_E2E "" CACHE STRING "No-sleep prepared-message E2E b
 set(AE_EXP_PREPARED_WIFI_CACHE_5X20 "" CACHE STRING "Silent 5x20 prepared Wi-Fi cache bench (set to 1)")
 set(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 "" CACHE STRING "Silent 5x20 keep-Wi-Fi-up prepared bench (set to 1)")
 set(AE_EXP_PREPARED_WIFI_BISECT "" CACHE STRING "Silent single-factor prepared Wi-Fi bisect (set to 1)")
+set(AE_EXP_PREPARED_WIFI_FASTEST "" CACHE STRING "Silent fastest-path prepared campaign (set to 1)")
+set(AE_EXP_FAST_N "" CACHE STRING "Fastest-path prepared count")
+set(AE_EXP_FAST_TEST_ID "" CACHE STRING "Fastest-path test id")
+set(AE_EXP_FAST_PRE_MS "" CACHE STRING "Fastest-path pre-send delay ms")
+set(AE_EXP_FAST_POST_MS "" CACHE STRING "Fastest-path post-send delay ms")
+set(AE_EXP_FAST_USE_BSSID "" CACHE STRING "Fastest-path cached BSSID (0/1)")
+set(AE_EXP_FAST_FAST_SCAN "" CACHE STRING "Fastest-path WIFI_FAST_SCAN (0/1)")
+set(AE_EXP_FAST_AUTH "" CACHE STRING "Fastest-path auth 0=WPA3 1=H2E 2=WPA2")
+set(AE_EXP_FAST_RETRY "" CACHE STRING "Fastest-path association retry max")
+set(AE_EXP_FAST_POST_MODE "" CACHE STRING "Fastest-path post 0=delay 1=cb 2=cb+10 3=cb+25")
+set(AE_EXP_FAST_AMPDU_TX_OFF "" CACHE STRING "Fastest-path AMPDU TX off (0/1)")
+set(AE_EXP_FAST_STORAGE_RAM "" CACHE STRING "Fastest-path WIFI_STORAGE_RAM (0/1)")
 set(AE_EXP_BISECT_CONSOLE "" CACHE STRING "Bisect USB stage markers (set to 1)")
 set(AE_EXP_BISECT_SMOKE "" CACHE STRING "Bisect smoke B1/2 prepared (set to 1)")
 set(BENCH_CLIENT_ID "" CACHE STRING "Bench SelectClient id (default prepared_message_bench_v1)")
@@ -207,10 +224,23 @@ ae_exp_define_if_set(AE_EXP_PREPARED_MESSAGE_E2E)
 ae_exp_define_if_set(AE_EXP_PREPARED_WIFI_CACHE_5X20)
 ae_exp_define_if_set(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20)
 ae_exp_define_if_set(AE_EXP_PREPARED_WIFI_BISECT)
+ae_exp_define_if_set(AE_EXP_PREPARED_WIFI_FASTEST)
+ae_exp_define_if_set(AE_EXP_FAST_N)
+ae_exp_define_if_set(AE_EXP_FAST_TEST_ID)
+ae_exp_define_if_set(AE_EXP_FAST_PRE_MS)
+ae_exp_define_if_set(AE_EXP_FAST_POST_MS)
+ae_exp_define_if_set(AE_EXP_FAST_USE_BSSID)
+ae_exp_define_if_set(AE_EXP_FAST_FAST_SCAN)
+ae_exp_define_if_set(AE_EXP_FAST_AUTH)
+ae_exp_define_if_set(AE_EXP_FAST_RETRY)
+ae_exp_define_if_set(AE_EXP_FAST_POST_MODE)
+ae_exp_define_if_set(AE_EXP_FAST_AMPDU_TX_OFF)
+ae_exp_define_if_set(AE_EXP_FAST_STORAGE_RAM)
 ae_exp_define_if_set(AE_EXP_BISECT_CONSOLE)
 ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
 if(AE_EXP_PREPARED_WIFI_CACHE_5X20 STREQUAL "1" OR
    AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 STREQUAL "1" OR
+   AE_EXP_PREPARED_WIFI_FASTEST STREQUAL "1" OR
    (AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1" AND
     NOT AE_EXP_BISECT_CONSOLE STREQUAL "1"))
   target_compile_definitions(aether PUBLIC "AE_EXP_SILENT=1")

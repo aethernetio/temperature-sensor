@@ -114,6 +114,52 @@ BisectWifiCacheSnapshot GetBisectWifiCacheSnapshot();
 // Wi-Fi failure before EncodePacket does not consume a prepared nonce.
 BisectSendResult SendPreparedOnceWithBisectFactor(
     WifiBisectVariant variant, ae::DataBuffer const& payload);
+
+enum class FastAuthMode : std::uint8_t {
+  kWpa3Both = 0,
+  kWpa3H2eOnly = 1,
+  kWpa2 = 2,
+};
+
+enum class FastPostMode : std::uint8_t {
+  kFixedDelay = 0,
+  kTxDoneCb = 1,
+  kTxDoneCbPlus10 = 2,
+  kTxDoneCbPlus25 = 3,
+};
+
+struct FastPathConfig {
+  bool use_bssid{false};
+  bool use_channel{true};
+  bool use_fast_scan{false};
+  bool use_static_ip{true};
+  bool use_static_arp{true};
+  bool ampdu_tx_off{false};
+  bool wifi_storage_ram{false};
+  FastAuthMode auth{FastAuthMode::kWpa3Both};
+  std::uint8_t retry_max{10};
+  std::uint16_t pre_delay_ms{200};
+  std::uint16_t post_delay_ms{300};
+  FastPostMode post_mode{FastPostMode::kFixedDelay};
+};
+
+struct FastSendResult {
+  HotSendStatus status{HotSendStatus::kWifiFailed};
+  std::uint32_t cycle_us{0};
+  std::uint32_t connect_us{0};
+  std::uint8_t requested_channel{0};
+  std::uint8_t actual_channel{0};
+  std::uint8_t negotiated_auth{0};
+  std::uint8_t status_flags{0};
+  std::uint8_t cb_any{0};
+  std::uint8_t cb_match{0};
+  std::uint8_t cb_count{0};
+};
+
+// BASE = cached channel + static IPv4/netmask/gw + static ARP. No BSSID.
+// Wi-Fi 4, WIFI_PS_NONE, auto PHY rate, max TX power. Timer excludes 1 s gap.
+FastSendResult SendPreparedOnceWithFastPath(FastPathConfig const& cfg,
+                                            ae::DataBuffer const& payload);
 #endif
 
 HotSendStatus TryHotWakePreparedSend(std::string const& temperature);
