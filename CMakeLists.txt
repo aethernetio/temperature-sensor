@@ -41,6 +41,10 @@ set(AE_EXP_PREPARED_TX_DONE_DIAG "" CACHE STRING
     "Silent TX-done callback diagnostic 1x50 (set to 1)")
 set(AE_EXP_PREPARED_MAC_RETRY_DIAG "" CACHE STRING
     "Silent MAC retry-limit diagnostic 7x50 (set to 1)")
+set(AE_EXP_PREPARED_BOOT_WIFI_OPT "" CACHE STRING
+    "Silent boot/wifi HOT opt campaign 11x30 (set to 1)")
+set(AE_EXP_PREPARED_BOOT_WIFI_VAL100 "" CACHE STRING
+    "Silent VAL100 combined boot/wifi winners (set to 1)")
 set(AE_EXP_TX_DIAG_MODE "" CACHE STRING
     "TX-done diag wait mode: 0=FIRST_ANY 1=FIRST_SUCCESS")
 set(AE_EXP_FAST_DISABLE_WPA3 "" CACHE STRING
@@ -66,6 +70,18 @@ elseif(AE_EXP_PREPARED_TX_DONE_DIAG STREQUAL "1")
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.wpa2only"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.deepsleep_5x50")
 elseif(AE_EXP_PREPARED_MAC_RETRY_DIAG STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.fastest"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.wpa2only"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.deepsleep_5x50")
+elseif(AE_EXP_PREPARED_BOOT_WIFI_OPT STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.fastest"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.wpa2only"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.deepsleep_5x50")
+elseif(AE_EXP_PREPARED_BOOT_WIFI_VAL100 STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.fastest"

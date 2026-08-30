@@ -37,6 +37,7 @@
 #  include <esp_netif.h>
 #  include <esp_mac.h>
 #  include <esp_timer.h>
+#  include <esp_system.h>
 #  include <esp_wifi.h>
 #  include <esp_wifi_default.h>
 #  include <esp_private/wifi.h>
@@ -165,6 +166,9 @@ static esp_event_handler_instance_t g_wifi_any_id_handler = nullptr;
 static esp_event_handler_instance_t g_wifi_got_ip_handler = nullptr;
 static bool g_wifi_initialized = false;
 static bool g_wifi_started = false;
+static std::uint32_t g_last_wifi_init_us = 0;
+static std::uint32_t g_last_heap_before_wifi = 0;
+static std::uint32_t g_last_heap_after_wifi = 0;
 static bool g_default_event_loop_created = false;
 static int g_wifi_retry_count = 0;
 static bool g_wait_got_ip = true;
@@ -1447,6 +1451,28 @@ bool StartFastWifi(FastPathConfig const& cfg,
   if (cfg.ampdu_tx_off) {
     wifi_init_cfg.ampdu_tx_enable = 0;
   }
+  if (cfg.ampdu_rx_off) {
+    wifi_init_cfg.ampdu_rx_enable = 0;
+    wifi_init_cfg.rx_ba_win = 0;
+  } else if (cfg.rx_ba_win != 0) {
+    wifi_init_cfg.rx_ba_win = cfg.rx_ba_win;
+  }
+  if (cfg.amsdu_tx_off) {
+    wifi_init_cfg.amsdu_tx_enable = 0;
+  }
+  wifi_init_cfg.nvs_enable = cfg.wifi_nvs_enable ? 1 : 0;
+  if (cfg.static_rx_buf_num != 0) {
+    wifi_init_cfg.static_rx_buf_num = cfg.static_rx_buf_num;
+  }
+  if (cfg.dynamic_rx_buf_num != 0) {
+    wifi_init_cfg.dynamic_rx_buf_num = cfg.dynamic_rx_buf_num;
+  }
+  if (cfg.dynamic_tx_buf_num != 0) {
+    wifi_init_cfg.dynamic_tx_buf_num = cfg.dynamic_tx_buf_num;
+  }
+
+  auto const heap_before = esp_get_free_heap_size();
+  auto const t_wifi_init0 = esp_timer_get_time();
 
   auto err = nvs_flash_init();
   if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -1493,6 +1519,13 @@ bool StartFastWifi(FastPathConfig const& cfg,
   }
 
   err = esp_wifi_init(&wifi_init_cfg);
+  auto const t_wifi_init1 = esp_timer_get_time();
+  g_last_wifi_init_us =
+      (t_wifi_init1 > t_wifi_init0)
+          ? static_cast<std::uint32_t>(t_wifi_init1 - t_wifi_init0)
+          : 0;
+  g_last_heap_before_wifi = heap_before;
+  g_last_heap_after_wifi = esp_get_free_heap_size();
   if (err == ESP_ERR_WIFI_INIT_STATE) {
     g_wifi_initialized = true;
   } else if (err != ESP_OK) {
@@ -1581,6 +1614,14 @@ bool StartFastWifi(FastPathConfig const& cfg,
 
   (void)esp_wifi_set_max_tx_power(80);
   (void)esp_wifi_set_ps(WIFI_PS_NONE);
+  if (cfg.force_ht20) {
+    (void)esp_wifi_set_bandwidth(WIFI_IF_STA, WIFI_BW20);
+  }
+  if (cfg.dynamic_cs == 0) {
+    (void)esp_wifi_set_dynamic_cs(false);
+  } else if (cfg.dynamic_cs == 1) {
+    (void)esp_wifi_set_dynamic_cs(true);
+  }
   // TX-done callback is installed immediately before sendto() for callback
   // post modes — never here (association / PRE would fire unrelated TX).
 
@@ -1751,6 +1792,9 @@ FastSendResult SendPreparedOnceWithFastPath(
     auto const elapsed = t_ready - t0;
     out.connect_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
   }
+  out.wifi_init_us = g_last_wifi_init_us;
+  out.heap_before_wifi = g_last_heap_before_wifi;
+  out.heap_after_wifi = g_last_heap_after_wifi;
   out.status_flags |=
       static_cast<std::uint8_t>(bench::BisectStatusBits::kWifiReady);
   out.actual_channel = g_bisect_actual_channel;

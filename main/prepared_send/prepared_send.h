@@ -141,15 +141,24 @@ struct FastPathConfig {
   bool use_static_ip{true};
   bool use_static_arp{true};
   bool ampdu_tx_off{false};
+  bool ampdu_rx_off{false};
+  bool amsdu_tx_off{false};
   bool wifi_storage_ram{false};
+  bool wifi_nvs_enable{true};
+  bool force_ht20{false};
+  // -1 = leave default; 0 = false; 1 = true
+  std::int8_t dynamic_cs{-1};
+  // 0 = use WIFI_INIT_CONFIG_DEFAULT values
+  std::uint8_t static_rx_buf_num{0};
+  std::uint8_t dynamic_rx_buf_num{0};
+  std::uint8_t dynamic_tx_buf_num{0};
+  std::uint8_t rx_ba_win{0};  // 0 = default; used when ampdu_rx enabled or F6
   FastAuthMode auth{FastAuthMode::kWpa3Both};
   std::uint8_t retry_max{10};
   std::uint16_t pre_delay_ms{200};
   std::uint16_t post_delay_ms{300};
   FastPostMode post_mode{FastPostMode::kFixedDelay};
   FastTxDoneWaitMode tx_done_wait{FastTxDoneWaitMode::kFirstAny};
-  // Experiment-only: MAC short/long retry via esp_wifi_internal_set_retry_counter.
-  // Association retry_max is independent and must stay unchanged.
   bool set_mac_retry_limit{false};
   std::uint8_t mac_short_retry{0};
   std::uint8_t mac_long_retry{0};
@@ -159,6 +168,7 @@ struct FastSendResult {
   HotSendStatus status{HotSendStatus::kWifiFailed};
   std::uint32_t cycle_us{0};
   std::uint32_t connect_us{0};
+  std::uint32_t wifi_init_us{0};
   std::uint32_t encode_send_us{0};
   std::uint32_t tx_done_wait_us{0};
   std::uint32_t teardown_us{0};
@@ -170,9 +180,8 @@ struct FastSendResult {
   std::uint8_t cb_match{0};
   std::uint8_t cb_timeout{0};
   std::uint8_t cb_count{0};
-  // TX-done diagnostics (experiment).
   std::uint8_t diag_mode{0};
-  std::uint8_t first_status{0xff};  // 0xff none, 0 fail, 1 success
+  std::uint8_t first_status{0xff};
   std::uint8_t tx_cb_total{0};
   std::uint8_t tx_cb_success{0};
   std::uint8_t tx_cb_failed{0};
@@ -186,12 +195,13 @@ struct FastSendResult {
   std::uint8_t disconnect_count{0};
   std::uint8_t last_disconnect_reason{0};
   std::uint8_t reconnect_count{0};
-  // MAC retry-limit diagnostics (experiment).
-  std::int16_t mac_retry_set_rc{-1};  // -1 = not called
+  std::int16_t mac_retry_set_rc{-1};
   std::uint8_t mac_short_retry{0};
   std::uint8_t mac_long_retry{0};
   std::uint8_t mac_retry_called{0};
   std::uint32_t retry_cfg_us{0};
+  std::uint32_t heap_before_wifi{0};
+  std::uint32_t heap_after_wifi{0};
 };
 
 // BASE = cached channel + static IPv4/netmask/gw + static ARP. No BSSID.

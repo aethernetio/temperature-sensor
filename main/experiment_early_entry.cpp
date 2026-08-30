@@ -9,7 +9,9 @@
 #if defined(ESP_PLATFORM) && \
     (defined(AE_EXP_PREPARED_DEEPSLEEP_5X50) || \
      defined(AE_EXP_PREPARED_TX_DONE_DIAG) || \
-     defined(AE_EXP_PREPARED_MAC_RETRY_DIAG))
+     defined(AE_EXP_PREPARED_MAC_RETRY_DIAG) || \
+     defined(AE_EXP_PREPARED_BOOT_WIFI_OPT) || \
+     defined(AE_EXP_PREPARED_BOOT_WIFI_VAL100))
 
 #  include <esp_sleep.h>
 #  include <esp_system.h>

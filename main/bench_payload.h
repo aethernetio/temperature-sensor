@@ -630,6 +630,135 @@ inline bool DecodeMacRetry(Buffer const& data, MacRetryPayload& out) {
   return out.magic == kMacRetryMagic;
 }
 
+
+// Boot / Wi-Fi HOT-path optimization campaign payload (experiment only).
+static constexpr std::uint8_t kBootWifiOptMagic = 0xD8;
+
+enum class BootWifiOptMsgType : std::uint8_t {
+  kFull = 1,
+  kHot = 2,
+  kFinal = 3,
+};
+
+enum class BootWifiOptVariant : std::uint8_t {
+  kD0Control = 0,
+  kD1StorageRam = 1,
+  kD2NvsOff = 2,
+  kD3RamNvsOff = 3,
+  kG1Ht20 = 4,
+  kH1CsOff = 5,
+  kH2CsOn = 6,
+  kE1TxHalf = 7,
+  kE2TxMin = 8,
+  kE3RxHalf = 9,
+  kE4RxMin = 10,
+  kCount = 11,
+};
+
+inline char const* BootWifiOptVariantName(std::uint8_t id) {
+  switch (static_cast<BootWifiOptVariant>(id)) {
+    case BootWifiOptVariant::kD0Control:
+      return "D0_CONTROL";
+    case BootWifiOptVariant::kD1StorageRam:
+      return "D1_STORAGE_RAM";
+    case BootWifiOptVariant::kD2NvsOff:
+      return "D2_NVS_OFF";
+    case BootWifiOptVariant::kD3RamNvsOff:
+      return "D3_RAM_NVS_OFF";
+    case BootWifiOptVariant::kG1Ht20:
+      return "G1_HT20";
+    case BootWifiOptVariant::kH1CsOff:
+      return "H1_CS_OFF";
+    case BootWifiOptVariant::kH2CsOn:
+      return "H2_CS_ON";
+    case BootWifiOptVariant::kE1TxHalf:
+      return "E1_TX_HALF";
+    case BootWifiOptVariant::kE2TxMin:
+      return "E2_TX_MIN";
+    case BootWifiOptVariant::kE3RxHalf:
+      return "E3_RX_HALF";
+    case BootWifiOptVariant::kE4RxMin:
+      return "E4_RX_MIN";
+    default:
+      if (id == 0xff) {
+        return "VAL100_COMBINED";
+      }
+      return "?";
+  }
+}
+
+#pragma pack(push, 1)
+struct BootWifiOptPayload {
+  std::uint8_t magic{kBootWifiOptMagic};
+  std::uint8_t type{0};
+  std::uint8_t variant_id{0};
+  std::uint8_t hot_index{0};
+  std::uint16_t sequence_global{0};
+  std::uint16_t record_id{0};
+  std::uint8_t reset_reason{0};
+  std::uint8_t wake_cause{0};
+  std::uint8_t brownout_count{0};
+  std::uint8_t flags{0};
+  std::uint32_t sleep_elapsed_to_app_us{0};
+  std::uint32_t sleep_to_app_overhead_us{0};
+  std::int64_t app_entry_esp_timer_us{0};
+  std::uint32_t pending_user_cycle_us{0};
+  std::uint32_t pending_wifi_cycle_us{0};
+  std::uint32_t wifi_init_us{0};
+  std::uint32_t connect_us{0};
+  std::uint32_t encode_send_us{0};
+  std::uint32_t tx_done_wait_us{0};
+  std::uint32_t teardown_us{0};
+  std::uint32_t heap_before_wifi{0};
+  std::uint32_t heap_after_wifi{0};
+  std::uint8_t tx_cb_total{0};
+  std::uint8_t tx_cb_success{0};
+  std::uint8_t tx_cb_failed{0};
+  std::uint8_t first_status{0xff};
+  std::uint8_t cb_timeout{0};
+  std::int8_t rssi{0};
+  std::uint8_t actual_channel{0};
+  std::uint8_t authmode{0};
+  std::uint8_t disconnect_count{0};
+  std::uint8_t reconnect_count{0};
+  std::uint16_t prepared_message_left{0};
+  std::uint8_t prev_variant_id{0xff};
+  std::uint8_t prev_hot_send_count{0};
+  std::uint8_t prev_hot_attempt_count{0};
+  std::uint8_t prev_tx_success_count{0};
+  std::uint8_t prev_tx_fail_count{0};
+  std::uint8_t prev_cb_timeout_count{0};
+  std::uint32_t prev_txdone_sum_us{0};
+  std::uint8_t pending_kind{0};
+  std::uint8_t pending_variant{0};
+  std::uint8_t pending_hot_index{0};
+  std::uint8_t setting_flags{0};  // bit0 storage_ram bit1 nvs_off bit2 ht20 ...
+  std::uint8_t static_rx_buf{0};
+  std::uint8_t dynamic_rx_buf{0};
+  std::uint8_t dynamic_tx_buf{0};
+  std::int8_t dynamic_cs{-1};
+};
+#pragma pack(pop)
+
+static_assert(sizeof(BootWifiOptPayload) >= 80, "bootwifiopt payload size");
+
+template <typename Buffer>
+inline Buffer EncodeBootWifiOpt(BootWifiOptPayload const& p) {
+  Buffer out(sizeof(BootWifiOptPayload));
+  std::memcpy(out.data(), &p, sizeof(BootWifiOptPayload));
+  return out;
+}
+
+template <typename Buffer>
+inline bool DecodeBootWifiOpt(Buffer const& data, BootWifiOptPayload& out) {
+  if (data.size() < sizeof(BootWifiOptPayload)) {
+    return false;
+  }
+  std::memcpy(&out, data.data(), sizeof(BootWifiOptPayload));
+  return out.magic == kBootWifiOptMagic;
+}
+
+
 }  // namespace temp_sensor::bench
 
 #endif  // TEMP_SENSOR_BENCH_PAYLOAD_H_
