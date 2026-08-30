@@ -20,6 +20,8 @@ struct ExperimentEarlyEntrySnapshot {
 
 #if defined(ESP_PLATFORM) && \
     (defined(AE_EXP_PREPARED_DEEPSLEEP_5X50) || \
+     defined(AE_EXP_PREPARED_FINAL_D1_5X50) || \
+     defined(AE_EXP_PREPARED_AP_AETHERNETIO_3X10) || \
      defined(AE_EXP_PREPARED_TX_DONE_DIAG) || \
      defined(AE_EXP_PREPARED_MAC_RETRY_DIAG) || \
      defined(AE_EXP_PREPARED_BOOT_WIFI_OPT) || \

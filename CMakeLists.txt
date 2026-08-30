@@ -37,6 +37,10 @@ set(AE_EXP_PREPARED_WIFI_FASTEST "" CACHE STRING
     "Silent fastest-path prepared Wi-Fi campaign (set to 1)")
 set(AE_EXP_PREPARED_DEEPSLEEP_5X50 "" CACHE STRING
     "Silent deep-sleep 5x50 prepared E2E (set to 1)")
+set(AE_EXP_PREPARED_FINAL_D1_5X50 "" CACHE STRING
+    "Final D1 WIFI_STORAGE_RAM deep-sleep 5x50 validation (set to 1)")
+set(AE_EXP_PREPARED_AP_AETHERNETIO_3X10 "" CACHE STRING
+    "D1 prepared path on aethernetio AP, 3x10 1s deep sleep (set to 1)")
 set(AE_EXP_PREPARED_TX_DONE_DIAG "" CACHE STRING
     "Silent TX-done callback diagnostic 1x50 (set to 1)")
 set(AE_EXP_PREPARED_MAC_RETRY_DIAG "" CACHE STRING
@@ -58,6 +62,18 @@ if(AE_EXP_BISECT_CONSOLE STREQUAL "1" AND
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.bench")
 elseif(AE_EXP_PREPARED_DEEPSLEEP_5X50 STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.fastest"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.wpa2only"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.deepsleep_5x50")
+elseif(AE_EXP_PREPARED_FINAL_D1_5X50 STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.fastest"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.wpa2only"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.deepsleep_5x50")
+elseif(AE_EXP_PREPARED_AP_AETHERNETIO_3X10 STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.fastest"

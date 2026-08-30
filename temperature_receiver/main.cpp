@@ -89,6 +89,31 @@ int g_dup_records = 0;
 int g_ooo = 0;
 int g_max_record = 0;
 int g_brownout_boots = 0;
+int g_failed_assoc_wakes = 0;
+
+int DsBlockCount() {
+#if defined(_WIN32)
+  if (char const* env = std::getenv("AE_DS_BLOCKS")) {
+    int const v = std::atoi(env);
+    if (v >= 1 && v <= 8) {
+      return v;
+    }
+  }
+#endif
+  return 5;
+}
+
+int DsHotPerBlock() {
+#if defined(_WIN32)
+  if (char const* env = std::getenv("AE_DS_HOT_PER")) {
+    int const v = std::atoi(env);
+    if (v >= 1 && v <= 100) {
+      return v;
+    }
+  }
+#endif
+  return 50;
+}
 
 std::filesystem::path TsvPath() {
 #if defined(_WIN32)
@@ -535,13 +560,50 @@ void OnTxDiag(temp_sensor::bench::TxDiagPayload const& p) {
 
 void OnDs(temp_sensor::bench::DsPayload const& p) {
   auto const type = static_cast<temp_sensor::bench::DsMsgType>(p.type);
+  static int hot_recv_by_outer[8] = {};
+  static int hot_cb_by_outer[8] = {};
+  static int hot_to_by_outer[8] = {};
+  static std::uint32_t last_full_user[8] = {};
+  static int printed_block = 0;
+
+  char const* bench_tag = "deepsleep_5x50";
+#if defined(_WIN32)
+  if (char const* env = std::getenv("AE_DS_BENCH_TAG")) {
+    if (env[0] != '\0') {
+      bench_tag = env;
+    }
+  }
+#endif
+
   if (type == temp_sensor::bench::DsMsgType::kFull) {
     ++g_full_recv;
+    std::cout << "DS_FULL outer=" << static_cast<unsigned>(p.outer_cycle)
+              << " seq=" << p.sequence_global << "\n";
   } else if (type == temp_sensor::bench::DsMsgType::kHot) {
     ++g_hot_recv;
+    auto const outer = p.pending_kind == 2 ? p.pending_outer : p.outer_cycle;
+    if (outer >= 1 && outer <= 5) {
+      ++hot_recv_by_outer[outer];
+      if (p.flags & static_cast<std::uint8_t>(
+                        temp_sensor::bench::DsFlags::kCallbackSeen)) {
+        ++hot_cb_by_outer[outer];
+      }
+      if (p.flags & static_cast<std::uint8_t>(
+                        temp_sensor::bench::DsFlags::kCallbackTimeout)) {
+        ++hot_to_by_outer[outer];
+      }
+    }
+    std::cout << "DS_HOT B" << static_cast<unsigned>(outer) << " "
+              << (outer <= 5 ? hot_recv_by_outer[outer] : 0) << "/50"
+              << " user=" << (p.pending_user_cycle_us / 1000.0) << "ms"
+              << " wifi=" << (p.pending_wifi_cycle_us / 1000.0) << "ms"
+              << " wake_ov=" << (p.sleep_to_app_overhead_us / 1000.0) << "ms"
+              << "\n";
   } else if (type == temp_sensor::bench::DsMsgType::kFinal) {
     ++g_final_recv;
+    std::cout << "DS_FINAL seq=" << p.sequence_global << "\n";
   }
+
   Meas m{};
   m.record_id = p.record_id;
   m.kind = p.pending_kind;
@@ -569,9 +631,60 @@ void OnDs(temp_sensor::bench::DsPayload const& p) {
           : 0;
   m.auth = p.negotiated_auth;
   m.seq = p.sequence_global;
+  m.disconnect_count = p.disconnect_count;
+  m.last_disconnect_reason = p.last_disconnect_reason;
+  m.reconnect_count = p.reconnect_count;
+  m.rssi = p.rssi;
+  m.actual_channel = p.actual_channel;
+  if (p.failed_assoc_wakes > g_failed_assoc_wakes) {
+    g_failed_assoc_wakes = p.failed_assoc_wakes;
+  }
   NoteRecord(m);
+
+  int const block_count = DsBlockCount();
+  int const hot_per = DsHotPerBlock();
+  if (p.pending_kind == 1 && p.pending_outer >= 1 &&
+      p.pending_outer <= static_cast<std::uint8_t>(block_count)) {
+    last_full_user[p.pending_outer] = p.pending_user_cycle_us;
+  }
+
+  // Block summary when a FULL of next outer arrives (prev outer complete) or FINAL.
+  auto print_block = [&](int b) {
+    if (b < 1 || b > block_count || b <= printed_block) {
+      return;
+    }
+    printed_block = b;
+    std::vector<std::uint32_t> users;
+    std::vector<std::uint32_t> wifis;
+    std::vector<std::uint32_t> wakes;
+    for (auto const& mm : g_meas) {
+      if (mm.kind == 2 && mm.outer == b) {
+        users.push_back(mm.user_us);
+        wifis.push_back(mm.wifi_us);
+        wakes.push_back(mm.sleep_overhead_us);
+      }
+    }
+    std::cout << "[BLOCK " << b << "/" << block_count << "]\n"
+              << "FULL=1/1\n"
+              << "HOT_SENDTO=" << hot_per << "/" << hot_per << "\n"
+              << "HOT_RECEIVED=" << hot_recv_by_outer[b] << "/" << hot_per
+              << "\n"
+              << "callback=" << hot_cb_by_outer[b] << "/" << hot_per << "\n"
+              << "timeouts=" << hot_to_by_outer[b] << "\n"
+              << "hot_user_med=" << PercentileUs(users, 50) << "\n"
+              << "hot_wifi_med=" << PercentileUs(wifis, 50) << "\n"
+              << "wake_med=" << PercentileUs(wakes, 50) << "\n"
+              << "full_user=" << last_full_user[b] << "\n"
+              << "remaining=" << (block_count - b) << "\n";
+    std::cout.flush();
+  };
+
+  if (type == temp_sensor::bench::DsMsgType::kFull && p.outer_cycle >= 2) {
+    print_block(static_cast<int>(p.outer_cycle) - 1);
+  }
   if (type == temp_sensor::bench::DsMsgType::kFinal) {
-    PrintFinalStats("deepsleep_5x50");
+    print_block(block_count);
+    PrintFinalStats(bench_tag);
   }
 }
 

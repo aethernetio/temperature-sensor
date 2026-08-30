@@ -338,11 +338,16 @@ struct DsPayload {
   std::uint8_t pending_kind{0};
   std::uint8_t pending_outer{0};
   std::uint8_t pending_hot_index{0};
-  std::uint8_t reserved{0};
+  std::int8_t rssi{0};
+  std::uint8_t actual_channel{0};
+  std::uint8_t disconnect_count{0};
+  std::uint8_t last_disconnect_reason{0};
+  std::uint8_t reconnect_count{0};
+  std::uint8_t failed_assoc_wakes{0};
 };
 #pragma pack(pop)
 
-static_assert(sizeof(DsPayload) == 56, "ds payload size");
+static_assert(sizeof(DsPayload) == 61, "ds payload size");
 
 template <typename Buffer>
 inline Buffer EncodeDs(DsPayload const& p) {
