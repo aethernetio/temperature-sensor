@@ -41,6 +41,10 @@ set(AE_EXP_PREPARED_FINAL_D1_5X50 "" CACHE STRING
     "Final D1 WIFI_STORAGE_RAM deep-sleep 5x50 validation (set to 1)")
 set(AE_EXP_PREPARED_AP_AETHERNETIO_3X10 "" CACHE STRING
     "D1 prepared path on aethernetio AP, 3x10 1s deep sleep (set to 1)")
+set(AE_EXP_PREPARED_AP_AETHERNETIO_NOSLEEP_5X5 "" CACHE STRING
+    "No-sleep reliability prepared path on aethernetio 5x5 (set to 1)")
+set(AE_EXP_FULL_AETHER_AETHERNETIO "" CACHE STRING
+    "Canonical FULL Aether path baseline on aethernetio (set to 1)")
 set(AE_EXP_PREPARED_TX_DONE_DIAG "" CACHE STRING
     "Silent TX-done callback diagnostic 1x50 (set to 1)")
 set(AE_EXP_PREPARED_MAC_RETRY_DIAG "" CACHE STRING
@@ -57,7 +61,15 @@ set(AE_EXP_BISECT_CONSOLE "" CACHE STRING
     "Bisect USB stage markers / console (set to 1; disables silent)")
 set(AE_EXP_BISECT_SMOKE "" CACHE STRING
     "Bisect smoke: B1 only, 2 prepared (set to 1)")
-if(AE_EXP_BISECT_CONSOLE STREQUAL "1" AND
+if(AE_EXP_FULL_AETHER_AETHERNETIO STREQUAL "1")
+  # Exclusive minimal defaults — do NOT append silent/fastest/wpa2 overlays.
+  set(SDKCONFIG_DEFAULTS
+      "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.full_aether_baseline")
+  # Quiet Æther tele: observe UDP/P2P deliveries only.
+  set(USER_CONFIG
+      "${CMAKE_CURRENT_LIST_DIR}/main/user_config_full_quiet.h"
+      CACHE PATH "" FORCE)
+elseif(AE_EXP_BISECT_CONSOLE STREQUAL "1" AND
    AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.bench")
@@ -79,6 +91,11 @@ elseif(AE_EXP_PREPARED_AP_AETHERNETIO_3X10 STREQUAL "1")
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.fastest"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.wpa2only"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.deepsleep_5x50")
+elseif(AE_EXP_PREPARED_AP_AETHERNETIO_NOSLEEP_5X5 STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.fastest"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.wpa2only")
 elseif(AE_EXP_PREPARED_TX_DONE_DIAG STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
@@ -129,7 +146,9 @@ set(AE_FILTRATION On CACHE BOOL "Set filtration mode by default" FORCE)
 
 # add user provided config wich will be included as regular .h file
 # Add a user-provided config file, which will be included as a regular .h file
-set(USER_CONFIG "user_config.h" CACHE PATH "" FORCE)
+if(NOT AE_EXP_FULL_AETHER_AETHERNETIO STREQUAL "1")
+  set(USER_CONFIG "user_config.h" CACHE PATH "" FORCE)
+endif()
 # ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
 include_directories(${CMAKE_CURRENT_LIST_DIR}/main)
 

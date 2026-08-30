@@ -763,6 +763,140 @@ inline bool DecodeBootWifiOpt(Buffer const& data, BootWifiOptPayload& out) {
   return out.magic == kBootWifiOptMagic;
 }
 
+// No-sleep aethernetio reliability prepared path (experiment only).
+static constexpr std::uint8_t kNosleepMagic = 0xD9;
+
+enum class NosleepMsgType : std::uint8_t {
+  kFull = 1,
+  kHot = 2,
+  kFinal = 3,
+  kHotFail = 4,
+};
+
+enum class NosleepFlags : std::uint8_t {
+  kStaConnected = 1 << 0,
+  kGotIp = 1 << 1,
+  kUsedCachedChannel = 1 << 2,
+  kChannelFallback = 1 << 3,
+  kUsedStaticIp = 1 << 4,
+  kDhcpFallback = 1 << 5,
+  kUsedStaticArp = 1 << 6,
+  kArpFallback = 1 << 7,
+};
+
+#pragma pack(push, 1)
+struct NosleepPayload {
+  std::uint8_t magic{kNosleepMagic};
+  std::uint8_t type{0};
+  std::uint8_t outer_cycle{0};
+  std::uint8_t hot_index{0};
+  std::uint16_t sequence_global{0};
+  std::uint16_t record_id{0};
+  char ssid[33]{};
+  std::uint8_t bssid[6]{};
+  std::uint8_t sta_mac[6]{};
+  std::uint8_t channel{0};
+  std::int8_t rssi{0};
+  std::uint8_t authmode{0};
+  std::uint32_t ip{0};
+  std::uint32_t netmask{0};
+  std::uint32_t gateway{0};
+  std::uint32_t wifi_init_us{0};
+  std::uint32_t connect_us{0};
+  std::uint32_t tx_done_us{0};
+  std::uint32_t teardown_us{0};
+  std::uint32_t hot_total_us{0};
+  std::uint16_t pre_delay_ms{0};
+  std::uint16_t post_delay_ms{0};
+  std::uint8_t flags{0};
+  std::uint8_t cb_seen{0};
+  std::uint8_t cb_timeout{0};
+  std::uint8_t first_status{0xff};
+  std::uint8_t sendto_ok{0};
+  std::uint8_t fail_stage{0};
+  std::uint8_t disc_reason{0};
+  std::uint8_t disc_count{0};
+  std::uint8_t reconnect_count{0};
+  std::uint8_t hot_bssid[6]{};
+  std::int8_t hot_rssi{0};
+  std::uint8_t hot_channel{0};
+  std::uint8_t hot_auth{0};
+  std::uint8_t pending_fail_valid{0};
+  std::uint8_t pad0{0};
+};
+#pragma pack(pop)
+
+static_assert(sizeof(NosleepPayload) == 112, "nosleep payload size");
+
+template <typename Buffer>
+inline Buffer EncodeNosleep(NosleepPayload const& p) {
+  Buffer out(sizeof(NosleepPayload));
+  std::memcpy(out.data(), &p, sizeof(NosleepPayload));
+  return out;
+}
+
+template <typename Buffer>
+inline bool DecodeNosleep(Buffer const& data, NosleepPayload& out) {
+  if (data.size() < sizeof(NosleepPayload)) {
+    return false;
+  }
+  std::memcpy(&out, data.data(), sizeof(NosleepPayload));
+  return out.magic == kNosleepMagic;
+}
+
+// Canonical FULL Aether path baseline (no prepared / no sleep).
+static constexpr std::uint8_t kFullBaselineMagic = 0xDA;
+
+enum class FullBaselineMsgType : std::uint8_t {
+  kFull = 1,
+};
+
+#pragma pack(push, 1)
+struct FullBaselinePayload {
+  std::uint8_t magic{kFullBaselineMagic};
+  std::uint8_t type{0};
+  std::uint32_t sequence{0};  // monotonic per-boot; restarts at 1 after reset
+  std::uint32_t cycle{0};
+  std::uint32_t uptime_ms{0};
+  char ssid[33]{};
+  std::uint8_t bssid[6]{};
+  std::uint8_t sta_mac[6]{};
+  std::uint8_t channel{0};
+  std::int8_t rssi{0};
+  std::uint8_t authmode{0};
+  std::uint32_t ip{0};
+  std::uint32_t netmask{0};
+  std::uint32_t gateway{0};
+  std::uint32_t construct_us{0};
+  std::uint32_t select_us{0};
+  std::uint32_t stream_us{0};
+  std::uint32_t writable_us{0};
+  std::uint32_t write_us{0};
+  std::uint32_t save_us{0};
+  std::uint32_t release_us{0};
+  std::uint32_t total_us{0};
+  std::uint8_t write_ok{0};
+  std::uint8_t pad0{0};
+};
+#pragma pack(pop)
+
+static_assert(sizeof(FullBaselinePayload) == 108, "full baseline payload size");
+
+template <typename Buffer>
+inline Buffer EncodeFullBaseline(FullBaselinePayload const& p) {
+  Buffer out(sizeof(FullBaselinePayload));
+  std::memcpy(out.data(), &p, sizeof(FullBaselinePayload));
+  return out;
+}
+
+template <typename Buffer>
+inline bool DecodeFullBaseline(Buffer const& data, FullBaselinePayload& out) {
+  if (data.size() < sizeof(FullBaselinePayload)) {
+    return false;
+  }
+  std::memcpy(&out, data.data(), sizeof(FullBaselinePayload));
+  return out.magic == kFullBaselineMagic;
+}
 
 }  // namespace temp_sensor::bench
 

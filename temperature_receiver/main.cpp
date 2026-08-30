@@ -2,14 +2,17 @@
  * Copyright 2026 Aethernet Inc.
  *
  * Desktop Æther receiver for prepared boot/wifi opt (0xD8), MAC-retry (0xD7),
- * TX-done (0xD6) and deep-sleep E2E (0xD5). Deduplicates by record_id; appends TSV.
+ * TX-done (0xD6), deep-sleep E2E (0xD5), nosleep reliability (0xD9).
+ * Deduplicates by record_id; appends TSV.
  */
 
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -688,8 +691,235 @@ void OnDs(temp_sensor::bench::DsPayload const& p) {
   }
 }
 
+void OnNosleep(temp_sensor::bench::NosleepPayload const& p) {
+  auto const type = static_cast<temp_sensor::bench::NosleepMsgType>(p.type);
+  static int hot_by_outer[8] = {};
+  static int hot_cb[8] = {};
+  static int hot_to[8] = {};
+  static int ch_fb = 0;
+  static int dhcp_fb = 0;
+  static int arp_fb = 0;
+  static int printed_outer = 0;
+  static char last_ssid[33] = {};
+  static std::uint8_t last_bssid[6] = {};
+  static std::uint8_t last_sta[6] = {};
+
+  if (p.ssid[0] != '\0') {
+    std::memcpy(last_ssid, p.ssid, sizeof(last_ssid));
+  }
+  if (p.bssid[0] | p.bssid[1] | p.bssid[2]) {
+    std::memcpy(last_bssid, p.bssid, 6);
+  }
+  if (p.sta_mac[0] | p.sta_mac[1] | p.sta_mac[2]) {
+    std::memcpy(last_sta, p.sta_mac, 6);
+  }
+
+  auto flag = [&](temp_sensor::bench::NosleepFlags f) {
+    return (p.flags & static_cast<std::uint8_t>(f)) != 0;
+  };
+  if (flag(temp_sensor::bench::NosleepFlags::kChannelFallback)) {
+    ++ch_fb;
+  }
+  if (flag(temp_sensor::bench::NosleepFlags::kDhcpFallback)) {
+    ++dhcp_fb;
+  }
+  if (flag(temp_sensor::bench::NosleepFlags::kArpFallback)) {
+    ++arp_fb;
+  }
+
+  if (type == temp_sensor::bench::NosleepMsgType::kFull) {
+    ++g_full_recv;
+    std::cout << "NS_FULL outer=" << static_cast<unsigned>(p.outer_cycle)
+              << " seq=" << p.sequence_global << " ssid=" << p.ssid
+              << " ch=" << static_cast<unsigned>(p.channel)
+              << " rssi=" << static_cast<int>(p.rssi) << "\n";
+    std::cout << "  bssid=" << std::hex
+              << static_cast<int>(p.bssid[0]) << ":"
+              << static_cast<int>(p.bssid[1]) << ":"
+              << static_cast<int>(p.bssid[2]) << ":"
+              << static_cast<int>(p.bssid[3]) << ":"
+              << static_cast<int>(p.bssid[4]) << ":"
+              << static_cast<int>(p.bssid[5]) << std::dec
+              << " sta=";
+    for (int i = 0; i < 6; ++i) {
+      if (i) {
+        std::cout << ":";
+      }
+      std::cout << std::hex << static_cast<int>(p.sta_mac[i]);
+    }
+    std::cout << std::dec << "\n";
+  } else if (type == temp_sensor::bench::NosleepMsgType::kHot) {
+    ++g_hot_recv;
+    auto const outer = p.outer_cycle;
+    if (outer >= 1 && outer <= 5) {
+      ++hot_by_outer[outer];
+      if (p.cb_seen) {
+        ++hot_cb[outer];
+      }
+      if (p.cb_timeout) {
+        ++hot_to[outer];
+      }
+    }
+    std::cout << "NS_HOT O" << static_cast<unsigned>(outer) << " "
+              << "meas_hot=" << static_cast<unsigned>(p.hot_index)
+              << " connect_ms=" << (p.connect_us / 1000.0)
+              << " total_ms=" << (p.hot_total_us / 1000.0)
+              << " ch_fb=" << (flag(temp_sensor::bench::NosleepFlags::kChannelFallback) ? 1 : 0)
+              << " dhcp_fb=" << (flag(temp_sensor::bench::NosleepFlags::kDhcpFallback) ? 1 : 0)
+              << " arp_fb=" << (flag(temp_sensor::bench::NosleepFlags::kArpFallback) ? 1 : 0)
+              << " cb_to=" << static_cast<unsigned>(p.cb_timeout)
+              << "\n";
+  } else if (type == temp_sensor::bench::NosleepMsgType::kHotFail) {
+    std::cout << "NS_HOT_FAIL O" << static_cast<unsigned>(p.outer_cycle)
+              << " hot=" << static_cast<unsigned>(p.hot_index)
+              << " stage=" << static_cast<unsigned>(p.fail_stage)
+              << " disc=" << static_cast<unsigned>(p.disc_reason)
+              << " connect_ms=" << (p.connect_us / 1000.0) << "\n";
+  } else if (type == temp_sensor::bench::NosleepMsgType::kFinal) {
+    ++g_final_recv;
+    std::cout << "NS_FINAL seq=" << p.sequence_global << "\n";
+  }
+
+  Meas m{};
+  m.record_id = p.record_id;
+  m.kind = p.type;
+  m.outer = p.outer_cycle;
+  m.hot = p.hot_index;
+  m.user_us = p.hot_total_us;
+  m.wifi_us = p.hot_total_us;
+  m.connect_us = p.connect_us;
+  m.txdone_us = p.tx_done_us;
+  m.teardown_us = p.teardown_us;
+  m.cb_seen = p.cb_seen;
+  m.cb_timeout = p.cb_timeout;
+  m.auth = p.hot_auth ? p.hot_auth : p.authmode;
+  m.seq = p.sequence_global;
+  m.rssi = p.hot_rssi ? p.hot_rssi : p.rssi;
+  m.actual_channel = p.hot_channel ? p.hot_channel : p.channel;
+  m.disconnect_count = p.disc_count;
+  m.last_disconnect_reason = p.disc_reason;
+  m.reconnect_count = p.reconnect_count;
+  NoteRecord(m);
+
+  auto print_outer = [&](int o) {
+    if (o < 1 || o > 5 || o <= printed_outer) {
+      return;
+    }
+    printed_outer = o;
+    std::cout << "[OUTER " << o << "/5]\n"
+              << "FULL received=1\n"
+              << "HOT sendto=5/5\n"
+              << "HOT received=" << hot_by_outer[o] << "/5\n"
+              << "connect_med=" << 0 << "\n"
+              << "channel_fallback=" << ch_fb << "\n"
+              << "dhcp_fallback=" << dhcp_fb << "\n"
+              << "arp_fallback=" << arp_fb << "\n"
+              << "callback_timeout=" << hot_to[o] << "\n"
+              << "remaining=" << (5 - o) << "\n";
+    std::cout.flush();
+  };
+
+  if (type == temp_sensor::bench::NosleepMsgType::kFull &&
+      p.outer_cycle >= 2) {
+    print_outer(static_cast<int>(p.outer_cycle) - 1);
+  }
+  if (type == temp_sensor::bench::NosleepMsgType::kFinal) {
+    print_outer(5);
+    char const* tag = "ap_aethernetio_nosleep_5x5";
+#if defined(_WIN32)
+    if (char const* env = std::getenv("AE_DS_BENCH_TAG")) {
+      if (env[0] != '\0') {
+        tag = env;
+      }
+    }
+#endif
+    PrintFinalStats(tag);
+  }
+  std::cout.flush();
+}
+
 void OnMessage(ae::Uid, ae::DataBuffer const& data) {
   std::lock_guard lock{g_mu};
+  temp_sensor::bench::FullBaselinePayload fb{};
+  if (temp_sensor::bench::DecodeFullBaseline(data, fb)) {
+    static std::uint32_t run_id = 1;
+    static std::uint32_t current_seq = 0;
+    static std::uint64_t received = 0;
+    static std::uint64_t lost = 0;
+    static std::uint64_t duplicates = 0;
+    static bool have_seq = false;
+
+    auto print_line = [&]() {
+      double loss_pct = 0.0;
+      auto const denom = received + lost;
+      if (denom > 0) {
+        loss_pct = (100.0 * static_cast<double>(lost)) /
+                   static_cast<double>(denom);
+      }
+      std::cout << "RUN=" << run_id << " seq=" << fb.sequence
+                << " recv=" << received << " lost=" << lost
+                << " loss=" << std::fixed << std::setprecision(2) << loss_pct
+                << "%"
+                << " dup=" << duplicates << " ssid=" << fb.ssid << "\n";
+      std::cout.flush();
+      if (received > 0 && (received % 100) == 0) {
+        std::cout << "=== SUMMARY ===\n"
+                  << "run=" << run_id << "\n"
+                  << "last_seq=" << current_seq << "\n"
+                  << "received=" << received << "\n"
+                  << "lost=" << lost << "\n"
+                  << "loss_percent=" << std::fixed << std::setprecision(2)
+                  << loss_pct << "\n"
+                  << "duplicates=" << duplicates << "\n"
+                  << "================\n";
+        std::cout.flush();
+      }
+    };
+
+    if (!have_seq) {
+      have_seq = true;
+      current_seq = fb.sequence;
+      received = 1;
+      lost = 0;
+      duplicates = 0;
+      print_line();
+      return;
+    }
+
+    if (fb.sequence < current_seq) {
+      auto const prev = current_seq;
+      ++run_id;
+      current_seq = fb.sequence;
+      received = 1;
+      lost = 0;
+      duplicates = 0;
+      std::cout << "=== NEW RUN DETECTED ===\n"
+                << "previous_seq=" << prev << "\n"
+                << "new_seq=" << fb.sequence << "\n"
+                << "run=" << run_id << "\n"
+                << "statistics reset\n";
+      std::cout.flush();
+      print_line();
+      return;
+    }
+
+    if (fb.sequence == current_seq) {
+      ++duplicates;
+      print_line();
+      return;
+    }
+
+    lost += static_cast<std::uint64_t>(fb.sequence - current_seq - 1);
+    ++received;
+    current_seq = fb.sequence;
+    print_line();
+    return;
+  }
+  temp_sensor::bench::NosleepPayload ns{};
+  if (temp_sensor::bench::DecodeNosleep(data, ns)) {
+    OnNosleep(ns);
+    return;
+  }
   temp_sensor::bench::BootWifiOptPayload bwo{};
   if (temp_sensor::bench::DecodeBootWifiOpt(data, bwo)) {
     OnBootWifiOpt(bwo);
@@ -740,7 +970,6 @@ int main() {
   auto const session_root = ResolveSessionRoot();
   std::filesystem::create_directories(session_root / "state");
   std::filesystem::current_path(session_root);
-  std::cerr << ae::Format("receiver_session_dir={}\n", session_root.string());
 
   auto aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
   ae::Client::ptr client;
@@ -754,7 +983,9 @@ int main() {
           return;
         }
         client = res.value();
-        std::cout << ae::Format("RECEIVER_UID={}\n", client->uid());
+        std::cout << "========================================\n"
+                  << ae::Format("RECEIVER_UID={}\n", client->uid())
+                  << "========================================\n";
         std::cout.flush();
         client->connectivity_policy()->ResetRxTimings();
         client->connectivity_policy()

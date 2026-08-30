@@ -11,12 +11,10 @@
 #define AE_SIGNATURE AE_HYDRO_SIGNATURE
 #define AE_KDF AE_HYDRO_KDF
 
-#define AE_TELE_ENABLED 1
-#define AE_TELE_LOG_CONSOLE 1
-#if defined NDEBUG
-#  define AE_TELE_DEBUG_MODULES 0
-#else
-#  define AE_TELE_DEBUG_MODULES AE_ALL
-#endif
+// Quiet receiver: no Æther tele console; app prints messages via std::cout only.
+#define AE_TELE_ENABLED 0
+#define AE_TELE_LOG_CONSOLE 0
+#define AE_TELE_LOG_TO_STATISTICS 0
+#define AE_TELE_DEBUG_MODULES 0
 
 #endif  // USER_CONFIG_H_
