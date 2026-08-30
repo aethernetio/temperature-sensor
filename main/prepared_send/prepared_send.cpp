@@ -105,6 +105,10 @@ static bool g_prepared_wifi_session_active = false;
 std::atomic<std::uint32_t> g_wifi_disconnect_count{0};
 std::atomic<std::uint8_t> g_wifi_last_disconnect_reason{0};
 std::atomic<std::uint32_t> g_wifi_reconnect_count{0};
+std::atomic<std::uint8_t> g_wifi_sta_connected_seen{0};
+std::atomic<std::uint8_t> g_wifi_got_ip_seen{0};
+static std::uint8_t g_last_used_static_arp = 0;
+static std::uint8_t g_last_arp_fallback = 0;
 #endif
 static std::uint32_t g_last_wifi_session_start_us = 0;
 
@@ -326,6 +330,7 @@ void WifiEventHandler(void*, esp_event_base_t event_base, std::int32_t event_id,
     }
   } else if (event_base == WIFI_EVENT &&
              event_id == WIFI_EVENT_STA_CONNECTED) {
+    g_wifi_sta_connected_seen.store(1, std::memory_order_relaxed);
     CaptureApIntoCache();
     if (!g_wait_got_ip) {
       xEventGroupSetBits(g_wifi_event_group, kWifiReadyBit);
@@ -356,6 +361,7 @@ void WifiEventHandler(void*, esp_event_base_t event_base, std::int32_t event_id,
       xEventGroupSetBits(g_wifi_event_group, kWifiFailBit);
     }
   } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+    g_wifi_got_ip_seen.store(1, std::memory_order_relaxed);
     auto* event = static_cast<ip_event_got_ip_t*>(event_data);
     rtc_ip_info.ip = event->ip_info.ip;
     rtc_ip_info.netmask = event->ip_info.netmask;
@@ -879,8 +885,9 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
     return HotSendStatus::kSendFailed;
   }
 
-  constexpr std::int64_t kMaxUs = 100000;
   constexpr std::int64_t kObserveUs = 5000;
+  std::int64_t const kMaxUs =
+      static_cast<std::int64_t>(cfg.tx_done_timeout_ms) * 1000;
   bool condition_met = false;
   std::uint32_t total_at_success = 0;
 
@@ -1441,6 +1448,8 @@ bool StartFastWifi(FastPathConfig const& cfg,
   g_wifi_disconnect_count.store(0, std::memory_order_relaxed);
   g_wifi_last_disconnect_reason.store(0, std::memory_order_relaxed);
   g_wifi_reconnect_count.store(0, std::memory_order_relaxed);
+  g_wifi_sta_connected_seen.store(0, std::memory_order_relaxed);
+  g_wifi_got_ip_seen.store(0, std::memory_order_relaxed);
 
   bool const need_static_ip = cfg.use_static_ip && cache.valid_ip;
   g_wait_got_ip = !need_static_ip;
@@ -1635,11 +1644,35 @@ bool StartFastWifi(FastPathConfig const& cfg,
 
   g_bisect_actual_channel = ReadActualChannel();
 
+  bool used_static_arp = false;
+  bool arp_fallback = false;
   if (cfg.use_static_arp && cache.valid_gw_mac && cache.valid_ip) {
     std::memcpy(gateway_mac, cache.gw_mac, sizeof(gateway_mac));
     gateway_mac_valid = true;
-    (void)InstallStaticGatewayArp();
+    if (InstallStaticGatewayArp()) {
+      used_static_arp = true;
+    } else {
+      gateway_mac_valid = false;
+    }
   }
+  if (!gateway_mac_valid && g_wifi_netif != nullptr &&
+      (cfg.use_static_arp || cfg.arp_wait_on_miss)) {
+    arp_fallback = cfg.use_static_arp ? true : arp_fallback;
+    if (!used_static_arp) {
+      arp_fallback = true;
+    }
+    auto const t_arp0 = esp_timer_get_time();
+    while ((esp_timer_get_time() - t_arp0) <
+           static_cast<std::int64_t>(AETHER_PREPARED_ARP_TIMEOUT_MS) * 1000) {
+      if (ResolveAndCacheGatewayMac(g_wifi_netif)) {
+        (void)InstallStaticGatewayArp();
+        break;
+      }
+      vTaskDelay(pdMS_TO_TICKS(50));
+    }
+  }
+  g_last_used_static_arp = used_static_arp ? 1 : 0;
+  g_last_arp_fallback = arp_fallback ? 1 : 0;
 
   return true;
 }
@@ -1784,6 +1817,16 @@ FastSendResult SendPreparedOnceWithFastPath(
     auto const elapsed = esp_timer_get_time() - t0;
     out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
     out.connect_us = out.cycle_us;
+    out.fail_stage = 1;
+    out.sta_connected_seen =
+        g_wifi_sta_connected_seen.load(std::memory_order_relaxed);
+    out.got_ip_seen = g_wifi_got_ip_seen.load(std::memory_order_relaxed);
+    out.last_disconnect_reason =
+        g_wifi_last_disconnect_reason.load(std::memory_order_relaxed);
+    {
+      auto const d = g_wifi_disconnect_count.load(std::memory_order_relaxed);
+      out.disconnect_count = d > 255 ? 255 : static_cast<std::uint8_t>(d);
+    }
     return out;
   }
 
@@ -1827,14 +1870,18 @@ FastSendResult SendPreparedOnceWithFastPath(
   if (cfg.post_mode != FastPostMode::kFixedDelay) {
     encode_status =
         EncodeAndUdpSendWithLateTxDone(payload, &out, cfg);
-    std::uint16_t extra_ms = 0;
+    std::uint16_t hold_ms = cfg.post_delay_ms;
     if (cfg.post_mode == FastPostMode::kTxDoneCbPlus10) {
-      extra_ms = 10;
+      if (hold_ms < 10) {
+        hold_ms = 10;
+      }
     } else if (cfg.post_mode == FastPostMode::kTxDoneCbPlus25) {
-      extra_ms = 25;
+      if (hold_ms < 25) {
+        hold_ms = 25;
+      }
     }
-    if (extra_ms > 0) {
-      vTaskDelay(pdMS_TO_TICKS(extra_ms));
+    if (hold_ms > 0) {
+      vTaskDelay(pdMS_TO_TICKS(hold_ms));
     }
   } else {
     encode_status = EncodeAndUdpSendTracked(payload);
@@ -1849,14 +1896,58 @@ FastSendResult SendPreparedOnceWithFastPath(
   }
 
   if (encode_status == HotSendStatus::kSent) {
+    out.sendto_ok = 1;
     out.status_flags |=
         static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk) |
         static_cast<std::uint8_t>(bench::BisectStatusBits::kSendtoOk);
   } else if (encode_status == HotSendStatus::kSendFailed) {
+    out.fail_stage = 3;
     out.status_flags |=
         static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk);
   } else if (encode_status == HotSendStatus::kEncodeFailed) {
-    // encode failed: no sendto bit
+    out.fail_stage = 2;
+  }
+
+  {
+    wifi_ap_record_t ap{};
+    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
+      out.rssi = ap.rssi;
+      out.ap_primary = ap.primary;
+      out.actual_channel = ap.primary != 0 ? ap.primary : out.actual_channel;
+      std::memcpy(out.bssid, ap.bssid, sizeof(out.bssid));
+    }
+  }
+  out.sta_connected_seen =
+      g_wifi_sta_connected_seen.load(std::memory_order_relaxed);
+  out.got_ip_seen = g_wifi_got_ip_seen.load(std::memory_order_relaxed);
+  out.used_static_arp = g_last_used_static_arp;
+  out.arp_fallback_used = g_last_arp_fallback;
+  out.used_cached_channel =
+      (cfg.use_channel && cache.channel != 0) ? 1 : 0;
+  out.used_static_ip = (cfg.use_static_ip && cache.valid_ip) ? 1 : 0;
+
+  // Refresh live association into g_bisect_cache for subsequent HOT.
+  if (g_wifi_netif != nullptr) {
+    esp_netif_ip_info_t ip_info{};
+    if (esp_netif_get_ip_info(g_wifi_netif, &ip_info) == ESP_OK &&
+        ip_info.ip.addr != 0) {
+      g_bisect_cache.valid_ip = true;
+      g_bisect_cache.ip = ip_info.ip.addr;
+      g_bisect_cache.netmask = ip_info.netmask.addr;
+      g_bisect_cache.gateway = ip_info.gw.addr;
+    }
+  }
+  if (out.actual_channel != 0) {
+    g_bisect_cache.channel = out.actual_channel;
+  }
+  if (out.bssid[0] | out.bssid[1] | out.bssid[2] | out.bssid[3] |
+      out.bssid[4] | out.bssid[5]) {
+    g_bisect_cache.valid_bssid = true;
+    std::memcpy(g_bisect_cache.bssid, out.bssid, sizeof(out.bssid));
+  }
+  if (gateway_mac_valid) {
+    g_bisect_cache.valid_gw_mac = true;
+    std::memcpy(g_bisect_cache.gw_mac, gateway_mac, sizeof(gateway_mac));
   }
 
   auto const t_teardown0 = esp_timer_get_time();
@@ -1870,7 +1961,61 @@ FastSendResult SendPreparedOnceWithFastPath(
   auto const elapsed = t_end - t0;
   out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
   out.status = encode_status;
+  if (encode_status == HotSendStatus::kWifiFailed) {
+    out.fail_stage = 1;
+  }
   return out;
+}
+
+FastSendResult SendPreparedOnceReliability(
+    FastPathConfig const& cfg, ae::DataBuffer const& payload,
+    BisectWifiCacheSnapshot* wifi_cache) {
+  BisectWifiCacheSnapshot local =
+      wifi_cache != nullptr ? *wifi_cache : g_bisect_cache;
+
+  struct Attempt {
+    bool use_channel;
+    bool use_static_ip;
+    bool use_static_arp;
+    std::uint8_t channel_fb;
+    std::uint8_t dhcp_fb;
+  };
+  Attempt const attempts[] = {
+      {cfg.use_channel && local.channel != 0, cfg.use_static_ip && local.valid_ip,
+       cfg.use_static_arp && local.valid_gw_mac, 0, 0},
+      {false, cfg.use_static_ip && local.valid_ip,
+       cfg.use_static_arp && local.valid_gw_mac, 1, 0},
+      {false, false, false, 1, 1},
+  };
+
+  FastSendResult last{};
+  last.fail_stage = 1;
+  for (auto const& att : attempts) {
+    FastPathConfig c = cfg;
+    c.use_bssid = false;
+    c.use_channel = att.use_channel;
+    c.use_static_ip = att.use_static_ip;
+    c.use_static_arp = att.use_static_arp;
+    c.arp_wait_on_miss = true;
+
+    last = SendPreparedOnceWithFastPath(c, payload, &local);
+    last.channel_fallback_used = att.channel_fb;
+    last.dhcp_fallback_used = att.dhcp_fb;
+    last.used_cached_channel = att.use_channel ? 1 : 0;
+    last.used_static_ip = att.use_static_ip ? 1 : 0;
+
+    if (last.status != HotSendStatus::kWifiFailed) {
+      local = g_bisect_cache;
+      if (wifi_cache != nullptr) {
+        *wifi_cache = local;
+      }
+      return last;
+    }
+  }
+  if (wifi_cache != nullptr) {
+    *wifi_cache = local;
+  }
+  return last;
 }
 
 namespace {
@@ -1973,6 +2118,58 @@ bool CapturePreparedWifiRtcCache(PreparedWifiRtcCache* out) {
   c.crc = Crc32Bytes(&c, sizeof(c));
   *out = c;
   return PreparedWifiRtcCacheIsValid(*out);
+}
+
+FastPathConfig FastPathConfigForProbeProfile(ae::WifiProbeProfile profile,
+                                             std::uint16_t pre_ms,
+                                             std::uint16_t post_ms) {
+  FastPathConfig c{};
+  c.use_bssid = false;
+  c.use_channel = ae::WifiProbeProfileUsesChannel(profile);
+  c.use_static_ip = ae::WifiProbeProfileUsesCachedIp(profile);
+  c.use_static_arp = ae::WifiProbeProfileUsesArp(profile);
+  c.pre_delay_ms = pre_ms;
+  c.post_delay_ms = post_ms;
+  c.post_mode = FastPostMode::kFixedDelay;
+  return c;
+}
+
+void ApplyProbeStateToHotConfig(ae::WifiProbeRtcState const& state,
+                                FastPathConfig* cfg,
+                                BisectWifiCacheSnapshot* cache) {
+  if (cfg == nullptr) {
+    return;
+  }
+  auto const profile =
+      static_cast<ae::WifiProbeProfile>(state.selected_profile);
+  *cfg = FastPathConfigForProbeProfile(profile, state.pre_send_delay_ms,
+                                       state.post_send_delay_ms);
+  if (cache == nullptr) {
+    return;
+  }
+  cache->valid_ip = state.ip != 0;
+  cache->valid_gw_mac = false;
+  for (unsigned i = 0; i < 6; ++i) {
+    if (state.gateway_mac[i] != 0) {
+      cache->valid_gw_mac = true;
+      break;
+    }
+  }
+  cache->valid_bssid = false;
+  cache->channel = state.channel;
+  cache->ip = state.ip;
+  cache->netmask = state.netmask;
+  cache->gateway = state.gateway;
+  std::memcpy(cache->gw_mac, state.gateway_mac, sizeof(cache->gw_mac));
+  std::memcpy(cache->bssid, state.bssid, sizeof(cache->bssid));
+}
+
+void RecordHotProbeFailure(ae::WifiProbeRtcState* state,
+                           ae::WifiProbeRecoveryReason reason) {
+  if (state == nullptr) {
+    return;
+  }
+  ae::WifiProbeDegradeSelected(*state, reason);
 }
 #endif
 

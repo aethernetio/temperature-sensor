@@ -1,14 +1,19 @@
 /*
  * Copyright 2026 Aethernet Inc.
  *
- * Canonical FULL Aether path baseline on AP aethernetio.
- * No prepared path, no deep sleep, no Wi-Fi cache / static IP / ARP.
- * Wi-Fi only via ae::WifiAdapter + EspWifiDriver.
+ * FULL Aether session: N ordinary P2P Writes @ INTERVAL_MS, no deep sleep.
+ * Wi-Fi / SERVICE_UID / counts via compile definitions.
  */
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <memory>
+
+#include <esp_wifi.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <nvs_flash.h>
 
 #include "aether/all.h"
 #include "aether/ae_exp_wifi.h"
@@ -16,401 +21,303 @@
 #include "aether/env.h"
 #include "bench_payload.h"
 
-#if defined(ESP_PLATFORM)
-#  include <esp_event.h>
-#  include <esp_mac.h>
-#  include <esp_netif.h>
-#  include <esp_timer.h>
-#  include <esp_wifi.h>
-#  include <freertos/FreeRTOS.h>
-#  include <freertos/task.h>
-#  include <nvs_flash.h>
-#endif
-
 using namespace std::chrono_literals;
 
-namespace temp_sensor {
+#ifndef WIFI_SSID
+#  error "WIFI_SSID required"
+#endif
+#ifndef WIFI_PASSWORD
+#  error "WIFI_PASSWORD required"
+#endif
+#ifndef SERVICE_UID
+#  error "SERVICE_UID required"
+#endif
+
+#ifndef AE_RELIABILITY_CLIENT_ID
+#  define AE_RELIABILITY_CLIENT_ID "reliability_full_v1"
+#endif
+#ifndef AE_RELIABILITY_MSG_COUNT
+#  define AE_RELIABILITY_MSG_COUNT 100
+#endif
+#ifndef AE_RELIABILITY_RUN_ID
+#  define AE_RELIABILITY_RUN_ID 1
+#endif
+#ifndef AE_RELIABILITY_INTERVAL_MS
+#  define AE_RELIABILITY_INTERVAL_MS 1000
+#endif
+
 namespace {
 
-static constexpr auto kParentUid =
-    ae::Uid::FromString("b1ac52c8-8d94-bd39-4c01-a631ac594165");
-
-#ifndef BENCH_CLIENT_ID
-#  define BENCH_CLIENT_ID "full_aether_aethernetio_baseline_v1"
-#endif
-static constexpr char const* kBenchClientId = BENCH_CLIENT_ID;
-
-#if defined(SERVICE_UID)
-static constexpr auto kServiceUid = ae::Uid::FromString(SERVICE_UID);
-#else
-static constexpr auto kServiceUid =
-    ae::Uid::FromString("5aade50f-00d9-4624-b097-e203cdcf1e38");
-#endif
-
-static constexpr std::uint32_t kGapMs = 1000;
-
-#if defined(ESP_PLATFORM)
-
-static const auto kWifiInit = ae::WiFiInit{
-    std::vector<ae::WiFiAp>{{ae::WifiCreds{WIFI_SSID, WIFI_PASSWORD}, {}}},
-    {},
-};
-
-enum class Phase : std::uint8_t { kRegister = 0, kFull = 1 };
-
-static std::shared_ptr<ae::AetherApp> g_app;
-static ae::Client::ptr g_client;
-static std::unique_ptr<ae::P2pStream> g_stream;
-static ae::Subscription g_select_sub;
-static ae::Subscription g_stream_sub;
-static ae::Subscription g_write_sub;
-
-static Phase g_phase = Phase::kRegister;
-static bool g_write_armed = false;
-static bool g_write_ok = false;
-static bool g_exit_ok = false;
-static bool g_pending_register = false;
-static bool g_pending_full_done = false;
-static bool g_registered = false;
-static bool g_had_app = false;
-
-static std::uint32_t g_cycle = 0;
-static std::uint32_t g_sequence = 0;
-
-static std::int64_t g_t0 = 0;
-static std::uint32_t g_construct_us = 0;
-static std::uint32_t g_select_us = 0;
-static std::uint32_t g_stream_us = 0;
-static std::uint32_t g_writable_us = 0;
-static std::uint32_t g_write_us = 0;
-static std::uint32_t g_save_us = 0;
-static std::uint32_t g_release_us = 0;
-static std::uint32_t g_total_us = 0;
-
-static std::int64_t SinceUs() { return esp_timer_get_time() - g_t0; }
-
-static void ForceWifiRuntimeCleanup() {
-  // After AetherApp release, ensure generic ESP-IDF Wi-Fi is down so the next
-  // Construct starts from a clean driver state (same pattern as full-cycle
-  // benches). Not used as a connection/hot path.
-  (void)esp_wifi_disconnect();
-  (void)esp_wifi_stop();
-  (void)esp_wifi_deinit();
-  (void)esp_netif_deinit();
-  (void)esp_event_loop_delete_default();
-}
-
-static void CaptureApDiagnostics(bench::FullBaselinePayload& p) {
-  std::memset(p.ssid, 0, sizeof(p.ssid));
-  std::memset(p.bssid, 0, sizeof(p.bssid));
-  p.channel = 0;
-  p.rssi = 0;
-  p.authmode = 0;
-  p.ip = 0;
-  p.netmask = 0;
-  p.gateway = 0;
-
-  wifi_ap_record_t ap{};
-  if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
-    std::memcpy(p.ssid, ap.ssid,
-                sizeof(p.ssid) - 1 < sizeof(ap.ssid) ? sizeof(p.ssid) - 1
-                                                    : sizeof(ap.ssid));
-    std::memcpy(p.bssid, ap.bssid, sizeof(p.bssid));
-    p.channel = ap.primary;
-    p.rssi = ap.rssi;
-    p.authmode = static_cast<std::uint8_t>(ap.authmode);
-  }
-  (void)esp_wifi_get_mac(WIFI_IF_STA, p.sta_mac);
-
-  esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-  if (netif != nullptr) {
-    esp_netif_ip_info_t ip{};
-    if (esp_netif_get_ip_info(netif, &ip) == ESP_OK) {
-      p.ip = ip.ip.addr;
-      p.netmask = ip.netmask.addr;
-      p.gateway = ip.gw.addr;
-    }
-  }
-}
-
-static ae::DataBuffer MakeFullPayload() {
-  bench::FullBaselinePayload p{};
-  p.type = static_cast<std::uint8_t>(bench::FullBaselineMsgType::kFull);
-  ++g_sequence;
-  p.sequence = g_sequence;
-  p.cycle = g_cycle;
-  p.uptime_ms = static_cast<std::uint32_t>(esp_timer_get_time() / 1000);
-  CaptureApDiagnostics(p);
-  p.construct_us = g_construct_us;
-  p.select_us = g_select_us;
-  p.stream_us = g_stream_us;
-  p.writable_us = g_writable_us;
-  // write/save/release filled after complete; this packet carries timings up to
-  // writable; next cycle's packet could carry prior — for simplicity fill what
-  // we know now and update write_ok after status (same packet already sent).
-  p.write_us = 0;
-  p.save_us = 0;
-  p.release_us = 0;
-  p.total_us = 0;
-  p.write_ok = 0;
-  return bench::EncodeFullBaseline<ae::DataBuffer>(p);
-}
-
-// Pending timings from previous completed cycle, flushed in next FULL payload.
-static bench::FullBaselinePayload g_pending_timing{};
-static bool g_pending_timing_valid = false;
-
-static ae::DataBuffer MakeFullPayloadWithPending() {
-  auto buf = MakeFullPayload();
-  if (!g_pending_timing_valid) {
-    return buf;
-  }
-  bench::FullBaselinePayload p{};
-  std::memcpy(&p, buf.data(), sizeof(p));
-  // Keep current seq/cycle/ap identity; attach previous cycle timings.
-  p.construct_us = g_pending_timing.construct_us;
-  p.select_us = g_pending_timing.select_us;
-  p.stream_us = g_pending_timing.stream_us;
-  p.writable_us = g_pending_timing.writable_us;
-  p.write_us = g_pending_timing.write_us;
-  p.save_us = g_pending_timing.save_us;
-  p.release_us = g_pending_timing.release_us;
-  p.total_us = g_pending_timing.total_us;
-  p.write_ok = g_pending_timing.write_ok;
-  // Encode cycle number of the completed timing into pad for clarity: use
-  // pending cycle in pad1 low bits — actually store in a field we have: the
-  // timings describe the previous cycle; sequence is current delivery.
-  g_pending_timing_valid = false;
-  return bench::EncodeFullBaseline<ae::DataBuffer>(p);
-}
-
-static void ReleaseApp() {
-  g_select_sub.Reset();
-  g_stream_sub.Reset();
-  g_write_sub.Reset();
-  g_stream.reset();
-  g_client = {};
-  g_app.reset();
-}
-
-static void PreConstructCleanup() {
-  if (g_had_app) {
-    ForceWifiRuntimeCleanup();
-  }
-}
-
-static void ConstructAether() {
-  PreConstructCleanup();
-  g_had_app = true;
-  g_t0 = esp_timer_get_time();
-  g_app = ae::AetherApp::Construct(
-      ae::AetherAppContext{}
-#  if AE_DISTILLATION
-          .AddAdapterFactory([&](ae::AetherAppContext const& ctx) {
-            return ae::WifiAdapter::ptr::Create(
-                ae::CreateWith{ctx.domain()}.with_id(
-                    ae::GlobalId::kWiFiAdapter),
-                ctx.aether(), ctx.poller(), ctx.dns_resolver(), kWifiInit);
-          })
-#  endif
-  );
-  g_construct_us = static_cast<std::uint32_t>(SinceUs());
-}
-
-static void DoWrite() {
-  if (g_write_armed) {
-    return;
-  }
-  g_write_armed = true;
-  g_writable_us = static_cast<std::uint32_t>(SinceUs());
-  auto& wa = g_stream->Write(MakeFullPayloadWithPending());
-  g_write_sub = wa.status_event().Subscribe([](ae::WriteAction::Status st) {
-    g_write_us = static_cast<std::uint32_t>(SinceUs());
-    g_write_ok = (st == ae::WriteAction::Status::kSuccess);
-    auto const t_save0 = esp_timer_get_time();
-    g_app->aether().Save();
-    g_save_us = static_cast<std::uint32_t>(esp_timer_get_time() - t_save0);
-    g_pending_full_done = true;
-  });
-}
-
-static void MaybeWrite() {
-  if (!g_stream || g_write_armed) {
-    return;
-  }
-  if (!g_stream->stream_info().is_writable) {
-    return;
-  }
-  DoWrite();
-}
-
-static void OnFullClientReady(ae::Client::ptr client_ptr) {
-  g_client = std::move(client_ptr);
-  g_select_us = static_cast<std::uint32_t>(SinceUs());
-  auto client = g_client.Load();
-  g_stream = std::make_unique<ae::P2pStream>(*g_app, client, kServiceUid,
-                                             ae::P2pPortHandle{});
-  g_stream_us = static_cast<std::uint32_t>(SinceUs());
-  g_stream_sub =
-      g_stream->stream_update_event().Subscribe([]() { MaybeWrite(); });
-  MaybeWrite();
-}
-
-static void StartRegister() {
-  g_phase = Phase::kRegister;
-  g_write_armed = false;
-  g_pending_register = false;
-  g_exit_ok = false;
-  ConstructAether();
-  g_select_sub = g_app->aether()
-                     ->SelectClient(kParentUid, kBenchClientId)
-                     .result_event()
-                     .Subscribe([](ae::Result<ae::Client::ptr, int> res) {
-                       if (!res) {
-                         g_app->Exit(1);
-                         return;
-                       }
-                       g_client = std::move(res).value();
-                       g_pending_register = true;
-                     });
-}
-
-static void StartFull() {
-  g_phase = Phase::kFull;
-  ++g_cycle;
-  g_write_armed = false;
-  g_write_ok = false;
-  g_pending_full_done = false;
-  g_exit_ok = false;
-  g_construct_us = 0;
-  g_select_us = 0;
-  g_stream_us = 0;
-  g_writable_us = 0;
-  g_write_us = 0;
-  g_save_us = 0;
-  g_release_us = 0;
-  g_total_us = 0;
-  ConstructAether();
-  g_select_sub = g_app->aether()
-                     ->SelectClient(kParentUid, kBenchClientId)
-                     .result_event()
-                     .Subscribe([](ae::Result<ae::Client::ptr, int> res) {
-                       if (!res) {
-                         g_app->Exit(1);
-                         return;
-                       }
-                       OnFullClientReady(std::move(res).value());
-                     });
-}
-
-static void FinishRegisterInLoop() {
-  g_app->aether().Save();
-  g_exit_ok = true;
-  g_app->Exit(0);
-}
-
-static void FinishFullInLoop() {
-  g_exit_ok = g_write_ok;
-  g_app->Exit(g_write_ok ? 0 : 1);
-}
-
-#endif  // ESP_PLATFORM
-
-}  // namespace
-}  // namespace temp_sensor
-
-#if defined(ESP_PLATFORM)
-
-void setup() {
-  using namespace temp_sensor;
-  nvs_flash_init();
-  g_registered = false;
-  g_cycle = 0;
-  g_sequence = 0;
-  StartRegister();
-}
-
-void loop() {
-  using namespace temp_sensor;
-
-  auto process_deferred = []() {
-    if (g_app && g_pending_register) {
-      g_pending_register = false;
-      FinishRegisterInLoop();
-      return true;
-    }
-    if (g_app && g_pending_full_done) {
-      g_pending_full_done = false;
-      FinishFullInLoop();
-      return true;
-    }
-    return false;
-  };
-
-  if (process_deferred()) {
-    return;
-  }
-
-  if (!g_app) {
-    if (!g_registered) {
-      StartRegister();
-    } else {
-      StartFull();
-    }
-    return;
-  }
-
-  if (!g_app->IsExited()) {
-    auto t = g_app->Update(ae::Now());
-    if (process_deferred()) {
+// Match AetherApp::WaitEvents: check completion after Update, before WaitUntil.
+// Never WaitUntil(time_point::max()) while a finite deadline is still pending.
+template <typename Pred>
+void PumpUntil(ae::AetherApp& app, Pred&& done,
+               ae::TimePoint deadline = ae::TimePoint::max()) {
+  while (!done()) {
+    auto const now = ae::Now();
+    if (now >= deadline) {
       return;
     }
-    if (!g_app->IsExited()) {
-      g_app->WaitUntil(t);
+    auto const t = app.Update(now);
+    if (done() || ae::Now() >= deadline) {
+      return;
     }
-    return;
-  }
-
-  auto const t_rel0 = esp_timer_get_time();
-  ReleaseApp();
-  ForceWifiRuntimeCleanup();
-  g_release_us = static_cast<std::uint32_t>(esp_timer_get_time() - t_rel0);
-  if (g_phase == Phase::kFull && g_t0 != 0) {
-    g_total_us = static_cast<std::uint32_t>(esp_timer_get_time() - g_t0);
-    g_pending_timing = {};
-    g_pending_timing.construct_us = g_construct_us;
-    g_pending_timing.select_us = g_select_us;
-    g_pending_timing.stream_us = g_stream_us;
-    g_pending_timing.writable_us = g_writable_us;
-    g_pending_timing.write_us = g_write_us;
-    g_pending_timing.save_us = g_save_us;
-    g_pending_timing.release_us = g_release_us;
-    g_pending_timing.total_us = g_total_us;
-    g_pending_timing.write_ok = g_exit_ok ? 1 : 0;
-    g_pending_timing_valid = true;
-  }
-
-  if (g_phase == Phase::kRegister) {
-    if (g_exit_ok) {
-      g_registered = true;
+    auto wake = t;
+    if (deadline < wake) {
+      wake = deadline;
     }
-    vTaskDelay(pdMS_TO_TICKS(kGapMs));
-    if (g_registered) {
-      StartFull();
-    } else {
-      StartRegister();
-    }
-    return;
+    app.WaitUntil(wake);
   }
-
-  // FULL cycle complete — pause outside timing, then next Construct.
-  vTaskDelay(pdMS_TO_TICKS(kGapMs));
-  StartFull();
 }
 
-#else
+}  // namespace
 
-void setup() {}
+void setup() {
+  nvs_flash_init();
+
+  auto const parent_uid =
+      ae::Uid::FromString("b1ac52c8-8d94-bd39-4c01-a631ac594165");
+  auto const service_uid = ae::Uid::FromString(SERVICE_UID);
+  char const* client_id = AE_RELIABILITY_CLIENT_ID;
+  std::uint32_t const run_id =
+      static_cast<std::uint32_t>(AE_RELIABILITY_RUN_ID);
+  int const msg_count = AE_RELIABILITY_MSG_COUNT;
+  int const interval_ms = AE_RELIABILITY_INTERVAL_MS;
+
+  ae::WiFiInit const wifi_init{
+      std::vector<ae::WiFiAp>{{ae::WifiCreds{WIFI_SSID, WIFI_PASSWORD}, {}}},
+      {},
+  };
+
+  std::printf("before Construct\n");
+  std::fflush(stdout);
+  // Install WifiAdapter only. Clear any FS AdapterRegistry entries first —
+  // registrator used to bake host EthernetAdapter into static state.
+  auto app = ae::AetherApp::Construct(
+      ae::AetherAppContext{}.AdaptersFactory(
+          [&](ae::AetherAppContext const& ctx) {
+            auto ap = ae::AdapterRegistry::ptr{ctx.aether()->adapter_registry};
+            if (!ap.is_valid()) {
+              ap = ae::AdapterRegistry::ptr::Create(
+                  ae::CreateWith{ctx.domain()}
+                      .with_id(ae::GlobalId::kAdapterRegistry)
+                      .with_flags(ae::ObjFlags::kUnloadedByDefault));
+            }
+            auto loaded_reg = ap.Load();
+            assert(loaded_reg && "AdapterRegistry load failed");
+            loaded_reg->Clear();
+            loaded_reg->Add(ae::WifiAdapter::ptr::Create(
+                ae::CreateWith{ctx.domain()}, ctx.aether(), ctx.poller(),
+                ctx.dns_resolver(), wifi_init));
+            std::printf("adapter_registry_size=%zu after WifiAdapter\n",
+                        loaded_reg->adapters().size());
+            std::fflush(stdout);
+            return ap;
+          }));
+  std::printf("after Construct\n");
+  std::fflush(stdout);
+
+  ae::Client::ptr client;
+  bool select_done = false;
+  bool select_ok = false;
+
+  std::printf("before SelectClient id=%s\n", client_id);
+  std::fflush(stdout);
+  ae::Subscription select_sub =
+      app->aether()
+          ->SelectClient(parent_uid, client_id)
+          .result_event()
+          .Subscribe([&](ae::Result<ae::Client::ptr, int> res) {
+            select_done = true;
+            if (res) {
+              select_ok = true;
+              client = std::move(res).value();
+            }
+          });
+  std::printf("after SelectClient\n");
+  std::fflush(stdout);
+
+  std::printf("before Update #1\n");
+  std::fflush(stdout);
+  {
+    auto const t1 = app->Update(ae::Now());
+    std::printf("after Update #1 done=%d ok=%d wake_is_max=%d\n",
+                select_done ? 1 : 0, select_ok ? 1 : 0,
+                (t1 == ae::TimePoint::max()) ? 1 : 0);
+    std::fflush(stdout);
+    if (!select_done) {
+      app->WaitUntil(t1);
+    }
+  }
+
+  std::printf("before Update #2\n");
+  std::fflush(stdout);
+  {
+    auto const t2 = app->Update(ae::Now());
+    std::printf("after Update #2 done=%d ok=%d wake_is_max=%d\n",
+                select_done ? 1 : 0, select_ok ? 1 : 0,
+                (t2 == ae::TimePoint::max()) ? 1 : 0);
+    std::fflush(stdout);
+    if (!select_done) {
+      app->WaitUntil(t2);
+    }
+  }
+
+  if (!select_done) {
+    PumpUntil(*app, [&] { return select_done; });
+  }
+
+  std::printf("select_client_done ok=%d\n", select_ok ? 1 : 0);
+  std::fflush(stdout);
+
+  if (!select_ok) {
+    for (;;) {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
+
+  // Do not Save() into SPIFFS here: SyncDomainStorage would shadow FS_INIT with
+  // a partial RW copy. Preprovisioned path must keep static state authoritative.
+
+  std::printf("before client.Load\n");
+  std::fflush(stdout);
+  auto loaded = client.Load();
+  std::printf("after client.Load id_str=%s cloud=%u policy=%u ccm=%u\n",
+              loaded->id().c_str(),
+              static_cast<unsigned>(loaded->cloud().id().id()),
+              static_cast<unsigned>(loaded->connectivity_policy().id().id()),
+              static_cast<unsigned>(loaded->cloud_manager().id().id()));
+  std::fflush(stdout);
+
+  // ClientConnectivityPolicy is stored with kUnloadedByDefault — must Load().
+  std::printf("before connectivity_policy.Load id=%u valid=%d\n",
+              static_cast<unsigned>(loaded->connectivity_policy().id().id()),
+              loaded->connectivity_policy().is_valid() ? 1 : 0);
+  std::fflush(stdout);
+  auto policy = loaded->connectivity_policy().Load();
+  if (!policy) {
+    std::printf("connectivity_policy Load FAILED class=%u\n",
+                static_cast<unsigned>(ae::ClientConnectivityPolicy::kClassId));
+    std::fflush(stdout);
+    for (;;) {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
+  std::printf("after connectivity_policy.Load\n");
+  std::fflush(stdout);
+  policy->ResetRxTimings();
+  policy->ConfigureRxTimings(ae::RequestPolicy::All{})
+      .ForAllPriorities(ae::RxTimingConf::Every(1s).WithWindow(1s));
+  std::printf("after ConfigureRxTimings\n");
+  std::fflush(stdout);
+
+  // CCM / Cloud are kUnloadedByDefault — must Load before P2pStream::GetCloud.
+  std::printf("before cloud_manager.Load id=%u\n",
+              static_cast<unsigned>(loaded->cloud_manager().id().id()));
+  std::fflush(stdout);
+  auto ccm = loaded->cloud_manager().Load();
+  if (!ccm) {
+    std::printf("cloud_manager Load FAILED\n");
+    std::fflush(stdout);
+    for (;;) {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
+  std::printf("after cloud_manager.Load\n");
+  std::fflush(stdout);
+
+  std::printf("before cloud.Load id=%u\n",
+              static_cast<unsigned>(loaded->cloud().id().id()));
+  std::fflush(stdout);
+  auto cloud = loaded->cloud().Load();
+  if (!cloud) {
+    std::printf("cloud Load FAILED\n");
+    std::fflush(stdout);
+    for (;;) {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
+  std::printf("after cloud.Load servers=%zu\n", cloud->servers().size());
+  std::fflush(stdout);
+
+  // Host registrator persists EthernetChannel objects. On ESP those never
+  // call WifiConnect, so rebuild channels from the live WifiAdapter.
+  for (auto& [sid, cs] : cloud->servers()) {
+    auto server = cs.server.Load();
+    if (!server) {
+      std::printf("server Load FAILED sid=%u\n", static_cast<unsigned>(sid));
+      std::fflush(stdout);
+      continue;
+    }
+    auto const before = server->channels.size();
+    server->RebuildChannelsFromAdapters();
+    std::printf("server sid=%u channels %zu -> %zu\n",
+                static_cast<unsigned>(sid), before, server->channels.size());
+    std::fflush(stdout);
+  }
+
+  std::printf("interval_ms=%d msg_count=%d\n", interval_ms, msg_count);
+  std::fflush(stdout);
+
+  std::printf("before P2pStream\n");
+  std::fflush(stdout);
+  auto stream = std::make_unique<ae::P2pStream>(
+      *app, loaded, service_uid, ae::P2pPortHandle{});
+  std::printf("after P2pStream\n");
+  std::fflush(stdout);
+
+  std::printf("before writable pump\n");
+  std::fflush(stdout);
+  PumpUntil(*app, [&] { return stream->stream_info().is_writable; });
+  std::printf("stream_writable\n");
+  std::fflush(stdout);
+
+  // Modem sleep after the link is up (esp_wifi_set_ps needs Wi‑Fi started).
+  (void)esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+  std::printf("wifi_ps=WIFI_PS_MAX_MODEM\n");
+  std::fflush(stdout);
+
+  for (int i = 1; i <= msg_count; ++i) {
+    std::printf("начал отправку seq=%d\n", i);
+    std::printf("SEND_START seq=%d\n", i);
+    std::fflush(stdout);
+
+    temp_sensor::bench::ReliabilityPayload p{};
+    p.type = static_cast<std::uint8_t>(
+        temp_sensor::bench::ReliabilityMsgType::kFull);
+    p.run_id = run_id;
+    p.seq = static_cast<std::uint32_t>(i);
+
+    ae::DataBuffer payload =
+        temp_sensor::bench::EncodeReliability<ae::DataBuffer>(p);
+
+    bool write_done = false;
+    auto& wa = stream->Write(std::move(payload));
+    ae::Subscription write_sub =
+        wa.status_event().Subscribe([&](ae::WriteAction::Status) {
+          write_done = true;
+        });
+
+    PumpUntil(*app, [&] { return write_done; });
+    write_sub.Reset();
+
+    // Pace sends by pumping the Aether task loop — do not FreeRTOS-sleep.
+    auto const next_send =
+        ae::Now() + std::chrono::milliseconds(interval_ms);
+    PumpUntil(*app, [&] { return ae::Now() >= next_send; }, next_send);
+  }
+
+  std::printf("send_loop_done\n");
+  std::fflush(stdout);
+
+  select_sub.Reset();
+  stream.reset();
+  client = {};
+  app.reset();
+
+  for (;;) {
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+}
+
 void loop() {}
-
-#endif

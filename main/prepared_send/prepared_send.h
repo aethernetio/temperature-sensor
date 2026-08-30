@@ -19,6 +19,7 @@
 #include <string_view>
 
 #include "aether/all.h"
+#include "aether/wifi/wifi_probe_state.h"
 
 namespace temp_sensor::prepared_send {
 
@@ -146,6 +147,9 @@ struct FastPathConfig {
   bool wifi_storage_ram{false};
   bool wifi_nvs_enable{true};
   bool force_ht20{false};
+  // If true, wait up to AETHER_PREPARED_ARP_TIMEOUT_MS for gateway ARP when
+  // static ARP is unused or failed.
+  bool arp_wait_on_miss{false};
   // -1 = leave default; 0 = false; 1 = true
   std::int8_t dynamic_cs{-1};
   // 0 = use WIFI_INIT_CONFIG_DEFAULT values
@@ -162,6 +166,8 @@ struct FastPathConfig {
   bool set_mac_retry_limit{false};
   std::uint8_t mac_short_retry{0};
   std::uint8_t mac_long_retry{0};
+  // Safety wait for TX-done callback after sendto (ms). Default 100.
+  std::uint16_t tx_done_timeout_ms{100};
 };
 
 struct FastSendResult {
@@ -202,14 +208,29 @@ struct FastSendResult {
   std::uint32_t retry_cfg_us{0};
   std::uint32_t heap_before_wifi{0};
   std::uint32_t heap_after_wifi{0};
+  std::uint8_t bssid[6]{};
+  std::uint8_t sendto_ok{0};
+  std::uint8_t sta_connected_seen{0};
+  std::uint8_t got_ip_seen{0};
+  std::uint8_t used_cached_channel{0};
+  std::uint8_t channel_fallback_used{0};
+  std::uint8_t used_static_ip{0};
+  std::uint8_t dhcp_fallback_used{0};
+  std::uint8_t used_static_arp{0};
+  std::uint8_t arp_fallback_used{0};
+  std::uint8_t fail_stage{0};  // 0=none 1=wifi 2=encode 3=sendto 4=other
 };
 
 // BASE = cached channel + static IPv4/netmask/gw + static ARP. No BSSID.
-// Wi-Fi 4, WIFI_PS_NONE, auto PHY rate, max TX power. Timer excludes 1 s gap.
-// Optional wifi_cache overrides the in-RAM bisect cache (for deep-sleep RTC).
 FastSendResult SendPreparedOnceWithFastPath(
     FastPathConfig const& cfg, ae::DataBuffer const& payload,
     BisectWifiCacheSnapshot const* wifi_cache = nullptr);
+
+// Reliability-first prepared reconnect: channel→scan, static-IP→DHCP,
+// static-ARP→ARP resolve (500 ms). Updates *wifi_cache on successful fallback.
+FastSendResult SendPreparedOnceReliability(
+    FastPathConfig const& cfg, ae::DataBuffer const& payload,
+    BisectWifiCacheSnapshot* wifi_cache);
 
 // RTC-retained Wi-Fi cache for deep-sleep experiments (not BSSID reconnect).
 struct PreparedWifiRtcCache {
@@ -232,6 +253,20 @@ bool CapturePreparedWifiRtcCache(PreparedWifiRtcCache* out);
 bool PreparedWifiRtcCacheIsValid(PreparedWifiRtcCache const& cache);
 BisectWifiCacheSnapshot SnapshotFromPreparedWifiRtcCache(
     PreparedWifiRtcCache const& cache);
+
+// Map adaptive WifiProbeProfile → FastPathConfig (BSSID never used).
+FastPathConfig FastPathConfigForProbeProfile(ae::WifiProbeProfile profile,
+                                             std::uint16_t pre_ms,
+                                             std::uint16_t post_ms);
+
+// Apply selected probe state into hot FastPath + cache snapshot helpers.
+void ApplyProbeStateToHotConfig(ae::WifiProbeRtcState const& state,
+                                FastPathConfig* cfg,
+                                BisectWifiCacheSnapshot* cache);
+
+// Hot-path failure: degrade selected profile and force P0 next.
+void RecordHotProbeFailure(ae::WifiProbeRtcState* state,
+                           ae::WifiProbeRecoveryReason reason);
 #endif
 
 HotSendStatus TryHotWakePreparedSend(std::string const& temperature);

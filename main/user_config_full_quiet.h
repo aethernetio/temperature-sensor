@@ -17,13 +17,12 @@
 #define AE_SIGNATURE AE_HYDRO_SIGNATURE
 #define AE_KDF AE_HYDRO_KDF
 
-#if AE_DISTILLATION || AE_FILTRATION
-#  define AE_SUPPORT_REGISTRATION 1
-#  define AE_SUPPORT_CLOUD_DNS 1
-#else
-#  define AE_SUPPORT_REGISTRATION 0
-#  define AE_SUPPORT_CLOUD_DNS 0
-#endif
+// Preprovisioned FS_INIT path: no cloud registration.
+// UDP-only cloud/P2P transports (no TCP).
+#define AE_SUPPORT_REGISTRATION 0
+#define AE_SUPPORT_CLOUD_DNS 0
+#define AE_SUPPORT_TCP 0
+#define AE_SUPPORT_UDP 1
 
 #define AE_SUPPORT_SPIFS_FS 1
 
