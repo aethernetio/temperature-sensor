@@ -99,9 +99,13 @@ int g_brownout_boots = 0;
 int g_failed_assoc_wakes = 0;
 int g_tcp_links_up = 0;
 bool g_rx_tcp_verified = false;
+std::set<ae::ServerId> g_udp_restreamed;
 
 void LogTcpTransport(ae::Client& client) {
+  static bool logged_waiting = false;
   bool any_tcp = false;
+  bool any_udp = false;
+  int linked = 0;
   for (auto* csc : client.cloud_connection().servers()) {
     if (csc == nullptr) {
       continue;
@@ -110,9 +114,11 @@ void LogTcpTransport(ae::Client& client) {
     if (cc == nullptr) {
       continue;
     }
-    if (cc->stream_info().link_state != ae::LinkState::kLinked) {
+    auto const info = cc->stream_info();
+    if (info.link_state != ae::LinkState::kLinked) {
       continue;
     }
+    ++linked;
     auto ch = cc->server_connection().current_channel();
     if (!ch) {
       continue;
@@ -121,7 +127,16 @@ void LogTcpTransport(ae::Client& client) {
       if (ep->protocol == ae::Protocol::kTcp) {
         any_tcp = true;
         std::cout << "RX_TCP_LINK_UP endpoint=" << ae::Format("{}", *ep)
-                  << "\n";
+                  << " server=" << csc->server_id() << "\n";
+      } else if (ep->protocol == ae::Protocol::kUdp) {
+        any_udp = true;
+        std::cout << "RX_TRANSPORT=UDP endpoint=" << ae::Format("{}", *ep)
+                  << " server=" << csc->server_id() << "\n";
+        if (!g_udp_restreamed.count(csc->server_id())) {
+          g_udp_restreamed.insert(csc->server_id());
+          std::cout << "RX_TCP_RESELECT server=" << csc->server_id() << "\n";
+          csc->Restream();
+        }
       } else {
         std::cout << "RX_TRANSPORT_NOT_TCP protocol="
                   << static_cast<int>(ep->protocol) << " endpoint="
@@ -129,12 +144,19 @@ void LogTcpTransport(ae::Client& client) {
       }
     }
   }
-  if (any_tcp) {
+  if (any_tcp && !any_udp) {
     g_tcp_links_up = 1;
     g_rx_tcp_verified = true;
     std::cout << "RX_TRANSPORT=TCP\n";
-  } else if (client.cloud_connection().count_connections() > 0) {
-    std::cout << "RX_TCP_LINK_DOWN\n";
+    logged_waiting = false;
+  } else if (any_udp) {
+    g_tcp_links_up = 0;
+    g_rx_tcp_verified = false;
+  } else if (linked == 0 && client.cloud_connection().count_connections() > 0) {
+    if (!logged_waiting) {
+      std::cout << "RX_TCP_LINK_DOWN waiting_for_tcp\n";
+      logged_waiting = true;
+    }
     g_tcp_links_up = 0;
   }
   std::cout.flush();

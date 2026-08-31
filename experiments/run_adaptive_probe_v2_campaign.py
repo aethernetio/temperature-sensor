@@ -24,6 +24,7 @@ RX_BUILD = ROOT / "temperature_receiver" / "build-bisect-tcp"
 RX_EXE = RX_BUILD / "temperature_receiver.exe"
 RX_CONFIG = ROOT / "temperature_receiver" / "user_config_tcp.h"
 MINGW_CXX = Path(r"C:/msys64/ucrt64/bin/c++.exe")
+MINGW_BIN = Path(r"C:/msys64/ucrt64/bin")
 
 spec = importlib.util.spec_from_file_location(
     "camp", ROOT / "experiments" / "run_adaptive_wifi_probe_campaign.py"
@@ -92,7 +93,7 @@ def flash_erase_always() -> str:
     return camp.flash(erase=True)
 
 
-def receiver_env() -> dict:
+def receiver_env(*, launch: bool = False) -> dict:
     e = os.environ.copy()
     if camp.CPM_SOURCE_CACHE.is_dir():
         e["CPM_SOURCE_CACHE"] = str(camp.CPM_SOURCE_CACHE)
@@ -102,6 +103,8 @@ def receiver_env() -> dict:
         r"C:\Program Files\Git\cmd",
         r"C:\Program Files\Git\usr\bin",
     ]
+    if launch and MINGW_BIN.is_dir():
+        extra.insert(0, str(MINGW_BIN))
     tail = [p for p in e.get("Path", "").split(";") if p and "riscv32-esp-elf" not in p.lower()]
     e["Path"] = ";".join(dict.fromkeys(extra + tail))
     e.pop("CC", None)
@@ -153,24 +156,33 @@ def verify_receiver_tcp() -> None:
     tsv = V2_OUT / "rx_tcp_verify.tsv"
     V2_OUT.mkdir(parents=True, exist_ok=True)
     camp.kill_receiver()
-    env2 = camp.env()
-    env2["AE_RECEIVER_SESSION_DIR"] = str(session)
-    env2["AE_DS_TSV"] = str(tsv)
-    env2["AE_DS_BENCH_TAG"] = "v2_tcp_verify"
     err = rx_log.with_suffix(".err")
+    launch_env = receiver_env(launch=True)
+    launch_env["AE_RECEIVER_SESSION_DIR"] = str(session)
+    launch_env["AE_DS_TSV"] = str(tsv)
+    launch_env["AE_DS_BENCH_TAG"] = "v2_tcp_verify"
     with rx_log.open("w", encoding="utf-8") as outf, err.open("w", encoding="utf-8") as errf:
-        subprocess.Popen(
+        proc = subprocess.Popen(
             [str(RX_EXE)],
             cwd=str(session),
-            env=env2,
+            env=launch_env,
             stdout=outf,
             stderr=errf,
         )
     t0 = time.time()
     tcp_ok = False
     uid = None
-    while time.time() - t0 < 120:
+    while time.time() - t0 < 180:
+        if proc.poll() is not None and proc.returncode not in (None, 0):
+            err_text = err.read_text(encoding="utf-8", errors="replace") if err.exists() else ""
+            camp.kill_receiver()
+            raise RuntimeError(
+                f"receiver exited code={proc.returncode} err={(err_text or 'none')[-500:]}"
+            )
         text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.exists() else ""
+        if "RX_TRANSPORT=UDP" in text:
+            camp.kill_receiver()
+            raise RuntimeError("receiver active channel is UDP — hardware blocked")
         if "RX_TRANSPORT=TCP" in text or "RX_TCP_LINK_UP" in text:
             tcp_ok = True
         uid = camp.parse_receiver_uid(rx_log)
@@ -192,16 +204,18 @@ def start_v2_receiver(tag: str, tsv: Path, rx_log: Path) -> None:
     session.mkdir(parents=True, exist_ok=True)
     if tsv.exists():
         tsv.unlink()
-    env2 = camp.env()
-    env2["AE_RECEIVER_SESSION_DIR"] = str(session)
-    env2["AE_DS_TSV"] = str(tsv)
-    env2["AE_DS_BENCH_TAG"] = tag
+    launch_env = receiver_env(launch=True)
+    launch_env["AE_RECEIVER_SESSION_DIR"] = str(session)
+    launch_env["AE_DS_TSV"] = str(tsv)
+    launch_env["AE_DS_BENCH_TAG"] = tag
     err = rx_log.with_suffix(".err")
     with rx_log.open("w", encoding="utf-8") as outf, err.open("w", encoding="utf-8") as errf:
-        subprocess.Popen([str(RX_EXE)], cwd=str(session), env=env2, stdout=outf, stderr=errf)
+        subprocess.Popen([str(RX_EXE)], cwd=str(session), env=launch_env, stdout=outf, stderr=errf)
     t0 = time.time()
-    while time.time() - t0 < 120:
+    while time.time() - t0 < 180:
         text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.exists() else ""
+        if "RX_TRANSPORT=UDP" in text:
+            raise RuntimeError("receiver active channel is UDP")
         uid = camp.parse_receiver_uid(rx_log)
         if uid and ("RX_TRANSPORT=TCP" in text or "RX_TCP_LINK_UP" in text):
             if uid != camp.SERVICE_UID.lower():
