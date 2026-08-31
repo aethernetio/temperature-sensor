@@ -220,6 +220,43 @@ def find_port(timeout_s: float = 120.0) -> str | None:
     return None
 
 
+def fix_ulp_tool_cache(ulp_cache: Path) -> None:
+    """Replace msys64 binutils in ULP ExternalProject cache with ESP toolchain."""
+    text = ulp_cache.read_text(encoding="utf-8", errors="replace")
+    if "msys64" not in text:
+        return
+    objcopy = (RISCV_BIN / "riscv32-esp-elf-objcopy.exe").as_posix()
+    replacements = {
+        "CMAKE_OBJCOPY:FILEPATH=": f"CMAKE_OBJCOPY:FILEPATH={objcopy}",
+        "CMAKE_MAKE_PROGRAM:FILEPATH=": f"CMAKE_MAKE_PROGRAM:FILEPATH={NINJA.as_posix()}",
+    }
+    lines = []
+    for line in text.splitlines():
+        replaced = False
+        for prefix, new_line in replacements.items():
+            if line.startswith(prefix):
+                lines.append(new_line)
+                replaced = True
+                break
+        if replaced:
+            continue
+        if "msys64" in line and (
+            "CMAKE_AR:" in line
+            or "CMAKE_NM:" in line
+            or "CMAKE_RANLIB:" in line
+            or "CMAKE_STRIP:" in line
+            or "CMAKE_OBJDUMP:" in line
+            or "CMAKE_READELF:" in line
+            or "CMAKE_LINKER:" in line
+            or "CMAKE_ADDR2LINE:" in line
+            or "CMAKE_DLLTOOL:" in line
+        ):
+            # Drop host msys64 tool entries; ULP uses the ELF toolchain for link.
+            continue
+        lines.append(line)
+    ulp_cache.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def force_sdk_fixes() -> None:
     sdk = BUILD / "sdkconfig"
     if not sdk.exists():
@@ -303,8 +340,8 @@ def cmake_configure(ap: str, phase: str, defs: dict[str, str]) -> None:
             shutil.rmtree(BUILD, ignore_errors=True)
     ulp_cache = BUILD / "esp-idf" / "main" / "ulp_main" / "CMakeCache.txt"
     if ulp_cache.exists() and "msys64" in ulp_cache.read_text(encoding="utf-8", errors="replace"):
-        log("wiping ULP subbuild with msys64 tools")
-        shutil.rmtree(ulp_cache.parent, ignore_errors=True)
+        log("patching ULP CMakeCache away from msys64 tools")
+        fix_ulp_tool_cache(ulp_cache)
     seed_usb_console_sdkconfig()
     args = [
         str(CMAKE),

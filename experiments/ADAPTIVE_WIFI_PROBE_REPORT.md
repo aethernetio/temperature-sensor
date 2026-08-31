@@ -98,19 +98,19 @@ Artifacts: `experiments/adaptive_probe_results/chirkov_phase_c.tsv`, `chirkov_al
 
 V1 partial chirkov Phase C preserved under `adaptive_probe_results/`; V2 is a clean retake.
 
-### TEST1 ICMP (interim)
+### TEST1 ICMP
 
 | | chirkov | aethernetio |
 |--|---------|-------------|
-| winner profile | **P1** | (running) |
-| PRE | **0 ms** | |
-| ICMP loss (winner) | **0.00%** | |
-| connect median | **95 ms** | |
-| baseline P0 connect med | 1629 ms | |
-| baseline P1 connect med | 95 ms | |
-| baseline P4 connect med | 97 ms | |
+| winner profile | **P1** (cached IP) | **P4** (channel+IP+ARP) |
+| PRE | **0 ms** | **0 ms** |
+| ICMP loss (winner) | **0.00%** | **0.00%** |
+| connect median | **95 ms** | **141 ms** |
+| baseline P0 connect med | 1629 ms | (see log) |
+| different profile | **yes** | |
+| different PRE | no (both 0) | |
 
-Checkpoint after step 0: `step_index=1`, RX TCP verified.
+Checkpoint: step_index advancing to TEST2 after both APs.
 
 ### Final comparison table (fill on completion)
 
