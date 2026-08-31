@@ -53,6 +53,54 @@ APS = {
 }
 
 
+def _path_blocked(path: str) -> bool:
+    lower = path.lower()
+    blocked = (
+        "windowsapps",
+        "/msys64/",
+        "/git/mingw64/bin",
+        "/mingw64/libexec/git-core",
+    )
+    return any(token in lower for token in blocked)
+
+
+
+def acquire_build_lock() -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+    lock = OUT / "campaign_build.lock"
+    t0 = time.time()
+    while lock.exists():
+        if time.time() - t0 > 900:
+            raise RuntimeError(f"build lock held too long: {lock}")
+        time.sleep(2)
+    lock.write_text(str(os.getpid()), encoding="utf-8")
+
+
+def release_build_lock() -> None:
+    lock = OUT / "campaign_build.lock"
+    try:
+        if lock.exists() and lock.read_text(encoding="utf-8").strip() == str(os.getpid()):
+            lock.unlink()
+    except OSError:
+        pass
+
+
+def kill_build_procs() -> None:
+    for exe in ("ninja.exe", "cmake.exe", "ccache.exe"):
+        subprocess.run(["taskkill", "/F", "/IM", exe], capture_output=True, text=True)
+
+
+def clean_ninja_logs(root: Path = BUILD) -> None:
+    if not root.exists():
+        return
+    for name in (".ninja_log", ".ninja_log.restat", ".ninja_deps"):
+        for path in root.rglob(name):
+            try:
+                path.unlink()
+            except OSError:
+                pass
+
+
 def env() -> dict:
     e = os.environ.copy()
     e["IDF_PATH"] = IDF_PATH
@@ -61,26 +109,25 @@ def env() -> dict:
     e["IDF_PYTHON_ENV_PATH"] = str(PY.parent.parent)
     e["PYTHON"] = str(PY)
     e["ESP_ROM_ELF_DIR"] = r"C:\Espressif\tools\esp-rom-elfs\20241011"
+    e["GIT"] = r"C:\Program Files\Git\cmd\git.exe"
+    e["GIT_EXEC_PATH"] = r"C:\Program Files\Git\mingw64\libexec\git-core"
     e["CC"] = str(RISCV_BIN / "riscv32-esp-elf-gcc.exe")
     e["CXX"] = str(RISCV_BIN / "riscv32-esp-elf-g++.exe")
+    e["OBJCOPY"] = str(RISCV_BIN / "riscv32-esp-elf-objcopy.exe")
     if CPM_SOURCE_CACHE.is_dir():
         e["CPM_SOURCE_CACHE"] = str(CPM_SOURCE_CACHE)
     extra = [
         CCACHE,
         str(PY.parent),
         str(RISCV_BIN),
-        r"C:\Espressif\tools\ninja\1.12.1",
-        r"C:\Espressif\tools\cmake\3.30.2\bin",
-        r"C:\Program Files\Git\usr\bin",
+        str(NINJA.parent),
+        str(CMAKE.parent),
         r"C:\Program Files\Git\cmd",
+        r"C:\Program Files\Git\usr\bin",
+        r"C:\Program Files\Git\mingw64\libexec\git-core",
     ]
-    tail = [p for p in e.get("Path", "").split(";") if p and "WindowsApps" not in p]
-    # Prepend campaign/IDF tools; append msys64 last for git-submodule helpers (not ninja).
-    msys = r"C:\msys64\ucrt64\bin"
-    parts = extra + [p for p in tail if p.lower() != msys.lower()]
-    if msys not in parts:
-        parts.append(msys)
-    e["Path"] = ";".join(dict.fromkeys(parts))
+    tail = [p for p in e.get("Path", "").split(";") if p and not _path_blocked(p)]
+    e["Path"] = ";".join(dict.fromkeys(extra + tail))
     e.pop("CCACHE_DISABLE", None)
     return e
 
@@ -277,6 +324,9 @@ def cmake_configure(ap: str, phase: str, defs: dict[str, str]) -> None:
         f"-DSERVICE_UID={SERVICE_UID}",
         f"-DPython3_EXECUTABLE={PY.as_posix()}",
         f"-DCMAKE_MAKE_PROGRAM={NINJA.as_posix()}",
+        f"-DCMAKE_C_COMPILER={(RISCV_BIN / 'riscv32-esp-elf-gcc.exe').as_posix()}",
+        f"-DCMAKE_CXX_COMPILER={(RISCV_BIN / 'riscv32-esp-elf-g++.exe').as_posix()}",
+        f"-DCMAKE_OBJCOPY={(RISCV_BIN / 'riscv32-esp-elf-objcopy.exe').as_posix()}",
     ]
     phase_key = {
         "A": "AE_EXP_ADAPTIVE_WIFI_PROBE_A",
@@ -288,6 +338,7 @@ def cmake_configure(ap: str, phase: str, defs: dict[str, str]) -> None:
     for k, v in defs.items():
         args.append(f"-D{k}={v}")
     log(f"cmake phase={phase} ap={ap}")
+    clean_ninja_logs()
     last = None
     for attempt in range(3):
         r = subprocess.run(args, cwd=ROOT, env=env(), capture_output=True, text=True)
@@ -310,15 +361,8 @@ def ninja_build() -> None:
     log("ninja build")
     e = env()
     e["Path"] = str(NINJA.parent) + ";" + e["Path"]
-    for name in (".ninja_log.restat", ".ninja_log"):
-        p = BUILD / name
-        if p.exists():
-            try:
-                p.unlink()
-            except OSError:
-                pass
     r = subprocess.run(
-        [str(NINJA), "-C", str(BUILD), "-j", "8"],
+        [str(NINJA), "-C", str(BUILD), "-j", "1"],
         env=e,
         capture_output=True,
         text=True,

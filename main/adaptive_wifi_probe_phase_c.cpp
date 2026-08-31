@@ -85,6 +85,7 @@ static constexpr std::uint8_t kMaxHotAttemptsPerBlock =
     static_cast<std::uint8_t>(kHotPerOuter + 15);
 static constexpr std::uint32_t kSleepUs =
     static_cast<std::uint32_t>(AE_PROBE_SLEEP_US);
+static constexpr bool kNoSleep = (kSleepUs == 0);
 
 static constexpr std::uint32_t kRtcMagic = 0x41455431u;  // "AET1"
 static constexpr std::uint16_t kRtcVersion = 1;
@@ -280,6 +281,25 @@ static void InitRtcFresh(Phase phase) {
   esp_deep_sleep_start();
   for (;;) {
   }
+}
+
+static void EndCycle(std::uint32_t requested_us) {
+  SetCrc(g_rtc);
+  if (kNoSleep) {
+    prepared_send::ReleaseFullAetherWifiForHotPath();
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    return;
+  }
+  PrepareRtcStateAndDeepSleep(requested_us);
+}
+
+[[noreturn]] static void EndCycleOrDeepSleep(std::uint32_t requested_us) {
+  if (kNoSleep) {
+    prepared_send::ReleaseFullAetherWifiForHotPath();
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    esp_restart();
+  }
+  PrepareRtcStateAndDeepSleep(requested_us);
 }
 
 static void ForceFullRecovery() {
@@ -703,7 +723,10 @@ static void AfterRegisterComplete() {
   g_rtc.hot_send_count = 0;
   ClearPending(g_rtc);
   SetCrc(g_rtc);
-  PrepareRtcStateAndDeepSleep(kSleepUs);
+  if (kNoSleep) {
+    return;
+  }
+  EndCycleOrDeepSleep(kSleepUs);
 }
 
 static void AfterFullComplete() {
@@ -719,7 +742,10 @@ static void AfterFullComplete() {
   g_rtc.hot_attempt_count = 0;
   g_rtc.hot_send_count = 0;
   SetCrc(g_rtc);
-  PrepareRtcStateAndDeepSleep(kSleepUs);
+  if (kNoSleep) {
+    return;
+  }
+  EndCycleOrDeepSleep(kSleepUs);
 }
 
 static void AfterFinalComplete() {
@@ -732,7 +758,7 @@ static void AfterFinalComplete() {
   g_rtc.phase = static_cast<std::uint16_t>(Phase::kDone);
   SetCrc(g_rtc);
   g_done = true;
-  PrepareRtcStateAndDeepSleep(kSleepUs);
+  EndCycleOrDeepSleep(kSleepUs);
 }
 
 static void AfterFinalFailed() {
@@ -747,10 +773,10 @@ static void AfterFinalFailed() {
     g_rtc.phase = static_cast<std::uint16_t>(Phase::kDone);
     SetCrc(g_rtc);
     g_done = true;
-    PrepareRtcStateAndDeepSleep(kSleepUs);
+    EndCycleOrDeepSleep(kSleepUs);
   }
   SetCrc(g_rtc);
-  PrepareRtcStateAndDeepSleep(kSleepUs);
+  EndCycleOrDeepSleep(kSleepUs);
 }
 
 static bool WifiFailedBeforeEncode(prepared_send::FastSendResult const& r) {
@@ -766,22 +792,22 @@ static bool WifiFailedBeforeEncode(prepared_send::FastSendResult const& r) {
 static void RunHotOnce() {
   if (!prepared_send::PreparedWifiRtcCacheIsValid(g_rtc_wifi_cache)) {
     ForceFullRecovery();
-    PrepareRtcStateAndDeepSleep(kSleepUs);
+    EndCycleOrDeepSleep(kSleepUs);
   }
   g_wifi_snapshot =
       prepared_send::SnapshotFromPreparedWifiRtcCache(g_rtc_wifi_cache);
   if (!g_wifi_snapshot.valid_ip || g_wifi_snapshot.channel == 0) {
     ForceFullRecovery();
-    PrepareRtcStateAndDeepSleep(kSleepUs);
+    EndCycleOrDeepSleep(kSleepUs);
   }
   if (!prepared_send::HasPreparedSendBlock() ||
       prepared_send::PreparedMessageLeft() == 0) {
     ForceFullRecovery();
-    PrepareRtcStateAndDeepSleep(kSleepUs);
+    EndCycleOrDeepSleep(kSleepUs);
   }
   if (g_rtc.hot_attempt_count >= kMaxHotAttemptsPerBlock) {
     ForceFullRecovery();
-    PrepareRtcStateAndDeepSleep(kSleepUs);
+    EndCycleOrDeepSleep(kSleepUs);
   }
 
   if (g_rtc.hot_attempt_count < 255) {
@@ -820,7 +846,7 @@ static void RunHotOnce() {
       }
     }
     SetCrc(g_rtc);
-    PrepareRtcStateAndDeepSleep(kSleepUs);
+    EndCycle(kSleepUs);
   }
 
   if (WifiFailedBeforeEncode(result)) {
@@ -828,13 +854,13 @@ static void RunHotOnce() {
       ++g_rtc.failed_assoc_wakes;
     }
     SetCrc(g_rtc);
-    PrepareRtcStateAndDeepSleep(kSleepUs);
+    EndCycle(kSleepUs);
     return;
   }
 
   // Encode/send failure after Wi-Fi: do not advance; retry same index.
   SetCrc(g_rtc);
-  PrepareRtcStateAndDeepSleep(kSleepUs);
+  EndCycle(kSleepUs);
 }
 
 static bool IsColdPowerOn(esp_reset_reason_t reset) {
@@ -1002,9 +1028,12 @@ void loop() {
   if (phase == Phase::kRegister) {
     if (g_exit_success) {
       AfterRegisterComplete();
+      if (kNoSleep) {
+        StartFull();
+      }
     } else {
       ReleaseApp();
-      PrepareRtcStateAndDeepSleep(kSleepUs);
+      EndCycleOrDeepSleep(kSleepUs);
     }
     return;
   }
@@ -1014,7 +1043,7 @@ void loop() {
     } else {
       ReleaseApp();
       ForceFullRecovery();
-      PrepareRtcStateAndDeepSleep(kSleepUs);
+      EndCycleOrDeepSleep(kSleepUs);
     }
     return;
   }

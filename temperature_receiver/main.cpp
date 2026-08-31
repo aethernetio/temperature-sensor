@@ -25,6 +25,8 @@
 #endif
 
 #include "aether/all.h"
+#include "aether/cloud_connections/cloud_server_connection.h"
+#include "aether/types/address.h"
 #include "bench_payload.h"
 
 using namespace std::chrono_literals;
@@ -95,6 +97,55 @@ int g_ooo = 0;
 int g_max_record = 0;
 int g_brownout_boots = 0;
 int g_failed_assoc_wakes = 0;
+int g_tcp_links_up = 0;
+bool g_rx_tcp_verified = false;
+
+void LogTcpTransport(ae::Client& client) {
+  bool any_tcp = false;
+  for (auto* csc : client.cloud_connection().servers()) {
+    if (csc == nullptr) {
+      continue;
+    }
+    auto* cc = csc->client_connection();
+    if (cc == nullptr) {
+      continue;
+    }
+    if (cc->stream_info().link_state != ae::LinkState::kLinked) {
+      continue;
+    }
+    auto ch = cc->server_connection().current_channel();
+    if (!ch) {
+      continue;
+    }
+    if (auto ep = ch->endpoint()) {
+      if (ep->protocol == ae::Protocol::kTcp) {
+        any_tcp = true;
+        std::cout << "RX_TCP_LINK_UP server=" << ae::Format("{}", *csc)
+                  << " endpoint=" << ae::Format("{}", *ep) << "\n";
+      } else {
+        std::cout << "RX_TRANSPORT_NOT_TCP protocol="
+                  << static_cast<int>(ep->protocol) << " endpoint="
+                  << ae::Format("{}", *ep) << "\n";
+      }
+    }
+  }
+  if (any_tcp) {
+    g_tcp_links_up = 1;
+    g_rx_tcp_verified = true;
+    std::cout << "RX_TRANSPORT=TCP\n";
+  } else if (client.cloud_connection().count_connections() > 0) {
+    std::cout << "RX_TCP_LINK_DOWN\n";
+    g_tcp_links_up = 0;
+  }
+  std::cout.flush();
+}
+
+void EmitRxHealth() {
+  std::cout << "RX_HEALTH full=" << g_full_recv << " hot=" << g_hot_recv
+            << " dup=" << g_dup_records << " tcp_up=" << g_tcp_links_up
+            << "\n";
+  std::cout.flush();
+}
 
 int DsBlockCount() {
 #if defined(_WIN32)
@@ -1004,6 +1055,9 @@ int main() {
         client->connectivity_policy()
             ->ConfigureRxTimings(ae::RequestPolicy::All{})
             .ForAllPriorities(ae::RxTimingConf::Every(1s).WithWindow(1s));
+        LogTcpTransport(*client);
+        client->cloud_connection().servers_update_event().Subscribe(
+            [client]() { LogTcpTransport(*client); });
         client->message_stream_manager().new_port_event().Subscribe(
             [&](ae::P2pPortHandle handle) {
               auto sender = handle.destination();
@@ -1017,6 +1071,10 @@ int main() {
 
   while (!aether_app->IsExited()) {
     auto t = aether_app->Update(ae::Now());
+    if (client) {
+      LogTcpTransport(*client);
+      EmitRxHealth();
+    }
     aether_app->WaitUntil(t);
   }
   return aether_app->ExitCode();

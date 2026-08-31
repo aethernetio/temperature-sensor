@@ -81,3 +81,33 @@ Artifacts: `experiments/adaptive_probe_results/chirkov_phase_c.tsv`, `chirkov_al
 3. `analyze_tsv()` — columns `record_id, kind, outer, hot` (kind 1=FULL, 2=HOT).
 4. POST search pass threshold: `hot >= 28` per 30-HOT run (not vs baseline 150).
 5. `CPM_SOURCE_CACHE` + Git `usr/bin` in PATH for cmake after clean build dir.
+
+---
+
+## TCP RECEIVER / TWO-ROUTER RETAKE V2
+
+**Status:** IN PROGRESS (autonomous campaign)
+
+| Item | Value |
+|------|--------|
+| Orchestrator | `experiments/run_adaptive_probe_v2_campaign.py` |
+| Checkpoint | `experiments/adaptive_probe_checkpoint.json` |
+| Results | `experiments/adaptive_probe_v2_results/` |
+| Receiver | TCP-only (`user_config_tcp.h`, `build-tcp-v2/`) |
+| Order | TEST1 chirkov→aethernetio, TEST2 … TEST5 (10 steps) |
+
+V1 partial chirkov Phase C preserved under `adaptive_probe_results/`; V2 is a clean retake.
+
+### Final comparison table (fill on completion)
+
+| METRIC | CHIRKOV | AETHERNETIO |
+|--------|---------|-------------|
+| profile | TBD | TBD |
+| PRE | TBD | TBD |
+| POST | TBD | TBD |
+| ICMP loss | TBD | TBD |
+| cold FULL median | TBD | TBD |
+| Ping RTT median | TBD | TBD |
+| HOT no-sleep delivery | TBD | TBD |
+| HOT sleep delivery | TBD | TBD |
+| long-run loss | TBD | TBD |
