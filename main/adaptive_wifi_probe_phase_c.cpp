@@ -95,6 +95,8 @@ enum class Phase : std::uint16_t {
   kHot = 2,
   kFinal = 3,
   kDone = 4,
+  // Cold power-on (PPK2): idle until esptool flash reset starts the campaign.
+  kPowerWait = 5,
 };
 
 struct RtcState {
@@ -198,7 +200,7 @@ static bool ValidateRtcState(RtcState const& st) {
   if (ComputeCrc(st) != st.crc) {
     return false;
   }
-  if (st.phase > static_cast<std::uint16_t>(Phase::kDone)) {
+  if (st.phase > static_cast<std::uint16_t>(Phase::kPowerWait)) {
     return false;
   }
   if (st.outer_cycle > kOuterCycles) {
@@ -835,6 +837,21 @@ static void RunHotOnce() {
   PrepareRtcStateAndDeepSleep(kSleepUs);
 }
 
+static bool IsColdPowerOn(esp_reset_reason_t reset) {
+  return reset == ESP_RST_POWERON;
+}
+
+static bool IsProvisioningReset(esp_reset_reason_t reset) {
+  switch (reset) {
+    case ESP_RST_SW:
+    case ESP_RST_USB:
+    case ESP_RST_EXT:
+      return true;
+    default:
+      return false;
+  }
+}
+
 static void PrepareRtcOnBoot() {
   g_early = GetExperimentEarlyEntrySnapshot();
   auto const reset =
@@ -842,6 +859,25 @@ static void PrepareRtcOnBoot() {
   bool const valid = ValidateRtcState(g_rtc);
 
   g_rtc.current_boot_brownout = 0;
+
+  if (IsColdPowerOn(reset)) {
+    InvalidateWifiRtcCache();
+    InitRtcFresh(Phase::kPowerWait);
+    ComputeWakeMetrics();
+    SetCrc(g_rtc);
+    return;
+  }
+
+  if (valid && static_cast<Phase>(g_rtc.phase) == Phase::kPowerWait) {
+    if (IsProvisioningReset(reset)) {
+      InvalidateWifiRtcCache();
+      InitRtcFresh(Phase::kRegister);
+    } else {
+      ComputeWakeMetrics();
+      SetCrc(g_rtc);
+      return;
+    }
+  }
 
   if (reset == ESP_RST_BROWNOUT) {
     if (valid) {
@@ -857,13 +893,10 @@ static void PrepareRtcOnBoot() {
     g_rtc.current_boot_brownout = 1;
     ForceFullRecovery();
   } else if (reset != ESP_RST_DEEPSLEEP || !valid) {
-    bool const first_poweron = (reset == ESP_RST_POWERON);
     if (g_rtc.magic != kRtcMagic) {
       InvalidateWifiRtcCache();
     }
-    if (first_poweron && (!valid || !g_rtc.registered)) {
-      InitRtcFresh(Phase::kRegister);
-    } else if (!valid || !g_rtc.registered) {
+    if (!valid || !g_rtc.registered) {
       InitRtcFresh(Phase::kRegister);
     } else {
       if (g_rtc.unexpected_reset_count < 255) {
@@ -896,7 +929,7 @@ void setup() {
   PrepareRtcOnBoot();
 
   auto const phase = static_cast<Phase>(g_rtc.phase);
-  if (phase == Phase::kDone) {
+  if (phase == Phase::kDone || phase == Phase::kPowerWait) {
     g_done = true;
     return;
   }

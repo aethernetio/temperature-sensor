@@ -28,6 +28,7 @@ RX_BUILD = ROOT / "temperature_receiver" / "build-bisect"
 IDF_PATH = r"C:\Espressif\frameworks\esp-idf-v6.0.2"
 TOOLCHAIN = Path(IDF_PATH) / "tools" / "cmake" / "toolchain-esp32c6.cmake"
 CCACHE = r"C:\Espressif\tools\ccache\4.12.1\ccache-4.12.1-windows-x86_64"
+RISCV_BIN = Path(r"C:\Espressif\tools\riscv32-esp-elf\esp-15.2.0_20251204\riscv32-esp-elf\bin")
 USER_CONFIG = "main/user_config_full_quiet.h"
 FS_INIT = ROOT / "experiments" / "preprovision" / "sender_fs_157aadbe.h"
 PREPARED_RX_SESSION = ROOT / "experiments" / "prepared_wifi_cache_rx_session"
@@ -36,6 +37,9 @@ SERVICE_UID = "5aade50f-00d9-4624-b097-e203cdcf1e38"
 OUT = ROOT / "experiments" / "adaptive_probe_results"
 PROGRESS = ROOT / "experiments" / "adaptive_probe_progress.log"
 PORT = "COM7"
+PPK_PY = ROOT / "experiments" / "ppk2-venv" / "Scripts" / "python.exe"
+PPK_SCRIPT = ROOT / "experiments" / "ppk2_power.py"
+PPK_VOLTAGE_MV = 3000
 
 APS = {
     "chirkov": {
@@ -56,14 +60,17 @@ def env() -> dict:
     e["IDF_PYTHON"] = str(PY)
     e["IDF_PYTHON_ENV_PATH"] = str(PY.parent.parent)
     e["PYTHON"] = str(PY)
+    e["ESP_ROM_ELF_DIR"] = r"C:\Espressif\tools\esp-rom-elfs\20241011"
+    e["CC"] = str(RISCV_BIN / "riscv32-esp-elf-gcc.exe")
+    e["CXX"] = str(RISCV_BIN / "riscv32-esp-elf-g++.exe")
     if CPM_SOURCE_CACHE.is_dir():
         e["CPM_SOURCE_CACHE"] = str(CPM_SOURCE_CACHE)
     extra = [
         CCACHE,
         str(PY.parent),
+        str(RISCV_BIN),
         r"C:\Espressif\tools\ninja\1.12.1",
         r"C:\Espressif\tools\cmake\3.30.2\bin",
-        r"C:\Espressif\tools\riscv32-esp-elf\esp-15.2.0_20251204\riscv32-esp-elf\bin",
         r"C:\Program Files\Git\usr\bin",
         r"C:\Program Files\Git\cmd",
     ]
@@ -84,6 +91,50 @@ def log(msg: str) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     with PROGRESS.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
+
+
+def ppk_power_off() -> None:
+    if not PPK_PY.exists():
+        log("PPK venv missing; skip power off")
+        return
+    r = subprocess.run(
+        [str(PPK_PY), str(PPK_SCRIPT), "--off"],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+    )
+    log(f"PPK power off exit={r.returncode}")
+
+
+def ppk_power_on(settle_s: float = 2.0) -> None:
+    if not PPK_PY.exists():
+        log("PPK venv missing; skip power on")
+        return
+    r = subprocess.run(
+        [
+            str(PPK_PY),
+            str(PPK_SCRIPT),
+            f"--voltage-mv={PPK_VOLTAGE_MV}",
+            f"--settle-seconds={settle_s}",
+        ],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+    )
+    log(f"PPK power on exit={r.returncode}")
+
+
+def flash_after_ppk_power_cycle(erase: bool = False) -> str:
+    """PPK off → on → wait USB → flash. ESP idles on POWERON until flash reset."""
+    log("PPK cycle before Phase C flash (cold boot → power-wait idle)")
+    ppk_power_off()
+    time.sleep(1.5)
+    ppk_power_on(settle_s=2.0)
+    port = find_port(120)
+    if not port:
+        raise RuntimeError("no ESP COM after PPK power on")
+    log(f"ESP USB ready after PPK on: {port}")
+    return flash(erase=erase)
 
 
 def find_port(timeout_s: float = 120.0) -> str | None:
@@ -639,7 +690,7 @@ def run_phase_c(ap: str, results: dict) -> None:
     )
     ninja_build()
     start_receiver(f"adaptive_c_{ap}", session, tsv, rx_log)
-    flash(erase=True)
+    flash_after_ppk_power_cycle(erase=True)
     # 5 FULL + 150 HOT * ~1s sleep ≈ 200s+; allow 45 min
     log("phase C baseline wait for HOT delivery")
     t0 = time.time()
