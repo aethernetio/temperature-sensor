@@ -168,6 +168,9 @@ struct FastPathConfig {
   std::uint8_t mac_long_retry{0};
   // Safety wait for TX-done callback after sendto (ms). Default 100.
   std::uint16_t tx_done_timeout_ms{100};
+  // false => WIFI_PS_NONE (reliability-first sleep campaign).
+  bool ps_max_modem{false};
+  bool fixed_1m{false};
 };
 
 struct FastSendResult {

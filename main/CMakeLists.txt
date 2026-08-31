@@ -60,6 +60,20 @@ elseif(AE_EXP_FULL_AETHER_AETHERNETIO)
   list(APPEND src_list
     "full_aether_aethernetio_loop.cpp"
   )
+elseif(AE_EXP_ADAPTIVE_WIFI_PROBE_A)
+  list(APPEND src_list
+    "adaptive_wifi_probe_phase_a.cpp"
+  )
+elseif(AE_EXP_ADAPTIVE_WIFI_PROBE_B)
+  list(APPEND src_list
+    "adaptive_wifi_probe_phase_b.cpp"
+  )
+elseif(AE_EXP_ADAPTIVE_WIFI_PROBE_C)
+  list(APPEND src_list
+    "adaptive_wifi_probe_phase_c.cpp"
+    "experiment_early_entry.cpp"
+    "prepared_send/prepared_send.cpp"
+  )
 elseif(AE_EXP_PREPARED_TX_DONE_DIAG)
   list(APPEND src_list
     "prepared_tx_done_diag_bench.cpp"
@@ -228,6 +242,9 @@ set(AE_EXP_PREPARED_FINAL_D1_5X50 "" CACHE STRING "Final D1 WIFI_STORAGE_RAM dee
 set(AE_EXP_PREPARED_AP_AETHERNETIO_3X10 "" CACHE STRING "aethernetio AP 3x10 1s deep sleep (set to 1)")
 set(AE_EXP_PREPARED_AP_AETHERNETIO_NOSLEEP_5X5 "" CACHE STRING "aethernetio no-sleep 5x5 reliability (set to 1)")
 set(AE_EXP_FULL_AETHER_AETHERNETIO "" CACHE STRING "Canonical FULL Aether aethernetio baseline (set to 1)")
+set(AE_EXP_ADAPTIVE_WIFI_PROBE_A "" CACHE STRING "Adaptive Wi-Fi probe Phase A ICMP matrix (set to 1)")
+set(AE_EXP_ADAPTIVE_WIFI_PROBE_B "" CACHE STRING "Adaptive Wi-Fi probe Phase B existing Ping (set to 1)")
+set(AE_EXP_ADAPTIVE_WIFI_PROBE_C "" CACHE STRING "Adaptive Wi-Fi probe Phase C prepared HOT sleep (set to 1)")
 set(AE_EXP_PREPARED_TX_DONE_DIAG "" CACHE STRING "Silent TX-done callback diagnostic 1x50 (set to 1)")
 set(AE_EXP_PREPARED_MAC_RETRY_DIAG "" CACHE STRING "Silent MAC retry-limit diagnostic 7x50 (set to 1)")
 set(AE_EXP_PREPARED_BOOT_WIFI_OPT "" CACHE STRING "Silent boot/wifi HOT opt campaign 11x30 (set to 1)")
@@ -291,6 +308,45 @@ ae_exp_define_if_set(AE_EXP_PREPARED_FINAL_D1_5X50)
 ae_exp_define_if_set(AE_EXP_PREPARED_AP_AETHERNETIO_3X10)
 ae_exp_define_if_set(AE_EXP_PREPARED_AP_AETHERNETIO_NOSLEEP_5X5)
 ae_exp_define_if_set(AE_EXP_FULL_AETHER_AETHERNETIO)
+ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_A)
+ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_B)
+ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_C)
+if(AE_EXP_ADAPTIVE_WIFI_PROBE_A)
+  foreach(_d AE_PROBE_RECONNECTS AE_PROBE_ICMP_PER AE_PROBE_PRE_RECONNECTS AE_PROBE_PASS_PCT)
+    if(DEFINED ${_d} AND NOT "${${_d}}" STREQUAL "")
+      target_compile_definitions(${TARGET_NAME} PRIVATE "${_d}=${${_d}}")
+    endif()
+  endforeach()
+endif()
+if(AE_EXP_ADAPTIVE_WIFI_PROBE_B)
+  foreach(_d AE_PING_CYCLES AE_PROBE_PROFILE AE_PROBE_CHANNEL)
+    if(DEFINED ${_d} AND NOT "${${_d}}" STREQUAL "")
+      target_compile_definitions(${TARGET_NAME} PRIVATE "${_d}=${${_d}}")
+    endif()
+  endforeach()
+  if(DEFINED AE_RELIABILITY_CLIENT_ID AND NOT "${AE_RELIABILITY_CLIENT_ID}" STREQUAL "")
+    target_compile_definitions(${TARGET_NAME} PRIVATE
+      "AE_RELIABILITY_CLIENT_ID=\"${AE_RELIABILITY_CLIENT_ID}\"")
+  endif()
+endif()
+if(AE_EXP_ADAPTIVE_WIFI_PROBE_C)
+  foreach(_d AE_PROBE_OUTER AE_PROBE_HOT_PER_OUTER AE_PROBE_PROFILE AE_PROBE_PRE_MS AE_PROBE_POST_MS AE_PROBE_SLEEP_US AE_PROBE_RUN_ID)
+    if(DEFINED ${_d} AND NOT "${${_d}}" STREQUAL "")
+      target_compile_definitions(${TARGET_NAME} PRIVATE "${_d}=${${_d}}")
+    endif()
+  endforeach()
+endif()
+if(AE_EXP_FULL_AETHER_AETHERNETIO)
+  set(AE_RELIABILITY_MSG_COUNT "100" CACHE STRING "Ordinary P2P writes in FULL reliability session")
+  set(AE_RELIABILITY_RUN_ID "1" CACHE STRING "Reliability payload run_id")
+  set(AE_RELIABILITY_CLIENT_ID "reliability_full_v1" CACHE STRING "SelectClient id")
+  set(AE_RELIABILITY_INTERVAL_MS "1000" CACHE STRING "Delay after each WriteAction (ms)")
+  target_compile_definitions(${TARGET_NAME} PRIVATE
+    "AE_RELIABILITY_MSG_COUNT=${AE_RELIABILITY_MSG_COUNT}"
+    "AE_RELIABILITY_RUN_ID=${AE_RELIABILITY_RUN_ID}"
+    "AE_RELIABILITY_CLIENT_ID=\"${AE_RELIABILITY_CLIENT_ID}\""
+    "AE_RELIABILITY_INTERVAL_MS=${AE_RELIABILITY_INTERVAL_MS}")
+endif()
 ae_exp_define_if_set(AE_EXP_PREPARED_TX_DONE_DIAG)
 ae_exp_define_if_set(AE_EXP_PREPARED_MAC_RETRY_DIAG)
 ae_exp_define_if_set(AE_EXP_PREPARED_BOOT_WIFI_OPT)

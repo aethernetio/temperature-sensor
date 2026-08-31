@@ -1,40 +1,57 @@
 # Adaptive Wi-Fi Probe — campaign report
 
-PPK source voltage for energy runs: **3000 mV** (battery converter max 3.0 V; not 3.3 V).
+PPK source voltage: **3000 mV**. Telemetry: `AE_TELE_ENABLED=0` (ChannelStatistics Ping RTT remains active in Phase B).
 
-TCP: **disabled** in FULL quiet config (`AE_SUPPORT_TCP 0`, UDP only).
+## SERVER
 
-## IMPLEMENTATION
+```
+SERVER_CHANGED=no
+SERVER_PROTOCOL=current_existing_only
+deferred server probe=not implemented intentionally
+```
 
-| Piece | Status |
+| Field | Value |
 |-------|--------|
-| Server ADSL `probePing`/`deferredProbe`/`queryProbeResult` (ids 43–45) | done |
-| Server `ProbeResultStore` (TTL, bounded) | done |
-| Client `AuthorizedApi` 43–45 + `ProbePing` action | done |
-| `WifiProbeRtcState` / CRC / select / degrade / new-network | done |
-| Gateway ICMP (ESP-IDF ping; RTT discarded) | done |
-| `preferred_channel` on `WiFiAp` (no BSSID assoc) | done |
-| prepared_send FastPath ← probe profile + hot failure degrade | done |
-| Host unit tests `test-wifi-probe` (7/7 PASS) | done |
-| ADSL Java codegen regenerate + cloud deploy | **blocker** |
-| Hardware chirkov / aethernetio matrix | **in progress** |
+| branch | `feat/adaptive-wifi-probe` |
+| HEAD | `692f0f1` (revert of `31b891f`) |
+| tree equals pre-probe `6ff5300` | yes |
+| git status clean | yes |
+| methods 43–45 / ProbeResultStore | absent |
 
-## CHIRKOV / AETHERNETIO / RECOVERY
+## CHIRKOV — Phase A (ICMP, complete)
 
-Hardware matrix not finished in this push cycle — continuing next.
+| Profile | connect median | ICMP loss | min stable PRE |
+|---------|----------------|-----------|----------------|
+| P0 DEFAULT | 1709 ms | 0.00% | 0 ms |
+| P1 CACHED_IP | 115 ms | 0.00% | 0 ms (1.67% at PRE=0 → keep higher if needed) |
+| P2 CHANNEL | 1638 ms | 4.44% | FAIL baseline |
+| P3 CHANNEL_IP | **96 ms** | **0.00%** | **0 ms** |
+| P4 CHANNEL_IP_ARP | 98 ms | 1.11% | 300 ms (PRE=200 failed 3.33%) |
 
-## GIT
+**Winner (reliability-first): P3 CHANNEL_IP, PRE=0 ms**
+
+Fingerprint (diag): SSID=chirkov, channel=9, BSSID=30:68:93:39:02:74, gw=192.168.68.1
+
+Artifacts: `experiments/adaptive_probe_results/chirkov_phase_a.json`
+
+## CHIRKOV — Phase B (existing Ping)
+
+In progress — 50 cold `AuthorizedApi::ping` cycles, client `reliability_full_v1`, FS_INIT preprovision.
+
+Profile-fast FULL path with cached IP/ARP: **NOT_TESTED** (requires invasive Wi-Fi lifecycle bypass beyond `preferred_channel`).
+
+## CHIRKOV — Phase C (prepared HOT + 1 s sleep)
+
+Pending after Phase B. Config: profile=P3, PRE=max(0,50)=50 ms, POST=300 ms baseline, 5×30 HOT + POST search + long run.
+
+## AETHERNETIO
+
+Pending after chirkov A→B→C (AP cache invalidate on switch).
+
+## GIT (interim)
 
 | Repo | Branch | SHA |
 |------|--------|-----|
-| aether-client-cpp | `feat/adaptive-wifi-probe` | `b1092b7a` |
-| aether (broker) | `feat/adaptive-wifi-probe` | `31b891f` |
-| temperature-sensor | `feat/adaptive-wifi-probe` | `bff0a7f` |
-
-Do routers select different profiles: **TBD**  
-Do routers select different PRE/POST: **TBD**  
-Adaptive scheme production-ready: **NO**  
-remaining blockers:
-1. regenerate ADSL Java stubs (`aether-protocol` gradle) and deploy cloud with methods 43–45  
-2. hardware P0–P4 / PRE / POST / deferred / stale channel+IP on chirkov then aethernetio  
-3. confirm UDP-only cloud path after `RebuildChannelsFromAdapters` with `AE_SUPPORT_TCP=0`
+| aether (broker) | `feat/adaptive-wifi-probe` | `692f0f1` |
+| aether-client-cpp | `feat/adaptive-wifi-probe` | `586ba2ac` |
+| temperature-sensor | `feat/adaptive-wifi-probe` | local WIP |
