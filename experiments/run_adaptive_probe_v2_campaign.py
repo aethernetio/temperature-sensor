@@ -12,6 +12,7 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -146,6 +147,12 @@ def build_receiver_tcp() -> None:
         raise RuntimeError("receiver ninja failed")
     if not RX_EXE.exists():
         raise RuntimeError("receiver binary missing")
+    # Sidecar MinGW runtime DLLs so launch does not need msys64 on PATH.
+    if MINGW_BIN.is_dir():
+        for name in ("libgcc_s_seh-1.dll", "libwinpthread-1.dll", "libstdc++-6.dll"):
+            src = MINGW_BIN / name
+            if src.exists():
+                shutil.copy2(src, RX_BUILD / name)
     log("TCP receiver build ok")
 
 

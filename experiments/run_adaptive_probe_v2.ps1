@@ -7,7 +7,8 @@ $env:IDF_TOOLS_PATH = "C:\Espressif"
 $env:ESP_ROM_ELF_DIR = "C:\Espressif\tools\esp-rom-elfs\20241011"
 Set-Location $Root
 . "$env:IDF_PATH\export.ps1"
-$env:Path = "C:\msys64\ucrt64\bin;" + $env:Path
+# Do NOT prepend msys64 here — it poisons ESP-IDF cmake/objcopy discovery.
+# Receiver launch adds msys64 DLLs via receiver_env(launch=True) only.
 $log = Join-Path $Root "experiments\adaptive_probe_v2_campaign.log"
 & $py -u experiments/run_adaptive_probe_v2_campaign.py 2>&1 | Tee-Object -FilePath $log
 exit $LASTEXITCODE

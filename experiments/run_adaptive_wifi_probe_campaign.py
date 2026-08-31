@@ -301,6 +301,10 @@ def cmake_configure(ap: str, phase: str, defs: dict[str, str]) -> None:
         elif "CMAKE_CXX_COMPILER:FILEPATH=" in text and "msys64" in text:
             log("wiping host-msys build dir")
             shutil.rmtree(BUILD, ignore_errors=True)
+    ulp_cache = BUILD / "esp-idf" / "main" / "ulp_main" / "CMakeCache.txt"
+    if ulp_cache.exists() and "msys64" in ulp_cache.read_text(encoding="utf-8", errors="replace"):
+        log("wiping ULP subbuild with msys64 tools")
+        shutil.rmtree(ulp_cache.parent, ignore_errors=True)
     seed_usb_console_sdkconfig()
     args = [
         str(CMAKE),
