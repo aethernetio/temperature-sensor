@@ -78,11 +78,14 @@ def load_checkpoint() -> dict:
 def wait_for_board(timeout_s: float = 3600) -> str | None:
     log("WAIT_FOR_BOARD")
     t0 = time.time()
+    camp.ppk_power_on(settle_s=3.0)
     while time.time() - t0 < timeout_s:
         port = camp.find_port(3)
         if port:
             log(f"board on {port}")
             return port
+        if int(time.time() - t0) % 30 < 3:
+            camp.ppk_power_on(settle_s=2.0)
         time.sleep(2)
     return None
 
