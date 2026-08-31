@@ -120,8 +120,11 @@ Checkpoint: step_index advancing to TEST2 after both APs.
 | PRE | 0 ms | 0 ms |
 | POST | TBD | TBD |
 | ICMP loss | 0.00% | 0.00% |
-| cold FULL median | TBD | TBD |
-| Ping RTT median | TBD | TBD |
+| cold FULL median | **3516 ms** | **3641 ms** |
+| cold FULL p90 | **3735 ms** | **3763 ms** |
+| Ping RTT median | **198 ms** | **199 ms** |
+| FULL Write() call median us | **12414** | **12473** |
+| FULL WriteAction median us | **14903** | **14811** |
 | HOT no-sleep delivery | TBD | TBD |
 | HOT sleep delivery | TBD | TBD |
 | long-run loss | TBD | TBD |
