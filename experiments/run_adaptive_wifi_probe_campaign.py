@@ -54,7 +54,8 @@ APS = {
 
 
 def _path_blocked(path: str) -> bool:
-    lower = path.lower()
+    # Normalize so Windows backslash paths match the same tokens as POSIX.
+    lower = path.lower().replace("\\", "/")
     blocked = (
         "windowsapps",
         "/msys64/",
