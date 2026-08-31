@@ -548,12 +548,14 @@ def parse_b_sum(text: str) -> dict:
     m = re.search(
         r"B_SUM ping_sent=(\d+) ping_ok=(\d+) ping_late=(\d+) ping_error=(\d+) "
         r"ping_timeout=(\d+) cold_median_ms=(\d+) cold_p90_ms=(\d+) "
-        r"rtt_median_ms=(\d+) rtt_p90_ms=(\d+)",
+        r"rtt_median_ms=(\d+) rtt_p90_ms=(\d+)"
+        r"(?: write_call_median_us=(\d+) write_action_median_us=(\d+) "
+        r"write_call_p90_us=(\d+) write_action_p90_us=(\d+))?",
         text,
     )
     if not m:
         return {}
-    return {
+    out = {
         "ping_sent": int(m.group(1)),
         "ping_ok": int(m.group(2)),
         "ping_late": int(m.group(3)),
@@ -564,6 +566,12 @@ def parse_b_sum(text: str) -> dict:
         "rtt_median_ms": int(m.group(8)),
         "rtt_p90_ms": int(m.group(9)),
     }
+    if m.group(10) is not None:
+        out["write_call_median_us"] = int(m.group(10))
+        out["write_action_median_us"] = int(m.group(11))
+        out["write_call_p90_us"] = int(m.group(12))
+        out["write_action_p90_us"] = int(m.group(13))
+    return out
 
 
 def kill_receiver() -> None:

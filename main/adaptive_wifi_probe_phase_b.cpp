@@ -124,6 +124,8 @@ struct CycleResult {
   std::uint32_t aether_ms{0};
   std::uint32_t ping_rtt_ms{0};
   std::uint32_t release_ms{0};
+  std::uint32_t full_write_call_us{0};
+  std::uint32_t full_write_action_us{0};
 };
 
 struct CampaignState {
@@ -135,8 +137,11 @@ struct CampaignState {
   int to{0};
   int nc{0};
   int nr{0};
+  int nw{0};
   std::uint32_t cold[kMaxSamples]{};
   std::uint32_t rtt[kMaxSamples]{};
+  std::uint32_t write_call[kMaxSamples]{};
+  std::uint32_t write_action[kMaxSamples]{};
   bool finished{false};
 };
 
@@ -256,18 +261,30 @@ void RecordCycle(CycleResult const& r) {
   if ((r.ping_kind == 0 || r.ping_kind == 1) && g_campaign.nr < kMaxSamples) {
     g_campaign.rtt[static_cast<std::size_t>(g_campaign.nr++)] = r.ping_rtt_ms;
   }
+  if (r.full_write_call_us > 0 && g_campaign.nw < kMaxSamples) {
+    g_campaign.write_call[static_cast<std::size_t>(g_campaign.nw)] =
+        r.full_write_call_us;
+    g_campaign.write_action[static_cast<std::size_t>(g_campaign.nw)] =
+        r.full_write_action_us;
+    ++g_campaign.nw;
+  }
 }
 
 void PrintSummary() {
   std::printf(
       "B_SUM ping_sent=%d ping_ok=%d ping_late=%d ping_error=%d "
       "ping_timeout=%d cold_median_ms=%u cold_p90_ms=%u rtt_median_ms=%u "
-      "rtt_p90_ms=%u\n",
+      "rtt_p90_ms=%u write_call_median_us=%u write_action_median_us=%u "
+      "write_call_p90_us=%u write_action_p90_us=%u\n",
       g_campaign.sent, g_campaign.ok, g_campaign.late, g_campaign.err,
       g_campaign.to, static_cast<unsigned>(MedianU32(g_campaign.cold, g_campaign.nc)),
       static_cast<unsigned>(P90U32(g_campaign.cold, g_campaign.nc)),
       static_cast<unsigned>(MedianU32(g_campaign.rtt, g_campaign.nr)),
-      static_cast<unsigned>(P90U32(g_campaign.rtt, g_campaign.nr)));
+      static_cast<unsigned>(P90U32(g_campaign.rtt, g_campaign.nr)),
+      static_cast<unsigned>(MedianU32(g_campaign.write_call, g_campaign.nw)),
+      static_cast<unsigned>(MedianU32(g_campaign.write_action, g_campaign.nw)),
+      static_cast<unsigned>(P90U32(g_campaign.write_call, g_campaign.nw)),
+      static_cast<unsigned>(P90U32(g_campaign.write_action, g_campaign.nw)));
 #if AE_PROBE_PROFILE >= 0
   std::printf(
       "B_PROFILE_NOTE preferred_channel_only=1 cached_ip_arp=NOT_TESTED\n");
@@ -467,6 +484,30 @@ CycleResult RunOneColdPing(int cycle_index) {
         ping_res);
   }
 
+  // Small P2P Write timing: Write() call vs WriteAction complete (separate).
+  if (stream->stream_info().is_writable) {
+    ae::DataBuffer probe_payload;
+    probe_payload.reserve(8);
+    probe_payload.push_back(static_cast<std::uint8_t>('B'));
+    probe_payload.push_back(static_cast<std::uint8_t>('W'));
+    probe_payload.push_back(static_cast<std::uint8_t>(cycle_index & 0xff));
+    probe_payload.push_back(0);
+    bool write_done = false;
+    auto const t_w0 = esp_timer_get_time();
+    auto& wa = stream->Write(std::move(probe_payload));
+    auto const t_w1 = esp_timer_get_time();
+    ae::Subscription write_sub =
+        wa.status_event().Subscribe([&](ae::WriteAction::Status) {
+          write_done = true;
+        });
+    PumpUntil(*app, [&] { return write_done; }, ae::Now() + 15s);
+    auto const t_w2 = esp_timer_get_time();
+    out.full_write_call_us =
+        static_cast<std::uint32_t>(t_w1 > t_w0 ? (t_w1 - t_w0) : 0);
+    out.full_write_action_us =
+        static_cast<std::uint32_t>(t_w2 > t_w0 ? (t_w2 - t_w0) : 0);
+  }
+
   auto const t_rel0 = esp_timer_get_time();
   ReleaseApp(&select_sub, &ping_sub, &stream, &client, &app);
   auto const t_end = esp_timer_get_time();
@@ -491,13 +532,16 @@ CycleResult RunOneColdPing(int cycle_index) {
   }
   std::printf(
       "B_RES cycle=%d ping=%s rtt_ms=%u cold_ms=%u wifi_ms=%u net_ms=%u "
-      "aether_ms=%u release_ms=%u profile_hint=%d ch=%u\n",
+      "aether_ms=%u release_ms=%u write_call_us=%u write_action_us=%u "
+      "profile_hint=%d ch=%u\n",
       cycle_index, kn, static_cast<unsigned>(out.ping_rtt_ms),
       static_cast<unsigned>(out.cold_full_ms),
       static_cast<unsigned>(out.wifi_ms),
       static_cast<unsigned>(out.network_ms),
       static_cast<unsigned>(out.aether_ms),
-      static_cast<unsigned>(out.release_ms), AE_PROBE_PROFILE,
+      static_cast<unsigned>(out.release_ms),
+      static_cast<unsigned>(out.full_write_call_us),
+      static_cast<unsigned>(out.full_write_action_us), AE_PROBE_PROFILE,
       static_cast<unsigned>(preferred_ch));
   std::fflush(stdout);
   return out;
