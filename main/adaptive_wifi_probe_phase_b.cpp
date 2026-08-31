@@ -175,6 +175,35 @@ bool LoadCampaign() {
   nvs_get_i32(handle, "late", &late);
   nvs_get_i32(handle, "err", &err_count);
   nvs_get_i32(handle, "to", &to);
+  std::int32_t nc = 0;
+  std::int32_t nr = 0;
+  std::int32_t nw = 0;
+  nvs_get_i32(handle, "nc", &nc);
+  nvs_get_i32(handle, "nr", &nr);
+  nvs_get_i32(handle, "nw", &nw);
+  size_t blob_len = sizeof(g_campaign.cold);
+  if (nc > 0 && nc <= kMaxSamples) {
+    if (nvs_get_blob(handle, "cold", g_campaign.cold, &blob_len) == ESP_OK) {
+      g_campaign.nc = static_cast<int>(nc);
+    }
+  }
+  blob_len = sizeof(g_campaign.rtt);
+  if (nr > 0 && nr <= kMaxSamples) {
+    if (nvs_get_blob(handle, "rtt", g_campaign.rtt, &blob_len) == ESP_OK) {
+      g_campaign.nr = static_cast<int>(nr);
+    }
+  }
+  blob_len = sizeof(g_campaign.write_call);
+  if (nw > 0 && nw <= kMaxSamples) {
+    if (nvs_get_blob(handle, "wcall", g_campaign.write_call, &blob_len) ==
+        ESP_OK) {
+      blob_len = sizeof(g_campaign.write_action);
+      if (nvs_get_blob(handle, "wact", g_campaign.write_action, &blob_len) ==
+          ESP_OK) {
+        g_campaign.nw = static_cast<int>(nw);
+      }
+    }
+  }
   nvs_close(handle);
   if (next < 1 || next > AE_PING_CYCLES + 1) {
     return false;
@@ -207,6 +236,27 @@ void SaveCampaign() {
   nvs_set_i32(handle, "late", g_campaign.late);
   nvs_set_i32(handle, "err", g_campaign.err);
   nvs_set_i32(handle, "to", g_campaign.to);
+  nvs_set_i32(handle, "nc", g_campaign.nc);
+  nvs_set_i32(handle, "nr", g_campaign.nr);
+  nvs_set_i32(handle, "nw", g_campaign.nw);
+  if (g_campaign.nc > 0) {
+    nvs_set_blob(handle, "cold", g_campaign.cold,
+                 sizeof(std::uint32_t) *
+                     static_cast<std::size_t>(g_campaign.nc));
+  }
+  if (g_campaign.nr > 0) {
+    nvs_set_blob(handle, "rtt", g_campaign.rtt,
+                 sizeof(std::uint32_t) *
+                     static_cast<std::size_t>(g_campaign.nr));
+  }
+  if (g_campaign.nw > 0) {
+    nvs_set_blob(handle, "wcall", g_campaign.write_call,
+                 sizeof(std::uint32_t) *
+                     static_cast<std::size_t>(g_campaign.nw));
+    nvs_set_blob(handle, "wact", g_campaign.write_action,
+                 sizeof(std::uint32_t) *
+                     static_cast<std::size_t>(g_campaign.nw));
+  }
   err = nvs_commit(handle);
   if (err != ESP_OK) {
     std::printf("B_NVS commit err=%d\n", static_cast<int>(err));

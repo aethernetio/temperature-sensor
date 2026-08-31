@@ -116,10 +116,10 @@ Checkpoint: step_index advancing to TEST2 after both APs.
 
 | METRIC | CHIRKOV | AETHERNETIO |
 |--------|---------|-------------|
-| profile | TBD | TBD |
-| PRE | TBD | TBD |
+| profile | P1 | P4 |
+| PRE | 0 ms | 0 ms |
 | POST | TBD | TBD |
-| ICMP loss | TBD | TBD |
+| ICMP loss | 0.00% | 0.00% |
 | cold FULL median | TBD | TBD |
 | Ping RTT median | TBD | TBD |
 | HOT no-sleep delivery | TBD | TBD |

@@ -581,6 +581,14 @@ def parse_a_winner(text: str) -> dict:
     return out
 
 
+def _pct(vals: list[int], pct: int) -> int:
+    if not vals:
+        return 0
+    s = sorted(vals)
+    i = min(len(s) - 1, max(0, (len(s) - 1) * pct // 100))
+    return s[i]
+
+
 def parse_b_sum(text: str) -> dict:
     m = re.search(
         r"B_SUM ping_sent=(\d+) ping_ok=(\d+) ping_late=(\d+) ping_error=(\d+) "
@@ -608,6 +616,28 @@ def parse_b_sum(text: str) -> dict:
         out["write_action_median_us"] = int(m.group(11))
         out["write_call_p90_us"] = int(m.group(12))
         out["write_action_p90_us"] = int(m.group(13))
+    # Prefer per-cycle B_RES samples: NVS may drop arrays across cold boots.
+    colds = [int(x) for x in re.findall(r"B_RES cycle=\d+ ping=ok[^\\n]* cold_ms=(\d+)", text)]
+    rtts = [int(x) for x in re.findall(r"B_RES cycle=\d+ ping=ok[^\\n]* rtt_ms=(\d+)", text)]
+    wcalls = [int(x) for x in re.findall(r"write_call_us=(\d+)", text)]
+    wacts = [int(x) for x in re.findall(r"write_action_us=(\d+)", text)]
+    if colds:
+        out["cold_median_ms"] = _pct(colds, 50)
+        out["cold_p90_ms"] = _pct(colds, 90)
+        out["cold_max_ms"] = max(colds)
+        out["cold_n"] = len(colds)
+    if rtts:
+        out["rtt_median_ms"] = _pct(rtts, 50)
+        out["rtt_p90_ms"] = _pct(rtts, 90)
+        out["rtt_max_ms"] = max(rtts)
+    if wcalls:
+        out["write_call_median_us"] = _pct(wcalls, 50)
+        out["write_call_p90_us"] = _pct(wcalls, 90)
+        out["write_call_max_us"] = max(wcalls)
+    if wacts:
+        out["write_action_median_us"] = _pct(wacts, 50)
+        out["write_action_p90_us"] = _pct(wacts, 90)
+        out["write_action_max_us"] = max(wacts)
     return out
 
 
