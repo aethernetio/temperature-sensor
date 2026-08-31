@@ -71,7 +71,7 @@ def save_checkpoint(data: dict) -> None:
 def load_checkpoint() -> dict:
     if not CHECKPOINT.exists():
         return {"step_index": 0, "results": {}}
-    return json.loads(CHECKPOINT.read_text(encoding="utf-8"))
+    return json.loads(CHECKPOINT.read_text(encoding="utf-8-sig"))
 
 
 def wait_for_board(timeout_s: float = 3600) -> str | None:
