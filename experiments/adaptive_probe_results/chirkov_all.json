@@ -1,0 +1,515 @@
+{
+  "phase_a": {
+    "winner_profile": 3,
+    "pre_ms": 0,
+    "loss": 0.0,
+    "connect_median_ms": 96,
+    "baseline": [
+      {
+        "profile": 0,
+        "pre": 300,
+        "connect_ok": 30,
+        "ready_ok": 30,
+        "icmp_sent": 90,
+        "icmp_recv": 90,
+        "icmp_loss": 0.0,
+        "fail": 0,
+        "median": 1709,
+        "p90": 1769,
+        "max": 12079
+      },
+      {
+        "profile": 1,
+        "pre": 300,
+        "connect_ok": 30,
+        "ready_ok": 30,
+        "icmp_sent": 90,
+        "icmp_recv": 90,
+        "icmp_loss": 0.0,
+        "fail": 0,
+        "median": 115,
+        "p90": 181,
+        "max": 222
+      },
+      {
+        "profile": 2,
+        "pre": 300,
+        "connect_ok": 30,
+        "ready_ok": 30,
+        "icmp_sent": 90,
+        "icmp_recv": 86,
+        "icmp_loss": 4.44,
+        "fail": 0,
+        "median": 1638,
+        "p90": 1708,
+        "max": 3808
+      },
+      {
+        "profile": 3,
+        "pre": 300,
+        "connect_ok": 30,
+        "ready_ok": 30,
+        "icmp_sent": 90,
+        "icmp_recv": 90,
+        "icmp_loss": 0.0,
+        "fail": 0,
+        "median": 96,
+        "p90": 126,
+        "max": 181
+      },
+      {
+        "profile": 4,
+        "pre": 300,
+        "connect_ok": 30,
+        "ready_ok": 30,
+        "icmp_sent": 90,
+        "icmp_recv": 89,
+        "icmp_loss": 1.11,
+        "fail": 0,
+        "median": 98,
+        "p90": 178,
+        "max": 188
+      }
+    ],
+    "pre_search": [
+      {
+        "profile": 0,
+        "pre": 200,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 0,
+        "pre": 100,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 0,
+        "pre": 50,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 0,
+        "pre": 25,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 0,
+        "pre": 10,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 0,
+        "pre": 0,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 1,
+        "pre": 200,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 1,
+        "pre": 100,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 1,
+        "pre": 50,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 1,
+        "pre": 25,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 1,
+        "pre": 10,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 1,
+        "pre": 0,
+        "connect_ok": 20,
+        "icmp_recv": 59,
+        "icmp_loss": 1.67,
+        "fail": 0
+      },
+      {
+        "profile": 3,
+        "pre": 200,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 3,
+        "pre": 100,
+        "connect_ok": 20,
+        "icmp_recv": 59,
+        "icmp_loss": 1.67,
+        "fail": 0
+      },
+      {
+        "profile": 3,
+        "pre": 50,
+        "connect_ok": 20,
+        "icmp_recv": 59,
+        "icmp_loss": 1.67,
+        "fail": 0
+      },
+      {
+        "profile": 3,
+        "pre": 25,
+        "connect_ok": 20,
+        "icmp_recv": 59,
+        "icmp_loss": 1.67,
+        "fail": 0
+      },
+      {
+        "profile": 3,
+        "pre": 10,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 3,
+        "pre": 0,
+        "connect_ok": 20,
+        "icmp_recv": 60,
+        "icmp_loss": 0.0,
+        "fail": 0
+      },
+      {
+        "profile": 4,
+        "pre": 200,
+        "connect_ok": 20,
+        "icmp_recv": 58,
+        "icmp_loss": 3.33,
+        "fail": 0
+      }
+    ]
+  },
+  "phase_b_canonical": {
+    "chirkov": {
+      "winner_profile": 3,
+      "pre_ms": 0,
+      "loss": 0.0,
+      "connect_median_ms": 96,
+      "baseline": [
+        {
+          "profile": 0,
+          "pre": 300,
+          "connect_ok": 30,
+          "ready_ok": 30,
+          "icmp_sent": 90,
+          "icmp_recv": 90,
+          "icmp_loss": 0.0,
+          "fail": 0,
+          "median": 1709,
+          "p90": 1769,
+          "max": 12079
+        },
+        {
+          "profile": 1,
+          "pre": 300,
+          "connect_ok": 30,
+          "ready_ok": 30,
+          "icmp_sent": 90,
+          "icmp_recv": 90,
+          "icmp_loss": 0.0,
+          "fail": 0,
+          "median": 115,
+          "p90": 181,
+          "max": 222
+        },
+        {
+          "profile": 2,
+          "pre": 300,
+          "connect_ok": 30,
+          "ready_ok": 30,
+          "icmp_sent": 90,
+          "icmp_recv": 86,
+          "icmp_loss": 4.44,
+          "fail": 0,
+          "median": 1638,
+          "p90": 1708,
+          "max": 3808
+        },
+        {
+          "profile": 3,
+          "pre": 300,
+          "connect_ok": 30,
+          "ready_ok": 30,
+          "icmp_sent": 90,
+          "icmp_recv": 90,
+          "icmp_loss": 0.0,
+          "fail": 0,
+          "median": 96,
+          "p90": 126,
+          "max": 181
+        },
+        {
+          "profile": 4,
+          "pre": 300,
+          "connect_ok": 30,
+          "ready_ok": 30,
+          "icmp_sent": 90,
+          "icmp_recv": 89,
+          "icmp_loss": 1.11,
+          "fail": 0,
+          "median": 98,
+          "p90": 178,
+          "max": 188
+        }
+      ],
+      "pre_search": [
+        {
+          "profile": 0,
+          "pre": 200,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 0,
+          "pre": 100,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 0,
+          "pre": 50,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 0,
+          "pre": 25,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 0,
+          "pre": 10,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 0,
+          "pre": 0,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 1,
+          "pre": 200,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 1,
+          "pre": 100,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 1,
+          "pre": 50,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 1,
+          "pre": 25,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 1,
+          "pre": 10,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 1,
+          "pre": 0,
+          "connect_ok": 20,
+          "icmp_recv": 59,
+          "icmp_loss": 1.67,
+          "fail": 0
+        },
+        {
+          "profile": 3,
+          "pre": 200,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 3,
+          "pre": 100,
+          "connect_ok": 20,
+          "icmp_recv": 59,
+          "icmp_loss": 1.67,
+          "fail": 0
+        },
+        {
+          "profile": 3,
+          "pre": 50,
+          "connect_ok": 20,
+          "icmp_recv": 59,
+          "icmp_loss": 1.67,
+          "fail": 0
+        },
+        {
+          "profile": 3,
+          "pre": 25,
+          "connect_ok": 20,
+          "icmp_recv": 59,
+          "icmp_loss": 1.67,
+          "fail": 0
+        },
+        {
+          "profile": 3,
+          "pre": 10,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 3,
+          "pre": 0,
+          "connect_ok": 20,
+          "icmp_recv": 60,
+          "icmp_loss": 0.0,
+          "fail": 0
+        },
+        {
+          "profile": 4,
+          "pre": 200,
+          "connect_ok": 20,
+          "icmp_recv": 58,
+          "icmp_loss": 3.33,
+          "fail": 0
+        }
+      ],
+      "phase_b_canonical": {
+        "ping_sent": 50,
+        "ping_ok": 50,
+        "ping_late": 0,
+        "ping_error": 0,
+        "ping_timeout": 0,
+        "cold_median_ms": 4686,
+        "cold_p90_ms": 4686,
+        "rtt_median_ms": 204,
+        "rtt_p90_ms": 204
+      },
+      "phase_b_selected_profile": {
+        "status": "NOT_TESTED",
+        "reason": "FULL Aether path cannot apply cached IP/ARP without invasive Wi-Fi lifecycle bypass; preferred_channel alone is incomplete vs ICMP winner.",
+        "winner_profile": -1
+      }
+    }
+  },
+  "phase_c_baseline": {
+    "profile": 3,
+    "pre_ms": 50,
+    "post_ms": 300,
+    "delivery": {
+      "received": 154,
+      "hot": 149,
+      "full": 5,
+      "missing_in_span": 0,
+      "seq_min": 3,
+      "seq_max": 3
+    }
+  },
+  "phase_c_post": [
+    {
+      "post_ms": 200,
+      "delivery": {
+        "received": 30,
+        "hot": 29,
+        "full": 1,
+        "missing_in_span": 0,
+        "seq_min": 3,
+        "seq_max": 3
+      }
+    }
+  ],
+  "phase_c_post_winner": 200,
+  "phase_c_sleep": [
+    {
+      "sleep_ms": 250,
+      "delivery": {
+        "received": 30,
+        "hot": 29,
+        "full": 1,
+        "missing_in_span": 0,
+        "seq_min": 3,
+        "seq_max": 3
+      }
+    }
+  ],
+  "phase_c_status": "PARTIAL: POST 100-0, sleep 500/1000, long 500 HOT pending (build dir corrupted after wipe)"
+}

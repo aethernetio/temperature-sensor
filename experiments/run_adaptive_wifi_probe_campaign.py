@@ -19,6 +19,7 @@ from pathlib import Path
 ROOT = Path(r"C:\Users\nickc\Projects\temperature-sensor-prepared")
 BUILD = ROOT / "build-esp32c6-adaptive-probe"
 AETHER = r"C:/Users/nickc/Projects/aether-client-cpp-prepared-packet-v0"
+CPM_SOURCE_CACHE = Path(AETHER) / "build-registrator-157aadbe-hydro" / "cpm.cache"
 PY = Path(r"C:\Espressif\python_env\idf6.0_py3.11_env\Scripts\python.exe")
 CMAKE = Path(r"C:\Espressif\tools\cmake\3.30.2\bin\cmake.exe")
 NINJA = Path(r"C:\Espressif\tools\ninja\1.12.1\ninja.exe")
@@ -52,15 +53,27 @@ def env() -> dict:
     e = os.environ.copy()
     e["IDF_PATH"] = IDF_PATH
     e["IDF_TOOLS_PATH"] = r"C:\Espressif"
+    e["IDF_PYTHON"] = str(PY)
+    e["IDF_PYTHON_ENV_PATH"] = str(PY.parent.parent)
+    e["PYTHON"] = str(PY)
+    if CPM_SOURCE_CACHE.is_dir():
+        e["CPM_SOURCE_CACHE"] = str(CPM_SOURCE_CACHE)
     extra = [
         CCACHE,
+        str(PY.parent),
         r"C:\Espressif\tools\ninja\1.12.1",
         r"C:\Espressif\tools\cmake\3.30.2\bin",
         r"C:\Espressif\tools\riscv32-esp-elf\esp-15.2.0_20251204\riscv32-esp-elf\bin",
-        r"C:\msys64\ucrt64\bin",
+        r"C:\Program Files\Git\usr\bin",
         r"C:\Program Files\Git\cmd",
     ]
-    e["Path"] = ";".join(extra) + ";" + e.get("Path", "")
+    tail = [p for p in e.get("Path", "").split(";") if p and "WindowsApps" not in p]
+    # Prepend campaign/IDF tools; append msys64 last for git-submodule helpers (not ninja).
+    msys = r"C:\msys64\ucrt64\bin"
+    parts = extra + [p for p in tail if p.lower() != msys.lower()]
+    if msys not in parts:
+        parts.append(msys)
+    e["Path"] = ";".join(dict.fromkeys(parts))
     e.pop("CCACHE_DISABLE", None)
     return e
 
@@ -211,6 +224,8 @@ def cmake_configure(ap: str, phase: str, defs: dict[str, str]) -> None:
         f"-DWIFI_SSID={wifi['ssid']}",
         f"-DWIFI_PASSWORD={wifi['password']}",
         f"-DSERVICE_UID={SERVICE_UID}",
+        f"-DPython3_EXECUTABLE={PY.as_posix()}",
+        f"-DCMAKE_MAKE_PROGRAM={NINJA.as_posix()}",
     ]
     phase_key = {
         "A": "AE_EXP_ADAPTIVE_WIFI_PROBE_A",
@@ -222,8 +237,17 @@ def cmake_configure(ap: str, phase: str, defs: dict[str, str]) -> None:
     for k, v in defs.items():
         args.append(f"-D{k}={v}")
     log(f"cmake phase={phase} ap={ap}")
-    r = subprocess.run(args, cwd=ROOT, env=env(), capture_output=True, text=True)
-    if r.returncode != 0:
+    last = None
+    for attempt in range(3):
+        r = subprocess.run(args, cwd=ROOT, env=env(), capture_output=True, text=True)
+        if r.returncode == 0:
+            break
+        last = r
+        log(f"cmake retry {attempt + 1}/3 rc={r.returncode}")
+        time.sleep(3)
+    else:
+        r = last
+        assert r is not None
         (OUT / f"cmake_{ap}_{phase}.err").write_text(
             (r.stdout or "") + "\n" + (r.stderr or ""), encoding="utf-8"
         )
@@ -233,8 +257,20 @@ def cmake_configure(ap: str, phase: str, defs: dict[str, str]) -> None:
 
 def ninja_build() -> None:
     log("ninja build")
+    e = env()
+    e["Path"] = str(NINJA.parent) + ";" + e["Path"]
+    for name in (".ninja_log.restat", ".ninja_log"):
+        p = BUILD / name
+        if p.exists():
+            try:
+                p.unlink()
+            except OSError:
+                pass
     r = subprocess.run(
-        [str(NINJA), "-C", str(BUILD)], env=env(), capture_output=True, text=True
+        [str(NINJA), "-C", str(BUILD), "-j", "8"],
+        env=e,
+        capture_output=True,
+        text=True,
     )
     if r.returncode != 0:
         (OUT / "ninja.err").write_text(
