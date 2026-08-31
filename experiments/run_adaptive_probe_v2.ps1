@@ -5,6 +5,7 @@ $py = "C:\Espressif\python_env\idf6.0_py3.11_env\Scripts\python.exe"
 $env:IDF_PATH = "C:\Espressif\frameworks\esp-idf-v6.0.2"
 $env:IDF_TOOLS_PATH = "C:\Espressif"
 $env:ESP_ROM_ELF_DIR = "C:\Espressif\tools\esp-rom-elfs\20241011"
+$env:Path = "C:\msys64\ucrt64\bin;" + $env:Path
 Set-Location $Root
 . "$env:IDF_PATH\export.ps1"
 $log = Join-Path $Root "experiments\adaptive_probe_v2_campaign.log"

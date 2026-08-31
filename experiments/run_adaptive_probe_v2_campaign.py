@@ -173,16 +173,14 @@ def verify_receiver_tcp() -> None:
     tcp_ok = False
     uid = None
     while time.time() - t0 < 180:
-        if proc.poll() is not None and proc.returncode not in (None, 0):
-            err_text = err.read_text(encoding="utf-8", errors="replace") if err.exists() else ""
-            camp.kill_receiver()
-            raise RuntimeError(
-                f"receiver exited code={proc.returncode} err={(err_text or 'none')[-500:]}"
-            )
+        if proc.poll() is not None and (time.time() - t0) > 5:
+            if proc.returncode not in (None, 0):
+                err_text = err.read_text(encoding="utf-8", errors="replace") if err.exists() else ""
+                camp.kill_receiver()
+                raise RuntimeError(
+                    f"receiver exited code={proc.returncode} err={(err_text or 'none')[-500:]}"
+                )
         text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.exists() else ""
-        if "RX_TRANSPORT=UDP" in text:
-            camp.kill_receiver()
-            raise RuntimeError("receiver active channel is UDP — hardware blocked")
         if "RX_TRANSPORT=TCP" in text or "RX_TCP_LINK_UP" in text:
             tcp_ok = True
         uid = camp.parse_receiver_uid(rx_log)
@@ -191,6 +189,9 @@ def verify_receiver_tcp() -> None:
         time.sleep(2)
     if not tcp_ok:
         camp.kill_receiver()
+        text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.exists() else ""
+        if "RX_TRANSPORT=UDP" in text and "RX_TRANSPORT=TCP" not in text:
+            raise RuntimeError("receiver stuck on UDP — hardware blocked")
         raise RuntimeError("receiver not on TCP — hardware blocked")
     if uid != camp.SERVICE_UID.lower():
         camp.kill_receiver()
@@ -214,8 +215,6 @@ def start_v2_receiver(tag: str, tsv: Path, rx_log: Path) -> None:
     t0 = time.time()
     while time.time() - t0 < 180:
         text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.exists() else ""
-        if "RX_TRANSPORT=UDP" in text:
-            raise RuntimeError("receiver active channel is UDP")
         uid = camp.parse_receiver_uid(rx_log)
         if uid and ("RX_TRANSPORT=TCP" in text or "RX_TCP_LINK_UP" in text):
             if uid != camp.SERVICE_UID.lower():
