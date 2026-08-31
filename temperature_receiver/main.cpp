@@ -120,8 +120,8 @@ void LogTcpTransport(ae::Client& client) {
     if (auto ep = ch->endpoint()) {
       if (ep->protocol == ae::Protocol::kTcp) {
         any_tcp = true;
-        std::cout << "RX_TCP_LINK_UP server=" << ae::Format("{}", *csc)
-                  << " endpoint=" << ae::Format("{}", *ep) << "\n";
+        std::cout << "RX_TCP_LINK_UP endpoint=" << ae::Format("{}", *ep)
+                  << "\n";
       } else {
         std::cout << "RX_TRANSPORT_NOT_TCP protocol="
                   << static_cast<int>(ep->protocol) << " endpoint="

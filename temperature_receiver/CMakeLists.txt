@@ -22,7 +22,7 @@ add_executable(temperature_receiver main.cpp)
 target_include_directories(temperature_receiver PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/../main")
 target_compile_definitions(temperature_receiver PRIVATE
-  "USER_CONFIG=\"${CMAKE_CURRENT_LIST_DIR}/user_config.h\"")
+  "USER_CONFIG=\"${USER_CONFIG}\"")
 target_link_libraries(temperature_receiver PRIVATE aether)
 
 # Keep aether state under ./state next to the binary cwd.

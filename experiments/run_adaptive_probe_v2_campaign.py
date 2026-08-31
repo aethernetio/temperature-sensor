@@ -20,9 +20,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CHECKPOINT = ROOT / "experiments" / "adaptive_probe_checkpoint.json"
 V2_OUT = ROOT / "experiments" / "adaptive_probe_v2_results"
-RX_BUILD = ROOT / "temperature_receiver" / "build-tcp-v2"
+RX_BUILD = ROOT / "temperature_receiver" / "build-bisect-tcp"
 RX_EXE = RX_BUILD / "temperature_receiver.exe"
 RX_CONFIG = ROOT / "temperature_receiver" / "user_config_tcp.h"
+MINGW_CXX = Path(r"C:/msys64/ucrt64/bin/c++.exe")
 
 spec = importlib.util.spec_from_file_location(
     "camp", ROOT / "experiments" / "run_adaptive_wifi_probe_campaign.py"
@@ -91,6 +92,23 @@ def flash_erase_always() -> str:
     return camp.flash(erase=True)
 
 
+def receiver_env() -> dict:
+    e = os.environ.copy()
+    if camp.CPM_SOURCE_CACHE.is_dir():
+        e["CPM_SOURCE_CACHE"] = str(camp.CPM_SOURCE_CACHE)
+    extra = [
+        str(camp.CMAKE.parent),
+        str(camp.NINJA.parent),
+        r"C:\Program Files\Git\cmd",
+        r"C:\Program Files\Git\usr\bin",
+    ]
+    tail = [p for p in e.get("Path", "").split(";") if p and "riscv32-esp-elf" not in p.lower()]
+    e["Path"] = ";".join(dict.fromkeys(extra + tail))
+    e.pop("CC", None)
+    e.pop("CXX", None)
+    return e
+
+
 def build_receiver_tcp() -> None:
     log("build TCP receiver")
     RX_BUILD.mkdir(parents=True, exist_ok=True)
@@ -102,17 +120,22 @@ def build_receiver_tcp() -> None:
         str(RX_BUILD),
         "-G",
         "Ninja",
+        f"-DCPM_SOURCE_CACHE={camp.CPM_SOURCE_CACHE.as_posix()}",
         f"-DCPM_aether-client-cpp_SOURCE={camp.AETHER}",
         f"-DUSER_CONFIG={RX_CONFIG.as_posix()}",
+        f"-DCMAKE_MAKE_PROGRAM={camp.NINJA.as_posix()}",
         "-DCMAKE_BUILD_TYPE=Release",
     ]
-    r = subprocess.run(cfg, env=camp.env(), capture_output=True, text=True)
+    if MINGW_CXX.exists():
+        cfg.append(f"-DCMAKE_CXX_COMPILER={MINGW_CXX.as_posix()}")
+        cfg.append(f"-DCMAKE_C_COMPILER={MINGW_CXX.with_name('gcc.exe').as_posix()}")
+    r = subprocess.run(cfg, env=receiver_env(), capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError(f"receiver cmake failed: {(r.stderr or r.stdout)[-2000:]}")
     camp.kill_build_procs()
     r = subprocess.run(
         [str(camp.NINJA), "-C", str(RX_BUILD), "-j", "1"],
-        env=camp.env(),
+        env=receiver_env(),
         capture_output=True,
         text=True,
     )
