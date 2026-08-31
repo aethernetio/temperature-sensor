@@ -190,8 +190,13 @@ else()
       file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"\")\n")
     endif()
 
-    # We call the project addition as usual
-    ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
+    # Only the Nano ESP32-C6 profile uses the LP core. The default Aether C6
+    # board and the other profiles declare BOARD_HAS_ULP=0, so configuring an
+    # unused ULP ExternalProject only introduces an unnecessary toolchain
+    # dependency (and fails on newer ESP-IDF versions).
+    if("${BOARD}" STREQUAL "2")
+      ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../lp_core")
+    endif()
 
   else()
     #Other platforms

@@ -1,0 +1,26 @@
+{
+  "idf.cmakeCompilerArgs": [
+    "-G",
+    "Ninja",
+    "-DCMAKE_BUILD_TYPE=Debug",
+    "-DIDF_TARGET=esp32c6",
+    "-DWIFI_SSID=Test",
+    "-DWIFI_PASSWORD=Test",
+    "-DUSER_CONFIG=../main/user_config.h"
+  ],
+  "idf.currentSetup": "G:\\dev\\esp32\\v6.1\\esp-idf",
+  "idf.openOcdConfigs": [
+    "board/esp32c6-lpcore-builtin.cfg"
+  ],
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32c6"
+  },
+  "clangd.path": "G:\\dev\\esp32\\.espressif\\v6.0.2\\tools\\esp-clang\\esp-20.1.1_20250829\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=g:\\projects\\prj_aether\\GitHub\\temperature-sensor\\build"
+  ],
+  "idf.flashType": "UART",
+  "idf.portWin": "COM9"
+}

@@ -68,6 +68,10 @@ CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED=y
 # 1. Compiler optimization (Critical for execution speed)
 CONFIG_COMPILER_OPTIMIZATION_SIZE=y
 CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE=y
+# PlatformIO 7 currently mixes language-specific flags when using ESP-IDF 6
+# with preserved source extensions. Do not promote those GCC diagnostics to
+# hard errors; project-owned targets still keep their explicit warning policy.
+CONFIG_COMPILER_DISABLE_DEFAULT_ERRORS=y
 
 # 2. Bootloader acceleration
 # Skip image validation when exiting Deep Sleep (saves ~100-150ms)
@@ -112,8 +116,8 @@ CONFIG_RTC_CLK_CAL_THRESHOLD=0
 
 # Redirect console to UART0 or disable entirely (None)
 # This frees built-in USB-JTAG resources
-CONFIG_ESP_CONSOLE_UART_DEFAULT=y
-CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+#CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+#CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
 
 # Disable USB-Serial-JTAG clocking in sleep mode
 CONFIG_ESP_PHY_ENABLE_USB_CONTROLLER=n

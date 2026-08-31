@@ -16,6 +16,17 @@ cmake_minimum_required(VERSION 3.16)
 
 set(ULP_APP_NAME ulp_main)
 
+# ESP-IDF 6.x no longer makes all of its CMake helpers available to custom
+# ULP projects implicitly. This defines check_expected_tool_version() and the
+# other helpers used by IDFULPProject.cmake. IDF_PATH is explicitly passed to
+# this ExternalProject, so do not let a stale host environment select another
+# ESP-IDF installation while configuring it.
+set(_ulp_idf_path "${IDF_PATH}")
+list(GET _ulp_idf_path 0 _ulp_idf_path)
+set(IDF_PATH "${_ulp_idf_path}")
+set(ENV{IDF_PATH} "${_ulp_idf_path}")
+include(${_ulp_idf_path}/tools/cmake/idf.cmake)
+
 project(${ULP_APP_NAME})
 
 list(APPEND main_src
