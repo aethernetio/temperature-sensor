@@ -29,6 +29,9 @@ TOOLCHAIN = Path(IDF_PATH) / "tools" / "cmake" / "toolchain-esp32c6.cmake"
 CCACHE = r"C:\Espressif\tools\ccache\4.12.1\ccache-4.12.1-windows-x86_64"
 USER_CONFIG = "main/user_config_full_quiet.h"
 FS_INIT = ROOT / "experiments" / "preprovision" / "sender_fs_157aadbe.h"
+PREPARED_RX_SESSION = ROOT / "experiments" / "prepared_wifi_cache_rx_session"
+# Must match persisted desktop receiver session (see prepared_* rx logs).
+SERVICE_UID = "5aade50f-00d9-4624-b097-e203cdcf1e38"
 OUT = ROOT / "experiments" / "adaptive_probe_results"
 PROGRESS = ROOT / "experiments" / "adaptive_probe_progress.log"
 PORT = "COM7"
@@ -207,7 +210,7 @@ def cmake_configure(ap: str, phase: str, defs: dict[str, str]) -> None:
         "-DCMAKE_BUILD_TYPE=Release",
         f"-DWIFI_SSID={wifi['ssid']}",
         f"-DWIFI_PASSWORD={wifi['password']}",
-        "-DSERVICE_UID=c9c4cea4-caa9-4ff5-be0a-b4e880821c8b",
+        f"-DSERVICE_UID={SERVICE_UID}",
     ]
     phase_key = {
         "A": "AE_EXP_ADAPTIVE_WIFI_PROBE_A",
@@ -436,10 +439,30 @@ def kill_receiver() -> None:
     time.sleep(1)
 
 
+def receiver_alive() -> bool:
+    r = subprocess.run(
+        ["tasklist", "/FI", "IMAGENAME eq temperature_receiver.exe"],
+        capture_output=True,
+        text=True,
+    )
+    return "temperature_receiver.exe" in (r.stdout or "")
+
+
+def parse_receiver_uid(rx_log: Path) -> str | None:
+    if not rx_log.exists():
+        return None
+    m = re.search(
+        r"RECEIVER_UID=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+        r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+        rx_log.read_text(encoding="utf-8", errors="replace"),
+    )
+    return m.group(1).lower() if m else None
+
+
 def start_receiver(tag: str, session: Path, tsv: Path, rx_log: Path) -> None:
     kill_receiver()
-    if session.exists():
-        shutil.rmtree(session, ignore_errors=True)
+    # Keep preprovisioned receiver identity; wiping session breaks P2P UID match.
+    session = PREPARED_RX_SESSION
     session.mkdir(parents=True, exist_ok=True)
     if tsv.exists():
         tsv.unlink()
@@ -457,39 +480,44 @@ def start_receiver(tag: str, session: Path, tsv: Path, rx_log: Path) -> None:
             stderr=errf,
         )
     t0 = time.time()
+    uid = None
     while time.time() - t0 < 90:
-        text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.exists() else ""
-        if "RECEIVER_UID=" in text:
-            log("receiver ready")
-            return
+        uid = parse_receiver_uid(rx_log)
+        if uid:
+            break
         time.sleep(1)
-    raise RuntimeError("receiver not ready")
+    if not uid:
+        raise RuntimeError("receiver not ready")
+    if uid != SERVICE_UID.lower():
+        raise RuntimeError(
+            f"receiver UID mismatch: got {uid} expected {SERVICE_UID.lower()}"
+        )
+    log(f"receiver ready uid={uid}")
 
 
 def analyze_tsv(tsv: Path) -> dict:
     if not tsv.exists():
         return {"received": 0, "hot": 0, "full": 0}
     lines = [ln for ln in tsv.read_text(encoding="utf-8", errors="replace").splitlines() if ln.strip()]
-    # skip header if present
-    rows = lines[1:] if lines and "sequence" in lines[0].lower() or "outer" in lines[0].lower() else lines
+    if not lines:
+        return {"received": 0, "hot": 0, "full": 0}
+    start = 1 if lines[0].startswith("record_id") or "\tkind\t" in lines[0] else 0
     hot = 0
     full = 0
     seqs = []
-    for ln in rows:
+    for ln in lines[start:]:
         parts = ln.split("\t") if "\t" in ln else ln.split(",")
-        if len(parts) < 3:
+        if len(parts) < 4:
             continue
         try:
-            kind = parts[0]
-            outer = int(float(parts[1]))
-            hot_i = int(float(parts[2]))
-            seq = int(float(parts[3])) if len(parts) > 3 else 0
+            kind = parts[1].strip()
+            seq = int(float(parts[15])) if len(parts) > 15 else int(float(parts[3]))
         except Exception:
             continue
-        if "hot" in kind.lower() or kind in ("2", "HOT"):
+        if kind == "2" or "hot" in kind.lower():
             hot += 1
             seqs.append(seq)
-        else:
+        elif kind == "1" or "full" in kind.lower():
             full += 1
     missing = 0
     if seqs:
@@ -497,7 +525,7 @@ def analyze_tsv(tsv: Path) -> dict:
         have = set(seqs)
         missing = sum(1 for s in range(smin, smax + 1) if s not in have)
     return {
-        "received": len(rows),
+        "received": len(lines) - start,
         "hot": hot,
         "full": full,
         "missing_in_span": missing,
@@ -575,12 +603,15 @@ def run_phase_c(ap: str, results: dict) -> None:
     )
     ninja_build()
     start_receiver(f"adaptive_c_{ap}", session, tsv, rx_log)
-    flash(erase=False)
+    flash(erase=True)
     # 5 FULL + 150 HOT * ~1s sleep ≈ 200s+; allow 45 min
     log("phase C baseline wait for HOT delivery")
     t0 = time.time()
     target_hot = 150
     while time.time() - t0 < 45 * 60:
+        if not receiver_alive():
+            log("receiver died — restarting")
+            start_receiver(f"adaptive_c_{ap}", session, tsv, rx_log)
         stats = analyze_tsv(tsv)
         log(f"C progress hot={stats.get('hot', 0)}/{target_hot} full={stats.get('full', 0)}")
         if stats.get("hot", 0) >= target_hot:
@@ -627,8 +658,8 @@ def run_phase_c(ap: str, results: dict) -> None:
             time.sleep(5)
         st = analyze_tsv(tsv_p)
         results[ap].setdefault("phase_c_post", []).append({"post_ms": post, "delivery": st})
-        # keep if delivery not worse than baseline (allow 1 loss)
-        if st.get("hot", 0) >= max(28, base.get("hot", 0) - 5):
+        # Per-run target is 30 HOT; allow 2 losses vs baseline total (150).
+        if st.get("hot", 0) >= 28:
             post_winner = post
         else:
             log(f"POST {post} FAIL hot={st.get('hot')}; stop search")

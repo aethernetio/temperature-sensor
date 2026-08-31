@@ -863,12 +863,8 @@ static void PrepareRtcOnBoot() {
     }
     if (first_poweron && (!valid || !g_rtc.registered)) {
       InitRtcFresh(Phase::kRegister);
-    } else if (!valid) {
-      InitRtcFresh(Phase::kFull);
-      g_rtc.unexpected_reset_count = 1;
-      g_rtc.outer_cycle = 1;
-      g_rtc.registered = 1;  // SPIFFS client may already exist
-      SetCrc(g_rtc);
+    } else if (!valid || !g_rtc.registered) {
+      InitRtcFresh(Phase::kRegister);
     } else {
       if (g_rtc.unexpected_reset_count < 255) {
         ++g_rtc.unexpected_reset_count;

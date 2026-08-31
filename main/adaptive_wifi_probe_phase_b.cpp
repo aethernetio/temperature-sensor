@@ -10,13 +10,13 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
-#include <optional>
 #include <variant>
 
+#include <esp_system.h>
 #include <esp_timer.h>
-#include <esp_wifi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <nvs.h>
 #include <nvs_flash.h>
 
 #include "aether/ae_actions/ping.h"
@@ -24,7 +24,6 @@
 #include "aether/ae_exp_wifi.h"
 #include "aether/config.h"
 #include "aether/env.h"
-#include "aether/wifi/wifi_probe_state.h"
 
 using namespace std::chrono_literals;
 
@@ -50,6 +49,9 @@ using namespace std::chrono_literals;
 
 namespace {
 
+constexpr int kMaxSamples = 64;
+constexpr char kNvsNs[] = "ae_probe_b";
+
 template <typename Pred>
 void PumpUntil(ae::AetherApp& app, Pred&& done,
                ae::TimePoint deadline = ae::TimePoint::max()) {
@@ -70,11 +72,14 @@ void PumpUntil(ae::AetherApp& app, Pred&& done,
   }
 }
 
-std::uint32_t MedianU32(std::array<std::uint32_t, 64> const& s, int n) {
+std::uint32_t MedianU32(std::uint32_t const* s, int n) {
   if (n <= 0) {
     return 0;
   }
-  auto tmp = s;
+  std::array<std::uint32_t, kMaxSamples> tmp{};
+  for (int i = 0; i < n; ++i) {
+    tmp[static_cast<std::size_t>(i)] = s[static_cast<std::size_t>(i)];
+  }
   for (int a = 1; a < n; ++a) {
     auto v = tmp[static_cast<std::size_t>(a)];
     int b = a;
@@ -87,11 +92,14 @@ std::uint32_t MedianU32(std::array<std::uint32_t, 64> const& s, int n) {
   return tmp[static_cast<std::size_t>(n / 2)];
 }
 
-std::uint32_t P90U32(std::array<std::uint32_t, 64> const& s, int n) {
+std::uint32_t P90U32(std::uint32_t const* s, int n) {
   if (n <= 0) {
     return 0;
   }
-  auto tmp = s;
+  std::array<std::uint32_t, kMaxSamples> tmp{};
+  for (int i = 0; i < n; ++i) {
+    tmp[static_cast<std::size_t>(i)] = s[static_cast<std::size_t>(i)];
+  }
   for (int a = 1; a < n; ++a) {
     auto v = tmp[static_cast<std::size_t>(a)];
     int b = a;
@@ -109,7 +117,6 @@ std::uint32_t P90U32(std::array<std::uint32_t, 64> const& s, int n) {
 }
 
 struct CycleResult {
-  bool ok{false};
   int ping_kind{-1};  // 0=ok 1=late 2=err 3=timeout/none
   std::uint32_t cold_full_ms{0};
   std::uint32_t wifi_ms{0};
@@ -119,11 +126,161 @@ struct CycleResult {
   std::uint32_t release_ms{0};
 };
 
+struct CampaignState {
+  int next_cycle{1};
+  int sent{0};
+  int ok{0};
+  int late{0};
+  int err{0};
+  int to{0};
+  int nc{0};
+  int nr{0};
+  std::uint32_t cold[kMaxSamples]{};
+  std::uint32_t rtt[kMaxSamples]{};
+  bool finished{false};
+};
+
+CampaignState g_campaign{};
+
+bool LoadCampaign() {
+  nvs_handle_t handle{};
+  esp_err_t err = nvs_open(kNvsNs, NVS_READONLY, &handle);
+  if (err != ESP_OK) {
+    std::printf("B_NVS open_ro err=%d\n", static_cast<int>(err));
+    std::fflush(stdout);
+    return false;
+  }
+  std::int32_t next = 0;
+  std::int32_t sent = 0;
+  std::int32_t done = 0;
+  std::int32_t ok = 0;
+  std::int32_t late = 0;
+  std::int32_t err_count = 0;
+  std::int32_t to = 0;
+  err = nvs_get_i32(handle, "next", &next);
+  if (err != ESP_OK) {
+    nvs_close(handle);
+    std::printf("B_NVS get_next err=%d\n", static_cast<int>(err));
+    std::fflush(stdout);
+    return false;
+  }
+  nvs_get_i32(handle, "sent", &sent);
+  nvs_get_i32(handle, "done", &done);
+  nvs_get_i32(handle, "ok", &ok);
+  nvs_get_i32(handle, "late", &late);
+  nvs_get_i32(handle, "err", &err_count);
+  nvs_get_i32(handle, "to", &to);
+  nvs_close(handle);
+  if (next < 1 || next > AE_PING_CYCLES + 1) {
+    return false;
+  }
+  g_campaign.next_cycle = static_cast<int>(next);
+  g_campaign.sent = static_cast<int>(sent);
+  g_campaign.ok = static_cast<int>(ok);
+  g_campaign.late = static_cast<int>(late);
+  g_campaign.err = static_cast<int>(err_count);
+  g_campaign.to = static_cast<int>(to);
+  g_campaign.finished = done != 0;
+  return true;
+}
+
+void SaveCampaign() {
+  nvs_handle_t handle{};
+  esp_err_t err = nvs_open(kNvsNs, NVS_READWRITE, &handle);
+  if (err != ESP_OK) {
+    std::printf("B_NVS open_rw err=%d\n", static_cast<int>(err));
+    std::fflush(stdout);
+    return;
+  }
+  err = nvs_set_i32(handle, "next", g_campaign.next_cycle);
+  if (err != ESP_OK) {
+    std::printf("B_NVS set_next err=%d\n", static_cast<int>(err));
+  }
+  nvs_set_i32(handle, "sent", g_campaign.sent);
+  nvs_set_i32(handle, "done", g_campaign.finished ? 1 : 0);
+  nvs_set_i32(handle, "ok", g_campaign.ok);
+  nvs_set_i32(handle, "late", g_campaign.late);
+  nvs_set_i32(handle, "err", g_campaign.err);
+  nvs_set_i32(handle, "to", g_campaign.to);
+  err = nvs_commit(handle);
+  if (err != ESP_OK) {
+    std::printf("B_NVS commit err=%d\n", static_cast<int>(err));
+  }
+  nvs_close(handle);
+  std::printf("B_NVS saved next=%d sent=%d\n", g_campaign.next_cycle,
+              g_campaign.sent);
+  std::fflush(stdout);
+}
+
+void ResetCampaign() {
+  g_campaign = {};
+  g_campaign.next_cycle = 1;
+  SaveCampaign();
+}
+
+void ReleaseApp(ae::Subscription* select_sub, ae::Subscription* ping_sub,
+                std::unique_ptr<ae::P2pStream>* stream,
+                ae::Client::ptr* client,
+                std::unique_ptr<ae::AetherApp>* app) {
+  if (ping_sub) {
+    ping_sub->Reset();
+  }
+  if (select_sub) {
+    select_sub->Reset();
+  }
+  if (stream) {
+    stream->reset();
+  }
+  if (client) {
+    *client = {};
+  }
+  if (app) {
+    app->reset();
+  }
+}
+
+void RecordCycle(CycleResult const& r) {
+  ++g_campaign.sent;
+  if (r.ping_kind == 0) {
+    ++g_campaign.ok;
+  } else if (r.ping_kind == 1) {
+    ++g_campaign.late;
+  } else if (r.ping_kind == 2) {
+    ++g_campaign.err;
+  } else {
+    ++g_campaign.to;
+  }
+  if (g_campaign.nc < kMaxSamples) {
+    g_campaign.cold[static_cast<std::size_t>(g_campaign.nc++)] = r.cold_full_ms;
+  }
+  if ((r.ping_kind == 0 || r.ping_kind == 1) && g_campaign.nr < kMaxSamples) {
+    g_campaign.rtt[static_cast<std::size_t>(g_campaign.nr++)] = r.ping_rtt_ms;
+  }
+}
+
+void PrintSummary() {
+  std::printf(
+      "B_SUM ping_sent=%d ping_ok=%d ping_late=%d ping_error=%d "
+      "ping_timeout=%d cold_median_ms=%u cold_p90_ms=%u rtt_median_ms=%u "
+      "rtt_p90_ms=%u\n",
+      g_campaign.sent, g_campaign.ok, g_campaign.late, g_campaign.err,
+      g_campaign.to, static_cast<unsigned>(MedianU32(g_campaign.cold, g_campaign.nc)),
+      static_cast<unsigned>(P90U32(g_campaign.cold, g_campaign.nc)),
+      static_cast<unsigned>(MedianU32(g_campaign.rtt, g_campaign.nr)),
+      static_cast<unsigned>(P90U32(g_campaign.rtt, g_campaign.nr)));
+#if AE_PROBE_PROFILE >= 0
+  std::printf(
+      "B_PROFILE_NOTE preferred_channel_only=1 cached_ip_arp=NOT_TESTED\n");
+#else
+  std::printf("B_PROFILE_NOTE canonical=1\n");
+#endif
+  std::printf("B_DONE\n");
+  std::fflush(stdout);
+}
+
 CycleResult RunOneColdPing(int cycle_index) {
   CycleResult out{};
   auto const t_begin = esp_timer_get_time();
-
-  nvs_flash_init();
 
   auto const parent_uid =
       ae::Uid::FromString("b1ac52c8-8d94-bd39-4c01-a631ac594165");
@@ -181,6 +338,7 @@ CycleResult RunOneColdPing(int cycle_index) {
         static_cast<std::uint32_t>((esp_timer_get_time() - t_begin) / 1000);
     std::printf("B_RES cycle=%d select=0\n", cycle_index);
     std::fflush(stdout);
+    ReleaseApp(&select_sub, nullptr, nullptr, &client, &app);
     return out;
   }
 
@@ -189,6 +347,7 @@ CycleResult RunOneColdPing(int cycle_index) {
   if (!policy) {
     std::printf("B_RES cycle=%d policy=0\n", cycle_index);
     std::fflush(stdout);
+    ReleaseApp(&select_sub, nullptr, nullptr, &client, &app);
     return out;
   }
   policy->ResetRxTimings();
@@ -200,6 +359,7 @@ CycleResult RunOneColdPing(int cycle_index) {
   if (!ccm || !cloud) {
     std::printf("B_RES cycle=%d cloud=0\n", cycle_index);
     std::fflush(stdout);
+    ReleaseApp(&select_sub, nullptr, nullptr, &client, &app);
     return out;
   }
 
@@ -225,6 +385,7 @@ CycleResult RunOneColdPing(int cycle_index) {
         static_cast<std::uint32_t>((esp_timer_get_time() - t_begin) / 1000);
     std::printf("B_RES cycle=%d linked=0\n", cycle_index);
     std::fflush(stdout);
+    ReleaseApp(&select_sub, nullptr, &stream, &client, &app);
     return out;
   }
 
@@ -252,6 +413,7 @@ CycleResult RunOneColdPing(int cycle_index) {
   if (target == nullptr || channel == nullptr) {
     std::printf("B_RES cycle=%d channel=0\n", cycle_index);
     std::fflush(stdout);
+    ReleaseApp(&select_sub, nullptr, &stream, &client, &app);
     return out;
   }
 
@@ -263,7 +425,6 @@ CycleResult RunOneColdPing(int cycle_index) {
       ping.result_event().Subscribe([&](ae::Ping::PingResult const& res) {
         ping_res = res;
         ping_done = true;
-        // Record RTT into ChannelStatistics like PingCloudServers.
         std::visit(
             [channel](auto const& value) {
               using T = std::decay_t<decltype(value)>;
@@ -307,14 +468,9 @@ CycleResult RunOneColdPing(int cycle_index) {
   }
 
   auto const t_rel0 = esp_timer_get_time();
-  ping_sub.Reset();
-  select_sub.Reset();
-  stream.reset();
-  client = {};
-  app.reset();
+  ReleaseApp(&select_sub, &ping_sub, &stream, &client, &app);
   auto const t_end = esp_timer_get_time();
 
-  out.ok = (kind == 0 || kind == 1);
   out.ping_kind = kind;
   out.cold_full_ms = static_cast<std::uint32_t>((t_end - t_begin) / 1000);
   out.wifi_ms = static_cast<std::uint32_t>((t_construct - t_wifi0) / 1000);
@@ -347,55 +503,53 @@ CycleResult RunOneColdPing(int cycle_index) {
   return out;
 }
 
+void RunNextCycle() {
+  if (g_campaign.finished) {
+    return;
+  }
+  auto const result = RunOneColdPing(g_campaign.next_cycle);
+  RecordCycle(result);
+  ++g_campaign.next_cycle;
+  if (g_campaign.next_cycle > AE_PING_CYCLES) {
+    g_campaign.finished = true;
+    SaveCampaign();
+    PrintSummary();
+    return;
+  }
+  SaveCampaign();
+  vTaskDelay(pdMS_TO_TICKS(200));
+  esp_restart();
+}
+
 }  // namespace
 
 void setup() {
-  std::printf("B_BEGIN ssid=%s cycles=%d profile_hint=%d channel=%d\n",
-              WIFI_SSID, AE_PING_CYCLES, AE_PROBE_PROFILE, AE_PROBE_CHANNEL);
-  std::fflush(stdout);
-
-  int sent = 0, ok = 0, late = 0, err = 0, to = 0;
-  std::array<std::uint32_t, 64> cold{};
-  std::array<std::uint32_t, 64> rtt{};
-  int nc = 0, nr = 0;
-
-  for (int i = 0; i < AE_PING_CYCLES; ++i) {
-    auto r = RunOneColdPing(i + 1);
-    ++sent;
-    if (r.ping_kind == 0) {
-      ++ok;
-    } else if (r.ping_kind == 1) {
-      ++late;
-    } else if (r.ping_kind == 2) {
-      ++err;
-    } else {
-      ++to;
-    }
-    if (nc < static_cast<int>(cold.size())) {
-      cold[static_cast<std::size_t>(nc++)] = r.cold_full_ms;
-    }
-    if ((r.ping_kind == 0 || r.ping_kind == 1) &&
-        nr < static_cast<int>(rtt.size())) {
-      rtt[static_cast<std::size_t>(nr++)] = r.ping_rtt_ms;
-    }
-    vTaskDelay(pdMS_TO_TICKS(1000));
+  esp_err_t ret = nvs_flash_init();
+  if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
+      ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    nvs_flash_erase();
+    ret = nvs_flash_init();
   }
 
-  std::printf(
-      "B_SUM ping_sent=%d ping_ok=%d ping_late=%d ping_error=%d "
-      "ping_timeout=%d cold_median_ms=%u cold_p90_ms=%u rtt_median_ms=%u "
-      "rtt_p90_ms=%u\n",
-      sent, ok, late, err, to, static_cast<unsigned>(MedianU32(cold, nc)),
-      static_cast<unsigned>(P90U32(cold, nc)),
-      static_cast<unsigned>(MedianU32(rtt, nr)),
-      static_cast<unsigned>(P90U32(rtt, nr)));
-#if AE_PROBE_PROFILE >= 0
-  std::printf("B_PROFILE_NOTE preferred_channel_only=1 cached_ip_arp=NOT_TESTED\n");
-#else
-  std::printf("B_PROFILE_NOTE canonical=1\n");
-#endif
-  std::printf("B_DONE\n");
-  std::fflush(stdout);
+  if (!LoadCampaign()) {
+    ResetCampaign();
+    std::printf("B_BEGIN ssid=%s cycles=%d profile_hint=%d channel=%d\n",
+                WIFI_SSID, AE_PING_CYCLES, AE_PROBE_PROFILE, AE_PROBE_CHANNEL);
+    std::fflush(stdout);
+  } else {
+    std::printf("B_RESUME next=%d sent=%d reason=%d\n", g_campaign.next_cycle,
+                g_campaign.sent, static_cast<int>(esp_reset_reason()));
+    std::fflush(stdout);
+  }
+
+  if (g_campaign.finished) {
+    PrintSummary();
+    return;
+  }
+
+  RunNextCycle();
 }
 
-void loop() { vTaskDelay(pdMS_TO_TICKS(60000)); }
+void loop() {
+  vTaskDelay(pdMS_TO_TICKS(60000));
+}

@@ -844,43 +844,58 @@ inline bool DecodeNosleep(Buffer const& data, NosleepPayload& out) {
   return out.magic == kNosleepMagic;
 }
 
-// Canonical FULL Aether path baseline (no prepared / no sleep).
+// Reliability campaign binary payload (no strings).
+static constexpr std::uint8_t kReliabilityMagic = 0xDB;
+
+enum class ReliabilityMsgType : std::uint8_t {
+  kFull = 1,
+  kHot = 2,
+};
+
+#pragma pack(push, 1)
+struct ReliabilityPayload {
+  std::uint8_t magic{kReliabilityMagic};
+  std::uint8_t type{0};
+  std::uint32_t run_id{0};
+  std::uint32_t seq{0};
+};
+#pragma pack(pop)
+
+static_assert(sizeof(ReliabilityPayload) == 10, "reliability payload size");
+
+template <typename Buffer>
+inline Buffer EncodeReliability(ReliabilityPayload const& p) {
+  Buffer out(sizeof(ReliabilityPayload));
+  std::memcpy(out.data(), &p, sizeof(ReliabilityPayload));
+  return out;
+}
+
+template <typename Buffer>
+inline bool DecodeReliability(Buffer const& data, ReliabilityPayload& out) {
+  if (data.size() < sizeof(ReliabilityPayload)) {
+    return false;
+  }
+  std::memcpy(&out, data.data(), sizeof(ReliabilityPayload));
+  return out.magic == kReliabilityMagic;
+}
+
+// Canonical FULL Aether path baseline (legacy 0xDA).
 static constexpr std::uint8_t kFullBaselineMagic = 0xDA;
 
 enum class FullBaselineMsgType : std::uint8_t {
   kFull = 1,
+  kHot = 2,
 };
 
 #pragma pack(push, 1)
 struct FullBaselinePayload {
   std::uint8_t magic{kFullBaselineMagic};
   std::uint8_t type{0};
-  std::uint32_t sequence{0};  // monotonic per-boot; restarts at 1 after reset
-  std::uint32_t cycle{0};
-  std::uint32_t uptime_ms{0};
-  char ssid[33]{};
-  std::uint8_t bssid[6]{};
-  std::uint8_t sta_mac[6]{};
-  std::uint8_t channel{0};
-  std::int8_t rssi{0};
-  std::uint8_t authmode{0};
-  std::uint32_t ip{0};
-  std::uint32_t netmask{0};
-  std::uint32_t gateway{0};
-  std::uint32_t construct_us{0};
-  std::uint32_t select_us{0};
-  std::uint32_t stream_us{0};
-  std::uint32_t writable_us{0};
-  std::uint32_t write_us{0};
-  std::uint32_t save_us{0};
-  std::uint32_t release_us{0};
-  std::uint32_t total_us{0};
-  std::uint8_t write_ok{0};
-  std::uint8_t pad0{0};
+  std::uint32_t sequence{0};
 };
 #pragma pack(pop)
 
-static_assert(sizeof(FullBaselinePayload) == 108, "full baseline payload size");
+static_assert(sizeof(FullBaselinePayload) == 6, "full baseline payload size");
 
 template <typename Buffer>
 inline Buffer EncodeFullBaseline(FullBaselinePayload const& p) {

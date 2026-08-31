@@ -35,6 +35,8 @@ static constexpr auto kParentUid =
     ae::Uid::FromString("b1ac52c8-8d94-bd39-4c01-a631ac594165");
 static constexpr char const* kClientName = "prepared_wifi_cache_rx_v1";
 
+std::filesystem::path ResolveSessionRoot();
+
 struct Meas {
   std::uint16_t record_id{0};
   std::uint8_t kind{0};
@@ -840,14 +842,27 @@ void OnNosleep(temp_sensor::bench::NosleepPayload const& p) {
 
 void OnMessage(ae::Uid, ae::DataBuffer const& data) {
   std::lock_guard lock{g_mu};
-  temp_sensor::bench::FullBaselinePayload fb{};
-  if (temp_sensor::bench::DecodeFullBaseline(data, fb)) {
+
+  temp_sensor::bench::ReliabilityPayload rp{};
+  if (temp_sensor::bench::DecodeReliability(data, rp)) {
     static std::uint32_t run_id = 1;
     static std::uint32_t current_seq = 0;
     static std::uint64_t received = 0;
     static std::uint64_t lost = 0;
     static std::uint64_t duplicates = 0;
     static bool have_seq = false;
+    static std::ofstream tsv;
+    static bool tsv_ok = false;
+
+    if (!tsv_ok) {
+      auto const session_root = ResolveSessionRoot();
+      auto const path = session_root / "reliability_rx.tsv";
+      tsv.open(path, std::ios::app);
+      if (tsv) {
+        tsv << "wall_ms\trun_id\tpayload_run\tseq\treceived\tlost\tdup\n";
+        tsv_ok = true;
+      }
+    }
 
     auto print_line = [&]() {
       double loss_pct = 0.0;
@@ -856,63 +871,61 @@ void OnMessage(ae::Uid, ae::DataBuffer const& data) {
         loss_pct = (100.0 * static_cast<double>(lost)) /
                    static_cast<double>(denom);
       }
-      std::cout << "RUN=" << run_id << " seq=" << fb.sequence
-                << " recv=" << received << " lost=" << lost
-                << " loss=" << std::fixed << std::setprecision(2) << loss_pct
-                << "%"
-                << " dup=" << duplicates << " ssid=" << fb.ssid << "\n";
+      std::cout << "RUN=" << run_id << " seq=" << rp.seq << " recv=" << received
+                << " lost=" << lost << " loss=" << std::fixed
+                << std::setprecision(2) << loss_pct << "%"
+                << " dup=" << duplicates << "\n";
       std::cout.flush();
-      if (received > 0 && (received % 100) == 0) {
-        std::cout << "=== SUMMARY ===\n"
-                  << "run=" << run_id << "\n"
-                  << "last_seq=" << current_seq << "\n"
-                  << "received=" << received << "\n"
-                  << "lost=" << lost << "\n"
-                  << "loss_percent=" << std::fixed << std::setprecision(2)
-                  << loss_pct << "\n"
-                  << "duplicates=" << duplicates << "\n"
-                  << "================\n";
+      if (tsv_ok) {
+        auto const ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch())
+                            .count();
+        tsv << ms << '\t' << run_id << '\t' << rp.run_id << '\t' << rp.seq
+            << '\t' << received << '\t' << lost << '\t' << duplicates << '\n';
+        tsv.flush();
+      }
+      if (received > 0 && (received % 50) == 0) {
+        std::cout << "=== SUMMARY === run=" << run_id
+                  << " last_seq=" << current_seq << " received=" << received
+                  << " lost=" << lost << " loss_percent=" << std::fixed
+                  << std::setprecision(2) << loss_pct
+                  << " duplicates=" << duplicates << "\n";
         std::cout.flush();
       }
     };
 
-    if (!have_seq) {
+    if (!have_seq || rp.seq < current_seq) {
+      if (have_seq) {
+        ++run_id;
+        std::cout << "=== NEW RUN DETECTED === previous_seq=" << current_seq
+                  << " new_seq=" << rp.seq << " run=" << run_id << "\n";
+        std::cout.flush();
+      }
       have_seq = true;
-      current_seq = fb.sequence;
+      current_seq = rp.seq;
       received = 1;
       lost = 0;
       duplicates = 0;
       print_line();
       return;
     }
-
-    if (fb.sequence < current_seq) {
-      auto const prev = current_seq;
-      ++run_id;
-      current_seq = fb.sequence;
-      received = 1;
-      lost = 0;
-      duplicates = 0;
-      std::cout << "=== NEW RUN DETECTED ===\n"
-                << "previous_seq=" << prev << "\n"
-                << "new_seq=" << fb.sequence << "\n"
-                << "run=" << run_id << "\n"
-                << "statistics reset\n";
-      std::cout.flush();
-      print_line();
-      return;
-    }
-
-    if (fb.sequence == current_seq) {
+    if (rp.seq == current_seq) {
       ++duplicates;
       print_line();
       return;
     }
-
-    lost += static_cast<std::uint64_t>(fb.sequence - current_seq - 1);
+    lost += static_cast<std::uint64_t>(rp.seq - current_seq - 1);
     ++received;
-    current_seq = fb.sequence;
+    current_seq = rp.seq;
     print_line();
+    return;
+  }
+
+  if (!data.empty() && data[0] >= 0x20 && data[0] < 0x7f) {
+    std::cout.write(reinterpret_cast<char const*>(data.data()),
+                    static_cast<std::streamsize>(data.size()));
+    std::cout << "\n";
+    std::cout.flush();
     return;
   }
   temp_sensor::bench::NosleepPayload ns{};
