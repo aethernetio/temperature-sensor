@@ -353,13 +353,62 @@ def stop_proc(proc: subprocess.Popen | None) -> None:
             pass
 
 
+def stop_ppk_hold() -> None:
+    """Kill the hold process so log_power can take the PPK2 mutex.
+
+    Does not toggle DUT power off — the logger keeps source ON.
+    """
+    pid_file = ROOT / "experiments" / "ppk2_hold.pid"
+    pids: list[int] = []
+    if pid_file.exists():
+        try:
+            pids.append(int(pid_file.read_text(encoding="ascii").strip()))
+        except Exception:  # noqa: BLE001
+            pass
+    if sys.platform == "win32":
+        r = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_Process | "
+                "Where-Object { $_.CommandLine -match 'ppk2_hold_power' } | "
+                "Select-Object -ExpandProperty ProcessId",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        for line in (r.stdout or "").splitlines():
+            line = line.strip()
+            if line.isdigit():
+                pids.append(int(line))
+    for pid in sorted(set(pids)):
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/F"],
+            capture_output=True,
+            check=False,
+        )
+    try:
+        pid_file.unlink(missing_ok=True)
+    except Exception:  # noqa: BLE001
+        pass
+    time.sleep(1.0)
+
+
 def start_ppk_log(csv_path: Path) -> subprocess.Popen | None:
-    """Current logging for the hot run. Optional: absence is not a failure."""
+    """Current logging for the hot run. Optional: absence is not a failure.
+
+    Must stop ppk2_hold first: both scripts take the same Windows mutex
+    (Local\\AetherPPK2HoldPower), so a live hold makes the logger exit(3).
+    The logger itself keeps DUT power ON while sampling.
+    """
     ppk_py = camp.PPK_PY
     script = ROOT / "experiments" / "ppk2_log_power.py"
     if not ppk_py.exists() or not script.exists():
         log("PPK_CAPTURE_REQUIRED: ppk2 venv or logger missing")
         return None
+    stop_ppk_hold()
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     log_path = csv_path.with_suffix(".log")
     try:
@@ -373,6 +422,7 @@ def start_ppk_log(csv_path: Path) -> subprocess.Popen | None:
                     "--out",
                     str(csv_path),
                 ],
+                cwd=str(ROOT / "experiments"),
                 stdout=lf,
                 stderr=subprocess.STDOUT,
             )
@@ -381,7 +431,12 @@ def start_ppk_log(csv_path: Path) -> subprocess.Popen | None:
         return None
     time.sleep(5)
     if proc.poll() is not None:
-        log("PPK_CAPTURE_REQUIRED: logger exited immediately")
+        detail = ""
+        try:
+            detail = log_path.read_text(encoding="utf-8", errors="replace")[:200]
+        except Exception:  # noqa: BLE001
+            pass
+        log(f"PPK_CAPTURE_REQUIRED: logger exited immediately ({detail.strip()})")
         return None
     log(f"PPK logging at {camp.PPK_VOLTAGE_MV} mV -> {csv_path.name}")
     return proc

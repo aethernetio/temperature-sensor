@@ -259,7 +259,11 @@ can show the same POST value repeated without ever reaching 20/20.
 
 Hot cycle time from the previous-send timing carried in each HOT_DATA packet (us): n=36 min=499304 median=569311 p90=599248 max=629427
 
-**PPK_CAPTURE_REQUIRED** - current trace not captured.
+**PPK_CAPTURE_REQUIRED** - current trace not captured during the campaign
+(logger exited immediately: live `ppk2_hold_power` owned the Windows mutex).
+Orchestrator now stops the hold before starting `ppk2_log_power.py`.
+Smoke retest after the fix: logger runs and writes CSV samples @ 3000 mV.
+HOT100 energy/charge not re-measured yet (needs another HOT run with the fix).
 
 **aethernetio**
 
@@ -281,6 +285,7 @@ Hot cycle time from the previous-send timing carried in each HOT_DATA packet (us
 
 Hot cycle time from the previous-send timing carried in each HOT_DATA packet (us): n=98 min=569438 median=649484 p90=689419 max=839521
 
-**PPK_CAPTURE_REQUIRED** - current trace not captured.
+**PPK_CAPTURE_REQUIRED** - same hold/mutex issue as chirkov; fixed in orchestrator,
+HOT100 energy not re-measured yet.
 
 Raw logs and per-AP JSON: `experiments/product_adaptive_probe_results/`.
