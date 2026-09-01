@@ -568,8 +568,21 @@ def parse_rx(text: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
+CONFIGURED_MARK = ROOT / "experiments" / "product_probe_configured.txt"
+
+
 def build_firmware(ap: str) -> None:
-    camp.cmake_configure(ap, "P", {"BENCH_CLIENT_ID": "reliability_full_v1"})
+    # Reconfiguring rewrites the AP credentials into the build, which costs a
+    # near-full rebuild, so it only runs when the target AP actually changes.
+    want = f"P:{ap}"
+    have = CONFIGURED_MARK.read_text(encoding="utf-8").strip() if (
+        CONFIGURED_MARK.exists()
+    ) else ""
+    if have != want:
+        camp.cmake_configure(ap, "P", {"BENCH_CLIENT_ID": "reliability_full_v1"})
+        CONFIGURED_MARK.write_text(want, encoding="utf-8")
+    else:
+        log(f"cmake up to date for {ap}")
     camp.ninja_build()
 
 

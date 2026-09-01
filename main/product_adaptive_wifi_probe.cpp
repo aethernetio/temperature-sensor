@@ -8,28 +8,34 @@
  * the profile, the PRE delay and the POST delay all come out of measurements
  * made against whatever access point the device is attached to.
  *
- * Stage flow, one stage per boot, every transition a 250 ms timer deep sleep:
+ * Stage flow, one stage per boot. Every transition keeps the RTC state and
+ * re-enters at the next stage. The transition mechanism is a software restart:
+ * on this target a timer deep sleep is accepted and then never completes, so
+ * the chip spins in the sleep entry path until the interrupt watchdog resets
+ * it. Set AE_PRODUCT_PROBE_DEEP_SLEEP=1 to use the 250 ms timer deep sleep
+ * where it works.
  *
  *   0 ICMP_SELECT          raw Wi-Fi, pick profile then PRE delay
  *   1 FULL_PREPARE         Aether FULL: marker + prepared block for stage 2
  *   2 POST_PROBE           20 prepared sends, no sleep between them
  *   3 POST_QUERY           Aether FULL: query the batch, judge the POST delay
- *   4 SLEEP_CONFIRM        20 prepared sends with 250 ms deep sleep between
+ *   4 SLEEP_CONFIRM        20 prepared sends, one per boot
  *   5 SLEEP_CONFIRM_QUERY  Aether FULL: query the sleep-confirm batch
  *   6 PROBE_COMPLETE       Aether FULL: marker + prepared block for stage 7
- *   7 HOT_RUN              100 prepared HOT sends, 250 ms deep sleep between
+ *   7 HOT_RUN              100 prepared HOT sends, one per boot
  *   8 HOT_SUMMARY          Aether FULL: totals
  *   9 DONE                 idle
  *
- * Only a deep-sleep timer wake preserves the stage. Any other reset restarts
- * at stage 0, which is also what a pre-Encode Wi-Fi failure on the hot path
- * forces: the network may have changed, so the selected parameters are no
- * longer trusted.
+ * A deep-sleep timer wake or the restart above preserves the stage. Any other
+ * reset restarts at stage 0, which is also what a pre-Encode Wi-Fi failure on
+ * the hot path forces: the network may have changed, so the selected
+ * parameters are no longer trusted.
  *
  * Stages 2, 4 and 7 are measured and must not print.
  */
 
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -86,6 +92,10 @@ static constexpr auto kServiceUid =
     ae::Uid::FromString("5aade50f-00d9-4624-b097-e203cdcf1e38");
 #endif
 
+#ifndef AE_PRODUCT_PROBE_DEEP_SLEEP
+#  define AE_PRODUCT_PROBE_DEEP_SLEEP 0
+#endif
+
 // Stage transition sleep, and the sleep between sleep-confirm and hot sends.
 static constexpr std::uint32_t kStageSleepUs =
     static_cast<std::uint32_t>(probe::kProbeSleepMs) * 1000u;
@@ -125,12 +135,32 @@ struct IcmpCache {
   std::uint8_t valid{0};
 };
 
-RTC_DATA_ATTR probe::ProbeRtcState g_rtc{};
-RTC_DATA_ATTR prepared_send::PreparedWifiRtcCache g_rtc_wifi_cache{};
-RTC_DATA_ATTR IcmpCache g_icmp_cache{};
-RTC_DATA_ATTR std::uint16_t g_rtc_batch_attempts{0};
-RTC_DATA_ATTR std::uint16_t g_rtc_stage_batches{0};
-RTC_DATA_ATTR std::uint64_t g_rtc_sleep_arm_us{0};
+// RTC_DATA_ATTR only survives deep sleep; the bootloader reloads it on a
+// software restart. The stage machine has to survive both, because a rejected
+// deep sleep falls back to a restart, so the state is kept uninitialised and
+// cleared explicitly whenever the boot is cold.
+RTC_NOINIT_ATTR probe::ProbeRtcState g_rtc;
+RTC_NOINIT_ATTR prepared_send::PreparedWifiRtcCache g_rtc_wifi_cache;
+RTC_NOINIT_ATTR IcmpCache g_icmp_cache;
+RTC_NOINIT_ATTR std::uint16_t g_rtc_batch_attempts;
+RTC_NOINIT_ATTR std::uint16_t g_rtc_stage_batches;
+RTC_NOINIT_ATTR std::uint64_t g_rtc_sleep_arm_us;
+// Deep sleep can be rejected; the count is reported once the run is audible
+// again so a measured stage never has to print.
+RTC_NOINIT_ATTR std::uint16_t g_rtc_sleep_reject;
+RTC_NOINIT_ATTR std::int16_t g_rtc_sleep_reject_err;
+
+// Boot history. A measured stage cannot print, so each boot records how it
+// woke and the next audible stage reports the whole trail.
+struct BootMark {
+  std::uint8_t stage;
+  std::uint8_t reset_reason;
+  std::uint8_t wakeup_cause;
+  std::uint8_t cold;
+};
+static constexpr std::uint8_t kBootMarkCount = 8;
+RTC_NOINIT_ATTR BootMark g_rtc_boot_marks[kBootMarkCount];
+RTC_NOINIT_ATTR std::uint8_t g_rtc_boot_mark_count;
 
 static const auto kWifiInit = ae::WiFiInit{
     std::vector<ae::WiFiAp>{{ae::WifiCreds{WIFI_SSID, WIFI_PASSWORD}, {}}},
@@ -184,10 +214,35 @@ bool StageIsMeasured(probe::ProbeStage stage) {
          stage == probe::ProbeStage::kHotRun;
 }
 
+void ReportBootMarks() {
+  if (g_rtc_boot_mark_count == 0) {
+    return;
+  }
+  auto const count = g_rtc_boot_mark_count > kBootMarkCount
+                         ? kBootMarkCount
+                         : g_rtc_boot_mark_count;
+  for (std::uint8_t i = 0; i < count; ++i) {
+    auto const& m = g_rtc_boot_marks[i];
+    std::printf("P_BOOT stage=%u reset=%u wake=%u cold=%u\n",
+                static_cast<unsigned>(m.stage),
+                static_cast<unsigned>(m.reset_reason),
+                static_cast<unsigned>(m.wakeup_cause),
+                static_cast<unsigned>(m.cold));
+  }
+  std::printf("P_BOOT_SUM boots=%u reject=%u reject_err=%d sleep_us=%lu\n",
+              static_cast<unsigned>(g_rtc_boot_mark_count),
+              static_cast<unsigned>(g_rtc_sleep_reject),
+              static_cast<int>(g_rtc_sleep_reject_err),
+              static_cast<unsigned long>(g_sleep_elapsed_us));
+  std::fflush(stdout);
+  g_rtc_boot_mark_count = 0;
+}
+
 void SayStage(char const* tag) {
   if (StageIsMeasured(Stage())) {
     return;
   }
+  ReportBootMarks();
   std::printf(
       "P_STAGE stage=%u name=%s tag=%s session=%08lx profile=%u pre=%u post=%u "
       "sleep=%u batch=%u param=%u seq=%u hot=%u fail=%u reprobe=%u\n",
@@ -205,7 +260,33 @@ void SayStage(char const* tag) {
   std::fflush(stdout);
 }
 
+// The stage transition that follows the raw ICMP search cannot deep sleep:
+// entering sleep straight after that Wi-Fi teardown panics the chip. RTC state
+// survives a restart, so the run continues at the next stage either way. Deep
+// sleep is what the later stages measure, and those run from the prepared send
+// path, which sleeps reliably.
+[[noreturn]] void RestartToNextStage() {
+  if (!StageIsMeasured(Stage())) {
+    std::printf("P_RESTART stage=%u intended_sleep_us=%lu\n",
+                static_cast<unsigned>(g_rtc.stage),
+                static_cast<unsigned long>(kStageSleepUs));
+    std::fflush(stdout);
+  }
+  g_rtc_sleep_arm_us = 0;
+  esp_restart();
+  for (;;) {
+  }
+}
+
 [[noreturn]] void DeepSleepToNextStage() {
+#  if !AE_PRODUCT_PROBE_DEEP_SLEEP
+  // Deep sleep never completes on this target: the request is accepted and the
+  // chip then spins in the sleep entry loop with interrupts off until the
+  // interrupt watchdog resets it. Stage timing therefore uses a restart, which
+  // keeps the same RTC state, and the sleep path stays available behind the
+  // build flag for targets where it works.
+  RestartToNextStage();
+#  else
   esp_sleep_enable_timer_wakeup(kStageSleepUs);
   g_rtc_sleep_arm_us = esp_rtc_get_time_us();
 #  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
@@ -214,8 +295,29 @@ void SayStage(char const* tag) {
 #  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
 #  endif
-  esp_deep_sleep_try_to_start();
+  bool const audible = !StageIsMeasured(Stage());
+  if (audible) {
+    std::printf("P_SLEEP stage=%u us=%lu\n",
+                static_cast<unsigned>(g_rtc.stage),
+                static_cast<unsigned long>(kStageSleepUs));
+    std::fflush(stdout);
+  }
+  auto const err = esp_deep_sleep_try_to_start();
+
+  // The request was refused. Record it, then retry with the variant that does
+  // not allow rejection; if even that returns, restart instead, because RTC
+  // state survives a restart and the run can continue from the next stage.
+  if (g_rtc_sleep_reject < 0xffff) {
+    ++g_rtc_sleep_reject;
+  }
+  g_rtc_sleep_reject_err = static_cast<std::int16_t>(err);
+  if (audible) {
+    std::printf("P_SLEEP_REJECT err=%d\n", static_cast<int>(err));
+    std::fflush(stdout);
+  }
   esp_deep_sleep_start();
+  esp_restart();
+#  endif
   for (;;) {
   }
 }
@@ -240,7 +342,7 @@ void ReleaseApp() {
   std::printf("P_REPROBE reason=%s count=%u\n", reason,
               static_cast<unsigned>(g_rtc.reprobe_count));
   std::fflush(stdout);
-  DeepSleepToNextStage();
+  RestartToNextStage();
 }
 
 ae::DataBuffer ToDataBuffer(std::uint8_t const* data, std::size_t size) {
@@ -518,7 +620,7 @@ probe::IcmpTrial RunIcmpTrial(ae::WifiProbeProfile profile,
   g_rtc.post_search = probe::ParamSearchState{};
   g_rtc.post_ms = probe::ParamSearchCurrent(post_table, g_rtc.post_search);
   probe::ProductProbeAdvanceStage(g_rtc);
-  DeepSleepToNextStage();
+  RestartToNextStage();
 }
 
 // ---------------------------------------------------------------------------
@@ -1031,17 +1133,23 @@ void FinishWorkInLoop() {
     Reprobe("full_stage");
   }
   SayStage("full_done");
-  DeepSleepToNextStage();
+  // The Aether teardown leaves the chip in the same state the ICMP search
+  // does, so this transition restarts instead of sleeping.
+  RestartToNextStage();
 }
 
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 
-// Only a deep-sleep timer wake continues the run; everything else is cold.
+// A deep-sleep timer wake continues the run. So does the software restart the
+// sleep-reject fallback issues, because it preserves the same RTC state.
 bool IsColdBoot() {
-  if (static_cast<esp_reset_reason_t>(g_early.reset_reason) !=
-      ESP_RST_DEEPSLEEP) {
+  auto const reset = static_cast<esp_reset_reason_t>(g_early.reset_reason);
+  if (reset == ESP_RST_SW) {
+    return false;
+  }
+  if (reset != ESP_RST_DEEPSLEEP) {
     return true;
   }
   return static_cast<esp_sleep_wakeup_cause_t>(g_early.wakeup_cause) !=
@@ -1051,11 +1159,31 @@ bool IsColdBoot() {
 void PrepareOnBoot() {
   g_early = GetExperimentEarlyEntrySnapshot();
   ComputeSleepElapsed();
-  if (IsColdBoot() || g_rtc.stage >= probe::kProbeStageCount) {
+  bool const cold = IsColdBoot() || g_rtc.stage >= probe::kProbeStageCount;
+
+  BootMark mark{};
+  mark.stage = g_rtc.stage;
+  mark.reset_reason = g_early.reset_reason;
+  mark.wakeup_cause = g_early.wakeup_cause;
+  mark.cold = cold ? 1 : 0;
+  if (cold) {
+    g_rtc_boot_mark_count = 0;
+  }
+  if (g_rtc_boot_mark_count < kBootMarkCount) {
+    g_rtc_boot_marks[g_rtc_boot_mark_count] = mark;
+  }
+  if (g_rtc_boot_mark_count < 0xff) {
+    ++g_rtc_boot_mark_count;
+  }
+
+  if (cold) {
     g_rtc_wifi_cache = prepared_send::PreparedWifiRtcCache{};
     g_icmp_cache = IcmpCache{};
     g_rtc_batch_attempts = 0;
     g_rtc_stage_batches = 0;
+    g_rtc_sleep_arm_us = 0;
+    g_rtc_sleep_reject = 0;
+    g_rtc_sleep_reject_err = 0;
     probe::ProductProbeColdBootReset(g_rtc, esp_random());
   }
   g_cfg = MakeFastConfig();
@@ -1119,15 +1247,18 @@ void loop() {
   }
 
   auto const stage = Stage();
-  if (stage == probe::ProbeStage::kPostProbe) {
-    RunPostProbeStage();
-  }
-  if (stage == probe::ProbeStage::kSleepConfirm ||
-      stage == probe::ProbeStage::kHotRun) {
-    RunSleepingBatchStage();
-  }
 
+  // A FULL stage advances the stage counter before it tears the app down, so
+  // the prepared stages must only start once the app is gone. Otherwise the
+  // prepared send races the still-running Aether Wi-Fi.
   if (!g_app) {
+    if (stage == probe::ProbeStage::kPostProbe) {
+      RunPostProbeStage();
+    }
+    if (stage == probe::ProbeStage::kSleepConfirm ||
+        stage == probe::ProbeStage::kHotRun) {
+      RunSleepingBatchStage();
+    }
     Reprobe("no_app");
   }
 
@@ -1149,7 +1280,11 @@ void loop() {
       return;
     }
     if (!g_app->IsExited()) {
-      g_app->WaitUntil(next_time);
+      // The wait must stay bounded. With nothing scheduled it blocks until the
+      // next task, and a query whose answer never arrives would otherwise hold
+      // the stage open past its timeout.
+      auto const cap = ae::Now() + std::chrono::milliseconds{200};
+      g_app->WaitUntil(next_time < cap ? next_time : cap);
     }
     return;
   }
