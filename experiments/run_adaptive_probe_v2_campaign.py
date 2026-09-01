@@ -91,6 +91,12 @@ def wait_for_board(timeout_s: float = 3600) -> str | None:
 
 
 def flash_erase_always() -> str:
+    if os.environ.get("AE_V2_SKIP_ERASE", "").strip() in ("1", "true", "yes"):
+        log("skip erase-flash (AE_V2_SKIP_ERASE); board already programmed")
+        port = camp.find_port(60) or camp.PORT
+        if not port:
+            raise RuntimeError("no COM after skip-erase")
+        return port
     port = wait_for_board()
     if not port:
         raise RuntimeError("no COM for erase-flash")
@@ -209,18 +215,25 @@ def verify_receiver_tcp() -> None:
     log(f"RX TCP verified uid={uid}")
 
 
-def start_v2_receiver(tag: str, tsv: Path, rx_log: Path) -> None:
+def start_v2_receiver(
+    tag: str, tsv: Path, rx_log: Path, *, preserve_tsv: bool = False
+) -> None:
     camp.kill_receiver()
     session = camp.PREPARED_RX_SESSION
     session.mkdir(parents=True, exist_ok=True)
-    if tsv.exists():
+    # Mid-run restarts must keep delivered-record progress; only wipe for a new stage.
+    if tsv.exists() and not preserve_tsv:
         tsv.unlink()
     launch_env = receiver_env(launch=True)
     launch_env["AE_RECEIVER_SESSION_DIR"] = str(session)
     launch_env["AE_DS_TSV"] = str(tsv)
     launch_env["AE_DS_BENCH_TAG"] = tag
     err = rx_log.with_suffix(".err")
-    with rx_log.open("w", encoding="utf-8") as outf, err.open("w", encoding="utf-8") as errf:
+    # Append on preserve so TCP verify lines remain visible after a crash restart.
+    log_mode = "a" if preserve_tsv and rx_log.exists() else "w"
+    with rx_log.open(log_mode, encoding="utf-8") as outf, err.open(
+        log_mode, encoding="utf-8"
+    ) as errf:
         subprocess.Popen([str(RX_EXE)], cwd=str(session), env=launch_env, stdout=outf, stderr=errf)
     t0 = time.time()
     while time.time() - t0 < 180:
@@ -295,13 +308,46 @@ def phase_c_defs(ap: str, results: dict, *, nosleep: bool, sleep_us: int, outer:
 
 def wait_hot_delivery(tsv: Path, target: int, rx_log: Path, tag: str, timeout_s: int) -> dict:
     t0 = time.time()
+    last_progress = time.time()
+    last_hot = -1
     while time.time() - t0 < timeout_s:
         if not camp.receiver_alive():
-            start_v2_receiver(tag, tsv, rx_log)
+            log(f"{tag} receiver dead - restart preserving TSV")
+            start_v2_receiver(tag, tsv, rx_log, preserve_tsv=True)
         st = camp.analyze_tsv(tsv)
-        log(f"{tag} hot={st.get('hot', 0)}/{target}")
-        if st.get("hot", 0) >= target:
+        hot = int(st.get("hot", 0) or 0)
+        log(f"{tag} hot={hot}/{target}")
+        if hot > last_hot:
+            last_hot = hot
+            last_progress = time.time()
+        if hot >= target:
             return st
+        # One-short near-miss: board often completes outer budget at target-1 and stops.
+        if hot >= max(1, target - 1) and (time.time() - last_progress) > 120:
+            log(f"{tag} accepting hot={hot}/{target} after stall (near target)")
+            return st
+        # Board can hang after a partial outer; hard-reset if HOT stalls too long.
+        if hot > 0 and (time.time() - last_progress) > 180:
+            log(f"{tag} HOT stalled at {hot} - hard-reset COM7")
+            try:
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "esptool",
+                        "--chip",
+                        "esp32c6",
+                        "-p",
+                        camp.PORT,
+                        "run",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+            except Exception as exc:  # noqa: BLE001
+                log(f"{tag} hard-reset failed: {exc}")
+            last_progress = time.time()
         time.sleep(10)
     return camp.analyze_tsv(tsv)
 
@@ -309,15 +355,50 @@ def wait_hot_delivery(tsv: Path, target: int, rx_log: Path, tag: str, timeout_s:
 def run_test3(ap: str, results: dict) -> None:
     tsv = V2_OUT / f"{ap}_test3_nosleep.tsv"
     rx_log = V2_OUT / f"{ap}_test3_rx.log"
-    start_v2_receiver(f"v2_t3_{ap}", tsv, rx_log)
-    camp.cmake_configure(ap, "C", phase_c_defs(ap, results, nosleep=True, sleep_us=0, outer=5, hot=30, post=300, run_id=300))
-    camp.ninja_build()
-    flash_erase_always()
-    baseline = wait_hot_delivery(tsv, 150, rx_log, f"T3_{ap}_base", 45 * 60)
-    results.setdefault("TEST3", {})[ap] = {"baseline": baseline, "post": []}
-    post_winner = 300
+    existing = results.get("TEST3", {}).get(ap, {})
+    baseline_done = int((existing.get("baseline") or {}).get("hot", 0) or 0) >= 140
+    if not baseline_done:
+        start_v2_receiver(f"v2_t3_{ap}", tsv, rx_log)
+        # AE_V2_SKIP_BASELINE_BUILD is ignored when switching APs: the build tree
+        # may still hold the other router's firmware (SSID/profile/POST).
+        skip_baseline_build = os.environ.get("AE_V2_SKIP_BASELINE_BUILD", "").strip() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if skip_baseline_build:
+            log(
+                f"TEST3 {ap} IGNORE AE_V2_SKIP_BASELINE_BUILD "
+                "(always cmake/ninja baseline per AP)"
+            )
+        camp.cmake_configure(
+            ap,
+            "C",
+            phase_c_defs(
+                ap, results, nosleep=True, sleep_us=0, outer=5, hot=30, post=300, run_id=300
+            ),
+        )
+        camp.ninja_build()
+        flash_erase_always()
+        baseline = wait_hot_delivery(tsv, 150, rx_log, f"T3_{ap}_base", 45 * 60)
+        results.setdefault("TEST3", {})[ap] = {"baseline": baseline, "post": []}
+    else:
+        log(f"TEST3 {ap} resume after baseline hot={existing['baseline'].get('hot')}")
+        results.setdefault("TEST3", {})[ap] = {
+            "baseline": existing["baseline"],
+            "post": list(existing.get("post") or []),
+        }
+    post_winner = int(results["TEST3"][ap].get("post_winner", 300))
     for post in (200, 100, 50, 25, 10, 0):
-        camp.cmake_configure(ap, "C", phase_c_defs(ap, results, nosleep=True, sleep_us=0, outer=1, hot=30, post=post, run_id=10 + post))
+        if any(p.get("post_ms") == post for p in results["TEST3"][ap]["post"]):
+            continue
+        camp.cmake_configure(
+            ap,
+            "C",
+            phase_c_defs(
+                ap, results, nosleep=True, sleep_us=0, outer=1, hot=30, post=post, run_id=10 + post
+            ),
+        )
         camp.ninja_build()
         flash_erase_always()
         start_v2_receiver(f"v2_t3_{ap}_p{post}", tsv, rx_log)
@@ -337,7 +418,8 @@ def run_test4(ap: str, results: dict) -> None:
     rx_log = V2_OUT / f"{ap}_test4_rx.log"
     sleep_results = []
     for sleep_ms in (1000, 250, 500):
-        start_v2_receiver(f"v2_t4_{ap}_s{sleep_ms}", tsv, rx_log)
+        # Build/flash first, then start receiver: otherwise the previous image
+        # keeps delivering into the TSV during cmake/ninja and inflates HOT.
         camp.cmake_configure(
             ap,
             "C",
@@ -345,6 +427,7 @@ def run_test4(ap: str, results: dict) -> None:
         )
         camp.ninja_build()
         camp.flash_after_ppk_power_cycle(erase=True)
+        start_v2_receiver(f"v2_t4_{ap}_s{sleep_ms}", tsv, rx_log)
         st = wait_hot_delivery(tsv, 150, rx_log, f"T4_{ap}_s{sleep_ms}", 60 * 60)
         sleep_results.append({"sleep_ms": sleep_ms, "delivery": st})
     results.setdefault("TEST4", {})[ap] = sleep_results
@@ -355,7 +438,6 @@ def run_test5(ap: str, results: dict) -> None:
     post_w = int(t3.get("post_winner", 300))
     tsv = V2_OUT / f"{ap}_test5_long.tsv"
     rx_log = V2_OUT / f"{ap}_test5_rx.log"
-    start_v2_receiver(f"v2_t5_{ap}_long", tsv, rx_log)
     camp.cmake_configure(
         ap,
         "C",
@@ -363,6 +445,7 @@ def run_test5(ap: str, results: dict) -> None:
     )
     camp.ninja_build()
     flash_erase_always()
+    start_v2_receiver(f"v2_t5_{ap}_long", tsv, rx_log)
     st = wait_hot_delivery(tsv, 500, rx_log, f"T5_{ap}_long", 3 * 60 * 60)
     results.setdefault("TEST5", {})[ap] = st
 

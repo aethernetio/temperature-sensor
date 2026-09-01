@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Resume chirkov Phase C from saved baseline + partial POST/sleep results."""
 
 from __future__ import annotations
@@ -22,7 +22,9 @@ OUT = camp.OUT
 AP = "chirkov"
 
 
-def run_post(ap: str, wp: int, pre: int, post: int, results: dict) -> dict:
+def run_post(
+    ap: str, wp: int, pre: int, post: int, results: dict, *, skip_build: bool = False
+) -> dict:
     camp.cmake_configure(
         ap,
         "C",
@@ -38,8 +40,9 @@ def run_post(ap: str, wp: int, pre: int, post: int, results: dict) -> dict:
             "AETHER_PREPARED_NONCE_RESERVE": "30",
         },
     )
-    camp.ninja_build()
-    session = OUT / f"{ap}_rx_session"
+    if not skip_build:
+        camp.ninja_build()
+    session = camp.PREPARED_RX_SESSION
     tsv_p = OUT / f"{ap}_phase_c_post{post}.tsv"
     camp.start_receiver(
         f"adaptive_c_{ap}_post{post}", session, tsv_p, OUT / f"{ap}_post{post}_rx.log"
@@ -77,7 +80,7 @@ def run_sleep(
         },
     )
     camp.ninja_build()
-    session = OUT / f"{ap}_rx_session"
+    session = camp.PREPARED_RX_SESSION
     tsv_s = OUT / f"{ap}_phase_c_sleep{sleep_ms}.tsv"
     camp.start_receiver(
         f"adaptive_c_{ap}_s{sleep_ms}",
@@ -155,13 +158,44 @@ def _main() -> int:
         if st200.get("hot", 0) >= 28:
             post_winner = 200
 
+    posts_todo: list[int] = []
     for post in (100, 50, 25, 10, 0):
-        st = run_post(AP, wp, pre, post, results)
-        if st.get("hot", 0) >= 28:
-            post_winner = post
-        else:
-            camp.log(f"POST {post} FAIL hot={st.get('hot')}; stop search")
-            break
+        tsv_p = OUT / f"{AP}_phase_c_post{post}.tsv"
+        if tsv_p.exists():
+            st = camp.analyze_tsv(tsv_p)
+            if st.get("hot", 0) >= 28:
+                results["phase_c_post"].append({"post_ms": post, "delivery": st})
+                camp.log(f"POST {post} cached hot={st.get('hot')}")
+                post_winner = post
+                continue
+            camp.log(f"POST {post} incomplete hot={st.get('hot')}; re-run")
+        posts_todo.append(post)
+
+    if posts_todo:
+        first = posts_todo[0]
+        camp.cmake_configure(
+            AP,
+            "C",
+            {
+                "AE_PROBE_OUTER": "1",
+                "AE_PROBE_HOT_PER_OUTER": "30",
+                "AE_PROBE_PROFILE": str(wp),
+                "AE_PROBE_PRE_MS": str(pre),
+                "AE_PROBE_POST_MS": str(first),
+                "AE_PROBE_SLEEP_US": "1000000",
+                "AE_PROBE_RUN_ID": str(10 + first),
+                "BENCH_CLIENT_ID": "reliability_full_v1",
+                "AETHER_PREPARED_NONCE_RESERVE": "30",
+            },
+        )
+        camp.ninja_build()
+        for i, post in enumerate(posts_todo):
+            st = run_post(AP, wp, pre, post, results, skip_build=(i == 0))
+            if st.get("hot", 0) >= 28:
+                post_winner = post
+            else:
+                camp.log(f"POST {post} FAIL hot={st.get('hot')}; stop search")
+                break
     results["phase_c_post_winner"] = post_winner
     camp.log(f"post_winner={post_winner}")
 
@@ -223,3 +257,4 @@ if __name__ == "__main__":
     except Exception as exc:
         camp.log(f"FATAL: {exc}")
         raise
+

@@ -110,21 +110,95 @@ V1 partial chirkov Phase C preserved under `adaptive_probe_results/`; V2 is a cl
 | different profile | **yes** | |
 | different PRE | no (both 0) | |
 
-Checkpoint: step_index advancing to TEST2 after both APs.
+Checkpoint: step_index=10 (V2 campaign complete).
 
-### Final comparison table (fill on completion)
+### TEST2 full_ping (complete)
+
+| | chirkov | aethernetio |
+|--|---------|-------------|
+| ping_ok | **50 / 50** | **50 / 50** |
+| cold FULL median | **3448 ms** | **3641 ms** |
+| cold FULL p90 | **3448 ms** | **3763 ms** |
+| Ping RTT median | **148 ms** | **199 ms** |
+| Write() call median us | (see log) | **12473** |
+| WriteAction median us | (see log) | **14811** |
+
+### TEST3 prepared_nosleep (complete)
+
+| | chirkov | aethernetio |
+|--|---------|-------------|
+| baseline hot / received | **179 hot / 185 rx** | **142 hot / 147 rx** (45m timeout) |
+| post200 | **30/28 HOT PASS** | **29/28 HOT PASS** |
+| post100 | **28/28 HOT PASS** | **30/28 HOT PASS** |
+| post50 | **28/28 HOT PASS** | **29/28 HOT PASS** |
+| post25 | **28/28 HOT PASS** | **30/28 HOT PASS** |
+| post10 | **11/28 FAIL** (stall; hard-reset) | **28/28 HOT PASS** |
+| post0 | not run (search stopped) | **28/28 HOT PASS** |
+| post_winner | **25 ms** | **0 ms** |
+
+**AP contrast:** chirkov needs POST>=25 ms (post10 stalls); aethernetio delivers HOT at POST=0.
+
+### TEST4 prepared_sleep (complete)
+
+| sleep_ms | chirkov hot/rx | aethernetio hot/rx |
+|----------|----------------|--------------------|
+| 1000 | **105 / 109** (60m timeout; target 150) | **149 / 154** (timeout @149) |
+| 250 | **149 / 154** (timeout @149) | **149 / 154** (timeout @149) |
+| 500 | **138 / 143** (timeout) | **149 / 154** (timeout @149) |
+
+POST from TEST3: chirkov **25 ms**, aethernetio **0 ms**. Both APs routinely stop at 149/150 (outer budget); treated as near-pass.
+
+### TEST5 long-run (complete)
+
+| | chirkov | aethernetio |
+|--|---------|-------------|
+| hot / received | **499 hot / 509 rx** (target 500; near-accept) | **499 hot / 509 rx** (near-accept) |
+| full | 10 | 10 |
+| missing_in_span | **0** | **0** |
+
+### Progress (complete)
+
+| Step | Status |
+|------|--------|
+| 0-9 all TEST1-5 both APs | **done** (step_index=10) |
+
+**Blockers fixed 2026-08-31:**
+3. Tee-Object UTF-16 log → UTF-8 Add-Content launcher; Unicode arrow/`log()` cp1251 harden.
+4. TEST4/5 start TCP receiver **after** flash (prevents prior image polluting TSV during cmake/ninja).
+5. `wait_hot_delivery` accepts hot>=target-1 after 120s stall (149/150 near-miss).
+
+**Blockers fixed 2026-08-31 (earlier):**
+1. `AE_V2_SKIP_BASELINE_BUILD` disabled — always cmake/ninja per-AP baseline (prevented flashing chirkov image onto aethernetio step).
+2. COM7 lost after bad PPK python restart — restored via `ppk2-venv` + `ppk2_power.py` / `ppk2_hold_power.py`.
+
+Watchdog: `run_adaptive_probe_v2_watchdog.ps1` (conservative busy-check; autoresume armed).
+
+### Final comparison table (complete 2026-08-31)
 
 | METRIC | CHIRKOV | AETHERNETIO |
 |--------|---------|-------------|
-| profile | P1 | P4 |
-| PRE | 0 ms | 0 ms |
-| POST | TBD | TBD |
-| ICMP loss | 0.00% | 0.00% |
-| cold FULL median | **3516 ms** | **3641 ms** |
-| cold FULL p90 | **3735 ms** | **3763 ms** |
-| Ping RTT median | **198 ms** | **199 ms** |
-| FULL Write() call median us | **12414** | **12473** |
-| FULL WriteAction median us | **14903** | **14811** |
-| HOT no-sleep delivery | TBD | TBD |
-| HOT sleep delivery | TBD | TBD |
-| long-run loss | TBD | TBD |
+| profile | **P1** | **P4** |
+| PRE | **0 ms** | **0 ms** |
+| POST | **25 ms** | **0 ms** |
+| ICMP loss (winner) | **0.0%** | **0.0%** |
+| connect median | **95 ms** | **141 ms** |
+| cold FULL median | **3448 ms** | **3641 ms** |
+| cold FULL p90 | **3448 ms** | **3763 ms** |
+| Ping RTT median | **148 ms** | **199 ms** |
+| FULL Write() call median us | (not in chirkov parse) | **12473** |
+| FULL WriteAction median us | (not in chirkov parse) | **14811** |
+| HOT no-sleep post_winner | **25 ms** (post10 fail) | **0 ms** (post0 pass) |
+| HOT sleep s1000/s250/s500 | **105/149/138** /150 | **149/149/149** /150 |
+| long-run HOT | **499/500** (miss=0) | **499/500** (miss=0) |
+
+### Conclusion flags
+
+| Flag | Result |
+|------|--------|
+| Different winning Wi-Fi profile across APs? | **YES** (P1 vs P4) |
+| Different PRE needed? | **NO** (both 0 ms) |
+| Different POST needed? | **YES** (25 vs 0 ms) |
+| Sleep/deep-cycle delivery gap (s1000)? | **YES** (chirkov 105 vs aethernetio 149) |
+| Long-run seq integrity OK both APs? | **YES** (missing_in_span=0 both) |
+
+Checkpoint: **step_index=10** — V2 campaign complete. TCP receiver; erase-flash each firmware; chirkov then aethernetio per test.

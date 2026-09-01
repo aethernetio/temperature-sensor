@@ -1,0 +1,21 @@
+# TCP RECEIVER / TWO-ROUTER RETAKE V2
+
+## TEST1
+- **chirkov**: `{"winner_profile": 1, "pre_ms": 0, "loss": 0.0, "connect_median_ms": 95, "baseline": [{"profile": 0, "pre": 300, "connect_ok": 30, "ready_ok": 30, "icmp_sent": 90, "icmp_recv": 89, "icmp_loss": 1.11, "fail": 0, "median": 1629, "p90": 1709, "max": 1719}, {"profile": 1, "pre": 300, "connect_ok": 30, "ready_ok": 30, "icmp_sent": 90, "icmp_recv": 90, "icmp_loss": 0.0, "fail": 0, "median": 95, "p90": 110, "max": 185}, {"profile": 2, "pre": 300, "connect_ok": 30, "ready_ok": 30, "icmp_sent": 90, "icmp`
+- **aethernetio**: `{"winner_profile": 4, "pre_ms": 0, "loss": 0.0, "connect_median_ms": 141, "baseline": [{"profile": 0, "pre": 300, "connect_ok": 30, "ready_ok": 30, "icmp_sent": 90, "icmp_recv": 90, "icmp_loss": 0.0, "fail": 0, "median": 1669, "p90": 1689, "max": 1739}, {"profile": 1, "pre": 300, "connect_ok": 30, "ready_ok": 30, "icmp_sent": 90, "icmp_recv": 90, "icmp_loss": 0.0, "fail": 0, "median": 144, "p90": 164, "max": 201}, {"profile": 2, "pre": 300, "connect_ok": 30, "ready_ok": 30, "icmp_sent": 90, "icm`
+
+## TEST2
+- **chirkov**: `{"ping_sent": 50, "ping_ok": 50, "ping_late": 0, "ping_error": 0, "ping_timeout": 0, "cold_median_ms": 3448, "cold_p90_ms": 3448, "rtt_median_ms": 148, "rtt_p90_ms": 148}`
+- **aethernetio**: `{"ping_sent": 50, "ping_ok": 50, "ping_late": 0, "ping_error": 0, "ping_timeout": 0, "cold_median_ms": 3641, "cold_p90_ms": 3763, "rtt_median_ms": 199, "rtt_p90_ms": 300, "write_call_median_us": 12473, "write_action_median_us": 14811, "write_call_p90_us": 12576, "write_action_p90_us": 14897, "cold_max_ms": 13720, "cold_n": 50, "rtt_max_ms": 401, "write_call_max_us": 12625, "write_action_max_us": 15342}`
+
+## TEST3
+- **chirkov**: `{"baseline": {"received": 185, "hot": 179, "full": 6, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}, "post": [{"post_ms": 200, "delivery": {"received": 31, "hot": 30, "full": 1, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}, {"post_ms": 100, "delivery": {"received": 29, "hot": 28, "full": 1, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}, {"post_ms": 50, "delivery": {"received": 29, "hot": 28, "full": 1, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}, {"post_ms": 25, "delivery":`
+- **aethernetio**: `{"baseline": {"received": 147, "hot": 142, "full": 5, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}, "post": [{"post_ms": 200, "delivery": {"received": 30, "hot": 29, "full": 1, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}, {"post_ms": 100, "delivery": {"received": 31, "hot": 30, "full": 1, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}, {"post_ms": 50, "delivery": {"received": 30, "hot": 29, "full": 1, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}, {"post_ms": 25, "delivery":`
+
+## TEST4
+- **chirkov**: `[{"sleep_ms": 1000, "delivery": {"received": 109, "hot": 105, "full": 4, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}, {"sleep_ms": 250, "delivery": {"received": 154, "hot": 149, "full": 5, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}, {"sleep_ms": 500, "delivery": {"received": 143, "hot": 138, "full": 5, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}]`
+- **aethernetio**: `[{"sleep_ms": 1000, "delivery": {"received": 154, "hot": 149, "full": 5, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}, {"sleep_ms": 250, "delivery": {"received": 154, "hot": 149, "full": 5, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}, {"sleep_ms": 500, "delivery": {"received": 154, "hot": 149, "full": 5, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}}]`
+
+## TEST5
+- **chirkov**: `{"received": 509, "hot": 499, "full": 10, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}`
+- **aethernetio**: `{"received": 509, "hot": 499, "full": 10, "missing_in_span": 0, "seq_min": 3, "seq_max": 3}`

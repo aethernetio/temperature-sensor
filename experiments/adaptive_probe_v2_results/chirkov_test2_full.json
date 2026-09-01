@@ -1,0 +1,20 @@
+{
+  "ping_sent": 50,
+  "ping_ok": 50,
+  "ping_late": 0,
+  "ping_error": 0,
+  "ping_timeout": 0,
+  "cold_median_ms": 3516,
+  "cold_p90_ms": 3735,
+  "rtt_median_ms": 198,
+  "rtt_p90_ms": 263,
+  "write_call_median_us": 12414,
+  "write_action_median_us": 14903,
+  "write_call_p90_us": 12541,
+  "write_action_p90_us": 15258,
+  "cold_max_ms": 12226,
+  "cold_n": 50,
+  "rtt_max_ms": 604,
+  "write_call_max_us": 13340,
+  "write_action_max_us": 16221
+}

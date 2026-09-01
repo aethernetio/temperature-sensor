@@ -1,0 +1,315 @@
+{
+  "winner_profile": 1,
+  "pre_ms": 0,
+  "loss": 0.0,
+  "connect_median_ms": 95,
+  "baseline": [
+    {
+      "profile": 0,
+      "pre": 300,
+      "connect_ok": 30,
+      "ready_ok": 30,
+      "icmp_sent": 90,
+      "icmp_recv": 89,
+      "icmp_loss": 1.11,
+      "fail": 0,
+      "median": 1629,
+      "p90": 1709,
+      "max": 1719
+    },
+    {
+      "profile": 1,
+      "pre": 300,
+      "connect_ok": 30,
+      "ready_ok": 30,
+      "icmp_sent": 90,
+      "icmp_recv": 90,
+      "icmp_loss": 0.0,
+      "fail": 0,
+      "median": 95,
+      "p90": 110,
+      "max": 185
+    },
+    {
+      "profile": 2,
+      "pre": 300,
+      "connect_ok": 30,
+      "ready_ok": 30,
+      "icmp_sent": 90,
+      "icmp_recv": 90,
+      "icmp_loss": 0.0,
+      "fail": 0,
+      "median": 1629,
+      "p90": 1698,
+      "max": 1708
+    },
+    {
+      "profile": 3,
+      "pre": 300,
+      "connect_ok": 30,
+      "ready_ok": 30,
+      "icmp_sent": 90,
+      "icmp_recv": 90,
+      "icmp_loss": 0.0,
+      "fail": 0,
+      "median": 96,
+      "p90": 184,
+      "max": 1084
+    },
+    {
+      "profile": 4,
+      "pre": 300,
+      "connect_ok": 30,
+      "ready_ok": 30,
+      "icmp_sent": 90,
+      "icmp_recv": 90,
+      "icmp_loss": 0.0,
+      "fail": 0,
+      "median": 97,
+      "p90": 178,
+      "max": 210
+    }
+  ],
+  "pre_search": [
+    {
+      "profile": 0,
+      "pre": 200,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 0,
+      "pre": 100,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 0,
+      "pre": 50,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 0,
+      "pre": 25,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 0,
+      "pre": 10,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 0,
+      "pre": 0,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 1,
+      "pre": 200,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 1,
+      "pre": 100,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 1,
+      "pre": 50,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 1,
+      "pre": 25,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 1,
+      "pre": 10,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 1,
+      "pre": 0,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 2,
+      "pre": 200,
+      "connect_ok": 20,
+      "icmp_recv": 59,
+      "icmp_loss": 1.67,
+      "fail": 0
+    },
+    {
+      "profile": 2,
+      "pre": 100,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 2,
+      "pre": 50,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 2,
+      "pre": 25,
+      "connect_ok": 20,
+      "icmp_recv": 59,
+      "icmp_loss": 1.67,
+      "fail": 0
+    },
+    {
+      "profile": 2,
+      "pre": 10,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 2,
+      "pre": 0,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 3,
+      "pre": 200,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 3,
+      "pre": 100,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 3,
+      "pre": 50,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 3,
+      "pre": 25,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 3,
+      "pre": 10,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 3,
+      "pre": 0,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 4,
+      "pre": 200,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 4,
+      "pre": 100,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 4,
+      "pre": 50,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 4,
+      "pre": 25,
+      "connect_ok": 20,
+      "icmp_recv": 59,
+      "icmp_loss": 1.67,
+      "fail": 0
+    },
+    {
+      "profile": 4,
+      "pre": 10,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    },
+    {
+      "profile": 4,
+      "pre": 0,
+      "connect_ok": 20,
+      "icmp_recv": 60,
+      "icmp_loss": 0.0,
+      "fail": 0
+    }
+  ]
+}

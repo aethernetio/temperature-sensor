@@ -987,6 +987,24 @@ void loop() {
     return;
   }
 
+  // No-sleep path returns from EndCycle() without reboot. After HOT finishes an
+  // outer (or campaign advances to FINAL), phase flips while g_app is null —
+  // restart the matching Aether stage here or the board spins forever.
+  if (!g_app) {
+    if (phase == Phase::kFull) {
+      StartFull();
+      return;
+    }
+    if (phase == Phase::kFinal) {
+      StartFinal();
+      return;
+    }
+    if (phase == Phase::kRegister) {
+      StartRegister();
+      return;
+    }
+  }
+
   auto process_deferred = []() {
     if (g_app && g_pending_register_finish) {
       g_pending_register_finish = false;

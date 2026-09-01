@@ -99,13 +99,18 @@ int g_brownout_boots = 0;
 int g_failed_assoc_wakes = 0;
 int g_tcp_links_up = 0;
 bool g_rx_tcp_verified = false;
-std::set<ae::ServerId> g_udp_restreamed;
+std::chrono::steady_clock::time_point g_last_udp_restream =
+    std::chrono::steady_clock::time_point::min();
 
 void LogTcpTransport(ae::Client& client) {
   static bool logged_waiting = false;
   bool any_tcp = false;
   bool any_udp = false;
   int linked = 0;
+  auto const now = std::chrono::steady_clock::now();
+  bool const allow_restream =
+      g_last_udp_restream == std::chrono::steady_clock::time_point::min() ||
+      (now - g_last_udp_restream) > std::chrono::seconds(5);
   for (auto* csc : client.cloud_connection().servers()) {
     if (csc == nullptr) {
       continue;
@@ -132,8 +137,9 @@ void LogTcpTransport(ae::Client& client) {
         any_udp = true;
         std::cout << "RX_TRANSPORT=UDP endpoint=" << ae::Format("{}", *ep)
                   << " server=" << csc->server_id() << "\n";
-        if (!g_udp_restreamed.count(csc->server_id())) {
-          g_udp_restreamed.insert(csc->server_id());
+        // Keep forcing TCP if cloud reselects UDP after the first Restream.
+        if (allow_restream) {
+          g_last_udp_restream = now;
           std::cout << "RX_TCP_RESELECT server=" << csc->server_id() << "\n";
           csc->Restream();
         }

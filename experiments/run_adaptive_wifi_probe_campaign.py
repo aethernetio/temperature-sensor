@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Adaptive Wi-Fi probe campaign: Phase A → B → C on chirkov then aethernetio.
+"""Adaptive Wi-Fi probe campaign: Phase A -> B -> C on chirkov then aethernetio.
 
 Server protocol unchanged. No server deploy.
 COM disappear during 1s deep sleep is expected.
@@ -87,8 +87,23 @@ def release_build_lock() -> None:
 
 
 def kill_build_procs() -> None:
-    for exe in ("ninja.exe", "cmake.exe", "ccache.exe"):
-        subprocess.run(["taskkill", "/F", "/IM", exe], capture_output=True, text=True)
+    """Kill only build tools targeting this campaign BUILD tree."""
+    try:
+        import psutil  # type: ignore
+    except ImportError:
+        log("skip global kill_build_procs (psutil missing)")
+        return
+    needle = str(BUILD).replace("/", "\\").lower()
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            name = (proc.info.get("name") or "").lower()
+            if name not in ("ninja.exe", "cmake.exe", "ccache.exe"):
+                continue
+            cmd = " ".join(proc.info.get("cmdline") or []).lower()
+            if needle in cmd.replace("/", "\\"):
+                proc.kill()
+        except (psutil.Error, OSError):
+            pass
 
 
 def clean_ninja_logs(root: Path = BUILD) -> None:
@@ -135,7 +150,10 @@ def env() -> dict:
 
 def log(msg: str) -> None:
     line = time.strftime("%H:%M:%S") + " " + msg
-    print(line, flush=True)
+    try:
+        print(line, flush=True)
+    except UnicodeEncodeError:
+        print(line.encode("ascii", "replace").decode("ascii"), flush=True)
     OUT.mkdir(parents=True, exist_ok=True)
     with PROGRESS.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
@@ -173,8 +191,8 @@ def ppk_power_on(settle_s: float = 2.0) -> None:
 
 
 def flash_after_ppk_power_cycle(erase: bool = False) -> str:
-    """PPK off → on → wait USB → flash. ESP idles on POWERON until flash reset."""
-    log("PPK cycle before Phase C flash (cold boot → power-wait idle)")
+    """PPK off -> on -> wait USB -> flash. ESP idles on POWERON until flash reset."""
+    log("PPK cycle before Phase C flash (cold boot -> power-wait idle)")
     ppk_power_off()
     time.sleep(1.5)
     ppk_power_on(settle_s=2.0)
@@ -221,9 +239,11 @@ def find_port(timeout_s: float = 120.0) -> str | None:
 
 
 def fix_ulp_tool_cache(ulp_cache: Path) -> None:
-    """Replace msys64 binutils in ULP ExternalProject cache with ESP toolchain."""
+    """Force ESP toolchain tools into ULP ExternalProject cache; drop pollution."""
     text = ulp_cache.read_text(encoding="utf-8", errors="replace")
-    if "msys64" not in text:
+    # CMake stdout accidentally appended into the cache breaks configure.
+    if any(line.startswith("-- ") for line in text.splitlines()):
+        ulp_cache.unlink(missing_ok=True)
         return
     objcopy = (RISCV_BIN / "riscv32-esp-elf-objcopy.exe").as_posix()
     replacements = {
@@ -231,11 +251,16 @@ def fix_ulp_tool_cache(ulp_cache: Path) -> None:
         "CMAKE_MAKE_PROGRAM:FILEPATH=": f"CMAKE_MAKE_PROGRAM:FILEPATH={NINJA.as_posix()}",
     }
     lines = []
+    saw_objcopy = False
     for line in text.splitlines():
+        if line.startswith("-- "):
+            continue
         replaced = False
         for prefix, new_line in replacements.items():
             if line.startswith(prefix):
                 lines.append(new_line)
+                if prefix.startswith("CMAKE_OBJCOPY"):
+                    saw_objcopy = True
                 replaced = True
                 break
         if replaced:
@@ -250,10 +275,12 @@ def fix_ulp_tool_cache(ulp_cache: Path) -> None:
             or "CMAKE_LINKER:" in line
             or "CMAKE_ADDR2LINE:" in line
             or "CMAKE_DLLTOOL:" in line
+            or "CMAKE_OBJCOPY:" in line
         ):
-            # Drop host msys64 tool entries; ULP uses the ELF toolchain for link.
             continue
         lines.append(line)
+    if not saw_objcopy:
+        lines.append(f"CMAKE_OBJCOPY:FILEPATH={objcopy}")
     ulp_cache.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -338,10 +365,22 @@ def cmake_configure(ap: str, phase: str, defs: dict[str, str]) -> None:
         elif "CMAKE_CXX_COMPILER:FILEPATH=" in text and "msys64" in text:
             log("wiping host-msys build dir")
             shutil.rmtree(BUILD, ignore_errors=True)
-    ulp_cache = BUILD / "esp-idf" / "main" / "ulp_main" / "CMakeCache.txt"
-    if ulp_cache.exists() and "msys64" in ulp_cache.read_text(encoding="utf-8", errors="replace"):
-        log("patching ULP CMakeCache away from msys64 tools")
-        fix_ulp_tool_cache(ulp_cache)
+    ulp_dir = BUILD / "esp-idf" / "main" / "ulp_main"
+    ulp_cache = ulp_dir / "CMakeCache.txt"
+    ulp_prefix = BUILD / "esp-idf" / "main" / "ulp_main-prefix"
+    if ulp_cache.exists():
+        ulp_text = ulp_cache.read_text(encoding="utf-8", errors="replace")
+        # Patching / PowerShell UTF-8 BOM can corrupt the cache; wipe instead.
+        bad = (
+            "msys64" in ulp_text
+            or "-- Building ULP" in ulp_text
+            or ulp_text.startswith("\ufeff")
+            or not ulp_text.lstrip().startswith("#")
+        )
+        if bad:
+            log("wiping ULP ExternalProject (bad/msys/BOM cache)")
+            shutil.rmtree(ulp_dir, ignore_errors=True)
+            shutil.rmtree(ulp_prefix, ignore_errors=True)
     seed_usb_console_sdkconfig()
     args = [
         str(CMAKE),
@@ -403,19 +442,83 @@ def ninja_build() -> None:
     log("ninja build")
     e = env()
     e["Path"] = str(NINJA.parent) + ";" + e["Path"]
-    r = subprocess.run(
-        [str(NINJA), "-C", str(BUILD), "-j", "1"],
-        env=e,
-        capture_output=True,
-        text=True,
-    )
-    if r.returncode != 0:
-        (OUT / "ninja.err").write_text(
-            (r.stdout or "")[-30000:] + "\n" + (r.stderr or "")[-10000:],
-            encoding="utf-8",
-        )
+    lock = BUILD / ".ae_ninja.lock"
+    for _ in range(180):
+        try:
+            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, f"{os.getpid()}\n".encode())
+            os.close(fd)
+            break
+        except FileExistsError:
+            # Clear stale lock if owner PID is gone.
+            try:
+                owner = int(lock.read_text(encoding="utf-8").strip().splitlines()[0])
+                # Windows: OpenProcess fails when gone - use tasklist heuristic.
+                alive = subprocess.run(
+                    ["tasklist", "/FI", f"PID eq {owner}"],
+                    capture_output=True,
+                    text=True,
+                )
+                if str(owner) not in (alive.stdout or ""):
+                    lock.unlink(missing_ok=True)
+                    continue
+            except (OSError, ValueError):
+                lock.unlink(missing_ok=True)
+                continue
+            time.sleep(2)
+    else:
+        raise RuntimeError("ninja lock busy")
+    try:
+        last = None
+        for attempt in range(3):
+            ulp_dir = BUILD / "esp-idf" / "main" / "ulp_main"
+            ulp_cache = ulp_dir / "CMakeCache.txt"
+            ulp_prefix = BUILD / "esp-idf" / "main" / "ulp_main-prefix"
+            if ulp_cache.exists():
+                raw = ulp_cache.read_bytes()[:128]
+                text = raw.decode("utf-8", errors="replace")
+                bad = (
+                    b"msys64" in raw
+                    or not text.lstrip().startswith("#")
+                    or text.startswith("\ufeff")
+                    or "-- Building ULP" in text
+                )
+                if bad:
+                    log("wiping corrupt/msys ULP cache before ninja")
+                    shutil.rmtree(ulp_dir, ignore_errors=True)
+                    shutil.rmtree(ulp_prefix, ignore_errors=True)
+            r = subprocess.run(
+                [str(NINJA), "-C", str(BUILD), "-j", "1"],
+                env=e,
+                capture_output=True,
+                text=True,
+            )
+            if r.returncode == 0:
+                log("build ok")
+                return
+            last = r
+            out = (r.stdout or "") + "\n" + (r.stderr or "")
+            (OUT / "ninja.err").write_text(out[-80000:], encoding="utf-8")
+            hint = ""
+            for line in out.splitlines():
+                if (
+                    "FAILED:" in line
+                    or "Unable to recognise" in line
+                    or "Parse error" in line
+                ):
+                    hint = line.strip()
+            log(f"ninja retry {attempt + 1}/3 rc={r.returncode} {hint}")
+            if "Parse error" in out or "msys64" in out or "Unable to recognise" in out:
+                shutil.rmtree(ulp_dir, ignore_errors=True)
+                shutil.rmtree(ulp_prefix, ignore_errors=True)
+            time.sleep(2)
+        assert last is not None
         raise RuntimeError("ninja failed")
-    log("build ok")
+    finally:
+        try:
+            lock.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def flash(erase: bool = False) -> str:
@@ -815,19 +918,19 @@ def run_phase_c(ap: str, results: dict) -> None:
     ninja_build()
     start_receiver(f"adaptive_c_{ap}", session, tsv, rx_log)
     flash_after_ppk_power_cycle(erase=True)
-    # 5 FULL + 150 HOT * ~1s sleep ≈ 200s+; allow 45 min
+    # 5 FULL + 150 HOT * ~1s sleep ~ 200s+; allow 45 min
     log("phase C baseline wait for HOT delivery")
     t0 = time.time()
     target_hot = 150
     while time.time() - t0 < 45 * 60:
         if not receiver_alive():
-            log("receiver died — restarting")
+            log("receiver died - restarting")
             start_receiver(f"adaptive_c_{ap}", session, tsv, rx_log)
         stats = analyze_tsv(tsv)
         log(f"C progress hot={stats.get('hot', 0)}/{target_hot} full={stats.get('full', 0)}")
         if stats.get("hot", 0) >= target_hot:
             break
-        # COM may disappear during sleep — do not treat as crash
+        # COM may disappear during sleep - do not treat as crash
         time.sleep(10)
     base = analyze_tsv(tsv)
     results[ap]["phase_c_baseline"] = {
