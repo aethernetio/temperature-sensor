@@ -254,6 +254,7 @@ set(AE_EXP_ADAPTIVE_WIFI_PROBE_C "" CACHE STRING "Adaptive Wi-Fi probe Phase C p
 set(AE_EXP_PRODUCT_ADAPTIVE_PROBE "" CACHE STRING "Product adaptive Wi-Fi probe, self-selecting (set to 1)")
 # The measured stages always deep sleep; these only size the run.
 set(AE_PRODUCT_PROBE_SMOKE "" CACHE STRING "Product probe deep-sleep smoke: measured packets, then stop")
+set(AE_PRODUCT_PROBE_SMOKE_PRE_MS "" CACHE STRING "Product probe smoke: PRE delay to pin instead of searching")
 set(AE_PRODUCT_PROBE_PPK_ARM_MS "" CACHE STRING "Product probe PPK_ARM audible wait before the hot run (ms)")
 set(AE_PRODUCT_PROBE_MAX_BATCH_INVALIDATIONS "" CACHE STRING "Product probe unconfirmed-sleep batch retries")
 set(AE_EXP_PREPARED_TX_DONE_DIAG "" CACHE STRING "Silent TX-done callback diagnostic 1x50 (set to 1)")
@@ -331,7 +332,8 @@ if(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
              AE_PRODUCT_PROBE_QUERY_TIMEOUT_MS AE_PRODUCT_PROBE_HOT_COUNT
              AE_PRODUCT_PROBE_SLEEP_MS
              AE_PRODUCT_PROBE_MAX_BATCH_INVALIDATIONS
-             AE_PRODUCT_PROBE_PPK_ARM_MS AE_PRODUCT_PROBE_SMOKE)
+             AE_PRODUCT_PROBE_PPK_ARM_MS AE_PRODUCT_PROBE_SMOKE
+             AE_PRODUCT_PROBE_SMOKE_PRE_MS)
     if(DEFINED ${_d} AND NOT "${${_d}}" STREQUAL "")
       target_compile_definitions(${TARGET_NAME} PRIVATE "${_d}=${${_d}}")
     endif()

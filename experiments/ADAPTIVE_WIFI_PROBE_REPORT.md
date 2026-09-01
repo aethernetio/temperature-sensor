@@ -211,13 +211,19 @@ profile, PRE delay and POST delay from its own measurements on
 whichever access point it is attached to, then runs a 100-packet hot
 campaign with the result.
 
+Every measured packet is one boot: wake, associate, send one datagram,
+hold the POST delay, tear down, deep sleep 250 ms. The sleep is a real
+timer deep sleep, never a software restart, and the boot that follows
+has to report a deep-sleep reset with a timer wake or the sample and
+its whole batch are thrown away.
+
 Firmware: `main/product_adaptive_wifi_probe.cpp`
 (`-DAE_EXP_PRODUCT_ADAPTIVE_PROBE=1`). Receiver:
 aether `examples/probe_receiver` (TCP only). Selection algorithm:
 `examples/probe_receiver/product_probe_select.h`, host tests in
 aether `tests/test-product-probe`.
 
-`sizeof(ProbeRtcState)` = 64 bytes of RTC memory.
+`sizeof(ProbeRtcState)` = 108 bytes of RTC memory.
 
 ### Selected parameters
 
@@ -226,66 +232,126 @@ only when the local send call fails. `HOT delivered` is how many of
 those packets the receiver saw, so the two differ by whatever the
 network dropped after the send succeeded.
 
-| AP | status | profile | PRE ms | POST ms | sleep ms | HOT sent | HOT fail | HOT delivered | reprobes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| chirkov | OK | P1 | 0 | 300 | 250 | 100 | 0 | 36 | 0 |
-| aethernetio | OK | P4 | 0 | 300 | 250 | 100 | 0 | 98 | 0 |
+| AP | status | profile | PRE ms | POST ms | sleep ms | HOT sent | HOT fail | HOT unconfirmed | HOT delivered | reprobes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| chirkov | OK | P4 | 25 | 0 | 250 | 100 | 0 | 0 | 95 | 0 |
+| aethernetio | OK | P4 | 0 | 0 | 250 | 100 | 0 | 0 | 96 | 0 |
+
+### Deep sleep
+
+Every boot checks its own reset reason and wake cause: a measured send
+must be followed by reset 8 (ESP_RST_DEEPSLEEP)
+and wake 4 (ESP_SLEEP_WAKEUP_TIMER), and any
+other pair is counted as a bad wake and throws the whole batch away.
+Software restarts belong to the audible stages only and are counted
+separately so they can never be mistaken for a sleep.
+
+`measured sleep` is what the device observed between arming the timer
+and reaching the application on the next boot, so it is the 250 ms
+sleep plus the wake overhead the chip cannot avoid.
+
+| AP | timer wakes | software restarts | rejected sleeps | bad wakes | measured sleep us | wake overhead us |
+| --- | --- | --- | --- | --- | --- | --- |
+| chirkov | 252 | 29 | 0 | 0 | 399489 | 149489 |
+| aethernetio | 290 | 25 | 0 | 0 | 399519 | 149519 |
 
 ### Probe batches as counted by the receiver
 
-A batch passes when all 20 packets arrive; 19 buys one extra batch at
-the same delay. When no candidate passes, the POST delay falls back to
-the most conservative value in the table and the stage keeps retrying
-it, up to its batch cap, in case it passes later. That is why a table
-can show the same POST value repeated without ever reaching 20/20.
+A batch passes only when all 20 packets were sent locally, confirmed
+by a TX-done success and followed by a confirmed deep sleep, and all
+20 arrived. 19 buys one more independent batch at the same delay,
+which passes on 38 of the 40 combined. Anything less fails, and the
+search moves to the next value up the table only in the sense that it
+stops: a failure never turns into a pass, and when the most
+conservative value fails first the path is reported invalid instead of
+being assigned a POST delay it never earned.
+
+The PRE delay is the one parameter ICMP cannot answer for. An echo
+request resolves and retries, so it survives an association the single
+prepared datagram does not: on chirkov every PRE from 100 down to 0
+passed the ICMP trial with no loss, and a pinned comparison then
+delivered 1 of 10 packets at PRE 0 against 38 of 44 at PRE 100. So a
+POST 300 batch that fails with nothing behind it now moves one step up
+the PRE ladder and measures again with prepared sends, and the path is
+only called invalid once the largest PRE has failed too. The batches
+below show that walk: the PRE column changes while POST stays at 300.
 
 **chirkov**
 
-| batch | stage | POST ms | expected | unique | dup | missing |
+| batch | PRE ms | POST ms | expected | unique | dup | missing |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | POST_PROBE | 100 | 20 | 8 | 0 | 12 |
-| 2 | POST_PROBE | 200 | 20 | 11 | 0 | 9 |
-| 3 | POST_PROBE | 300 | 20 | 12 | 0 | 8 |
-| 4 | POST_PROBE | 300 | 20 | 15 | 0 | 5 |
-| 5 | POST_PROBE | 300 | 20 | 12 | 0 | 8 |
-| 6 | POST_PROBE | 300 | 20 | 12 | 0 | 8 |
-| 7 | POST_PROBE | 300 | 20 | 14 | 0 | 6 |
-| 8 | POST_PROBE | 300 | 20 | 15 | 0 | 5 |
-| 9 | POST_PROBE | 300 | 20 | 17 | 0 | 3 |
-| 10 | POST_PROBE | 300 | 20 | 16 | 0 | 4 |
-| 11 | POST_PROBE | 300 | 20 | 13 | 0 | 7 |
-| 12 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
-| 13 | SLEEP_CONFIRM | 300 | 20 | 5 | 0 | 15 |
+| 1 | 0 | 300 | 20 | 3 | 0 | 17 |
+| 2 | 10 | 300 | 20 | 12 | 0 | 8 |
+| 3 | 25 | 300 | 20 | 20 | 0 | 0 |
+| 4 | 25 | 200 | 20 | 19 | 0 | 1 |
+| 5 | 25 | 200 | 20 | 20 | 0 | 0 |
+| 6 | 25 | 100 | 20 | 19 | 0 | 1 |
+| 7 | 25 | 100 | 20 | 20 | 0 | 0 |
+| 8 | 25 | 50 | 20 | 20 | 0 | 0 |
+| 9 | 25 | 25 | 20 | 20 | 0 | 0 |
+| 10 | 25 | 10 | 20 | 20 | 0 | 0 |
+| 11 | 25 | 0 | 20 | 19 | 0 | 1 |
+| 12 | 25 | 0 | 20 | 19 | 0 | 1 |
 
-Hot cycle time from the previous-send timing carried in each HOT_DATA packet (us): n=36 min=499304 median=569311 p90=599248 max=629427
+Timing of the previous send, carried in each HOT_DATA packet (95 clean samples; a clean sample sent locally, saw a TX-done success and had its sleep confirmed). All values in microseconds.
 
-**PPK_CAPTURE_REQUIRED** - current trace not captured during the campaign
-(logger exited immediately: live `ppk2_hold_power` owned the Windows mutex).
-Orchestrator now stops the hold before starting `ppk2_log_power.py`.
-Smoke retest after the fix: logger runs and writes CSV samples @ 3000 mV.
-HOT100 energy/charge not re-measured yet (needs another HOT run with the fix).
+| field | min | median | p90 | max |
+| --- | --- | --- | --- | --- |
+| connect | 116043 | 133329 | 203300 | 272312 |
+| cycle | 190765 | 240773 | 330779 | 450782 |
+| encode | 2091 | 2098 | 2418 | 3751 |
+| sendto_call | 580 | 594 | 639 | 2252 |
+| send_to_txdone | 664 | 6626 | 20103 | 28759 |
+| txdone_minus_ret | 75 | 5921 | 19505 | 28175 |
+| actual_post | 553 | 594 | 704 | 718 |
+| teardown | 42922 | 68283 | 122592 | 203392 |
+| awake | 251711 | 301719 | 391725 | 511728 |
+| sleep | 399489 | 399489 | 399520 | 399520 |
+| wake_overhead | 149489 | 149489 | 149520 | 149520 |
+
+Current trace: `chirkov_hot_power.csv` at 3000 mV.
 
 **aethernetio**
 
-| batch | stage | POST ms | expected | unique | dup | missing |
+| batch | PRE ms | POST ms | expected | unique | dup | missing |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | POST_PROBE | 100 | 20 | 20 | 0 | 0 |
-| 2 | POST_PROBE | 200 | 20 | 20 | 0 | 0 |
-| 3 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
-| 4 | POST_PROBE | 300 | 20 | 18 | 0 | 2 |
-| 5 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
-| 6 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
-| 7 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
-| 8 | POST_PROBE | 300 | 20 | 18 | 0 | 2 |
-| 9 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
-| 10 | POST_PROBE | 300 | 20 | 20 | 0 | 0 |
-| 11 | POST_PROBE | 300 | 20 | 20 | 0 | 0 |
-| 12 | POST_PROBE | 300 | 20 | 20 | 0 | 0 |
-| 13 | SLEEP_CONFIRM | 300 | 20 | 19 | 0 | 1 |
+| 1 | 0 | 300 | 20 | 20 | 0 | 0 |
+| 2 | 0 | 200 | 20 | 20 | 0 | 0 |
+| 3 | 0 | 100 | 20 | 20 | 0 | 0 |
+| 4 | 0 | 50 | 20 | 19 | 0 | 1 |
+| 5 | 0 | 50 | 20 | 19 | 0 | 1 |
+| 6 | 0 | 25 | 20 | 20 | 0 | 0 |
+| 7 | 0 | 10 | 20 | 19 | 0 | 1 |
+| 8 | 0 | 10 | 20 | 19 | 0 | 1 |
+| 9 | 0 | 0 | 20 | 20 | 0 | 0 |
 
-Hot cycle time from the previous-send timing carried in each HOT_DATA packet (us): n=98 min=569438 median=649484 p90=689419 max=839521
+Timing of the previous send, carried in each HOT_DATA packet (96 clean samples; a clean sample sent locally, saw a TX-done success and had its sleep confirmed). All values in microseconds.
 
-**PPK_CAPTURE_REQUIRED** - same hold/mutex issue as chirkov; fixed in orchestrator,
-HOT100 energy not re-measured yet.
+| field | min | median | p90 | max |
+| --- | --- | --- | --- | --- |
+| connect | 167532 | 207299 | 246729 | 3511334 |
+| cycle | 250863 | 300857 | 350857 | 3610848 |
+| encode | 2095 | 2518 | 2897 | 3931 |
+| sendto_call | 585 | 598 | 609 | 1293 |
+| send_to_txdone | 683 | 781 | 10380 | 33831 |
+| txdone_minus_ret | 91 | 167 | 9778 | 33234 |
+| actual_post | 555 | 569 | 708 | 856 |
+| teardown | 67537 | 86654 | 105254 | 228723 |
+| awake | 311715 | 361710 | 411710 | 3671700 |
+| sleep | 399489 | 399519 | 399520 | 399520 |
+| wake_overhead | 149489 | 149519 | 149520 | 149520 |
+
+Current trace: `aethernetio_hot_power.csv` at 3000 mV.
+
+### Success criteria
+
+- `ACTUAL_DEEP_SLEEP_USED=yes`
+- `SOFTWARE_RESTART_COUNTED_AS_SLEEP=no`
+- `NO_SLEEP_POST_PROBE_REMOVED=yes`
+- `CALLBACK_DIRECTLY_BEFORE_SENDTO=yes`
+- `CALLBACK_REQUIRES_TX_SUCCESS=yes`
+- `INVALID_POST300_FALLBACK_REMOVED=yes`
+- `PPK_CAPTURE_COMPLETE=yes`
+- `SERVER_CHANGED=no`
 
 Raw logs and per-AP JSON: `experiments/product_adaptive_probe_results/`.

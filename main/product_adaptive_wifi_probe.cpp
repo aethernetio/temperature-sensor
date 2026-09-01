@@ -100,6 +100,14 @@ static constexpr auto kServiceUid =
 static constexpr std::uint16_t kSmokePackets = AE_PRODUCT_PROBE_SMOKE;
 static constexpr bool kSmokeMode = kSmokePackets > 0;
 
+// The PRE delay the smoke pins instead of searching for one. It exists to
+// compare a fresh association's first datagram across PRE delays without the
+// ICMP search in the way.
+#ifndef AE_PRODUCT_PROBE_SMOKE_PRE_MS
+#  define AE_PRODUCT_PROBE_SMOKE_PRE_MS 0
+#endif
+static constexpr std::uint16_t kSmokePreMs = AE_PRODUCT_PROBE_SMOKE_PRE_MS;
+
 // How long PPK_ARM stays awake so the campaign runner can attach its power
 // logger before the first production packet.
 #ifndef AE_PRODUCT_PROBE_PPK_ARM_MS
@@ -551,7 +559,7 @@ probe::IcmpTrial RunIcmpTrial(ae::WifiProbeProfile profile,
 // search entirely and pins the parameters it was asked for.
 [[noreturn]] void RunSmokeSelectStage() {
   g_rtc.profile = static_cast<std::uint8_t>(ae::WifiProbeProfile::kP1CachedIp);
-  g_rtc.pre_ms = 0;
+  g_rtc.pre_ms = kSmokePreMs;
   g_rtc.post_search = probe::PostSearchState{};
   g_rtc.post_ms = probe::PostSearchCurrent(g_rtc.post_search);
   std::printf("P_SMOKE packets=%u profile=%u pre=%u post=%u sleep=%u\n",
@@ -1245,8 +1253,25 @@ bool ApplyPostVerdict() {
       // Same candidate, a fresh and independently identified batch.
       return BeginPreparedBatch(probe::ProbeStage::kPostProbeSleep250,
                                 BatchSize());
-    case probe::PostSearchAction::kFinishedInvalid:
-      return finish_invalid("no_post_delivers");
+    case probe::PostSearchAction::kFinishedInvalid: {
+      // The most conservative POST failed. Before calling the path unusable,
+      // measure it again with more room after the association: ICMP chose this
+      // PRE, and an echo request tolerates delays the single prepared datagram
+      // does not.
+      auto const next_pre = probe::ProductPreEscalate(g_rtc.pre_ms);
+      if (next_pre == 0 || kSmokeMode) {
+        return finish_invalid("no_post_delivers");
+      }
+      std::printf("P_PRE_ESCALATE from=%u to=%u\n",
+                  static_cast<unsigned>(g_rtc.pre_ms),
+                  static_cast<unsigned>(next_pre));
+      std::fflush(stdout);
+      g_rtc.pre_ms = next_pre;
+      g_rtc.post_search = probe::PostSearchState{};
+      g_rtc.post_ms = probe::PostSearchCurrent(g_rtc.post_search);
+      return BeginPreparedBatch(probe::ProbeStage::kPostProbeSleep250,
+                                BatchSize());
+    }
     case probe::PostSearchAction::kFinishedSelected:
       break;
   }
