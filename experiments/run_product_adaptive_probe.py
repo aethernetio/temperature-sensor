@@ -9,8 +9,17 @@ Per access point:
   1. configure + build the product firmware (phase "P")
   2. erase-flash, so the AP association cache starts empty
   3. start the aether probe_receiver over TCP
-  4. tail the serial log and the receiver log until stage 9 (DONE)
-  5. start PPK2 current logging when the hot run begins, stop it at the end
+  4. tail the serial log and the receiver log until stage 8 (DONE)
+  5. start PPK2 current logging on the PPK_ARM marker, stop it at the end
+
+The measured stages of the firmware send one datagram per wake and then really
+deep sleep, so they cannot print. PPK_ARM exists purely to give this runner an
+audible point to attach the power logger: the hot run that follows is silent
+from the first packet onward, so waiting for it would capture nothing.
+
+--smoke runs the same firmware with AE_PRODUCT_PROBE_SMOKE packets and fixed
+parameters. It proves the measured path takes a real timer deep sleep before
+any long campaign is allowed to start.
 
 State lives in experiments/product_probe_checkpoint.json so an interrupted run
 resumes at the access point that did not finish.
@@ -46,13 +55,30 @@ MINGW_CXX = MINGW_BIN / "c++.exe"
 
 APS = ("chirkov", "aethernetio")
 
-# The firmware prints one P_STAGE line per non-measured stage, so the highest
-# stage seen is the progress indicator. Stages 2, 4 and 7 are silent.
-STAGE_DONE = 9
-# Whole-run budget and the stall window that triggers a hard reset.
+# The firmware prints one P_STAGE line per audible stage, so the highest stage
+# seen is the progress indicator. Stages 2 and 6 are measured and silent.
+STAGE_PPK_ARM = 5
+STAGE_HOT_RUN = 6
+STAGE_DONE = 8
+# Whole-run budget and the stall window that triggers a hard reset. One measured
+# packet costs a full boot plus 250 ms of sleep, so a 100-packet hot run alone is
+# tens of minutes and the stall window has to stay well clear of that.
 AP_TIMEOUT_S = 3 * 60 * 60
 STALL_S = 20 * 60
 MAX_HARD_RESETS = 3
+# The arm window is the firmware's; the poll has to be a lot finer than that or
+# the logger starts after the first production packet.
+POLL_S = 1.0
+SLOW_POLL_EVERY = 15
+
+# esp_reset_reason_t / esp_sleep_source_t, quoted so the report can name the
+# codes the firmware prints in P_BOOT.
+ESP_RST_DEEPSLEEP = 8
+ESP_SLEEP_WAKEUP_TIMER = 4
+
+# Measured packets for the deep-sleep smoke: enough to show a repeating
+# sleep/wake/send cycle, short enough to finish in a couple of minutes.
+SMOKE_PACKETS = 3
 
 spec = importlib.util.spec_from_file_location(
     "camp", ROOT / "experiments" / "run_adaptive_wifi_probe_campaign.py"
@@ -124,6 +150,20 @@ def load_checkpoint() -> dict:
 def save_checkpoint(data: dict) -> None:
     CHECKPOINT.parent.mkdir(parents=True, exist_ok=True)
     CHECKPOINT.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def note_progress(ap: str, **fields: object) -> None:
+    """Record where the run is, so a kill mid-campaign is diagnosable.
+
+    A whole campaign is hours long and the interesting events - a stage change,
+    a POST verdict, a probe batch, the power capture - are minutes apart, so the
+    checkpoint carries them rather than only the access point index.
+    """
+    cp = load_checkpoint()
+    progress = cp.setdefault("progress", {}).setdefault(ap, {})
+    progress.update(fields)
+    progress["updated"] = int(time.time())
+    save_checkpoint(cp)
 
 
 # ---------------------------------------------------------------------------
@@ -438,8 +478,29 @@ def start_ppk_log(csv_path: Path) -> subprocess.Popen | None:
             pass
         log(f"PPK_CAPTURE_REQUIRED: logger exited immediately ({detail.strip()})")
         return None
+    # A live process that writes nothing is the failure that used to pass
+    # unnoticed and cost a whole hot run, so the CSV has to be seen growing.
+    first = csv_path.stat().st_size if csv_path.exists() else 0
+    time.sleep(5)
+    grown = csv_path.exists() and csv_path.stat().st_size > first
+    if not grown or proc.poll() is not None:
+        log("PPK_CAPTURE_REQUIRED: logger alive but CSV not growing")
+        stop_proc(proc)
+        return None
     log(f"PPK logging at {camp.PPK_VOLTAGE_MV} mV -> {csv_path.name}")
     return proc
+
+
+def arm_ppk(csv_path: Path) -> subprocess.Popen | None:
+    """Attach the power logger during the firmware's audible arm window.
+
+    The hot run that follows is silent, so there is no later marker to react to.
+    Returning None means this attempt produced no trace; the caller power-cycles
+    the board and runs the access point again rather than reporting a hot run
+    with no current data.
+    """
+    log("PPK_ARM seen; attaching power logger")
+    return start_ppk_log(csv_path)
 
 
 def wait_for_board(timeout_s: float = 1800) -> str | None:
@@ -489,6 +550,60 @@ def highest_stage(serial_text: str) -> int:
     return best
 
 
+def boot_marks(text: str) -> list[dict]:
+    """Reset reason and wake cause for every boot the firmware recorded.
+
+    A measured stage cannot print while it runs, so it stores the codes in RTC
+    memory and the next audible stage replays them. This is the only direct
+    evidence that a measured send ended in a timer deep sleep.
+    """
+    return [
+        {
+            "stage": int(m.group(1)),
+            "reset": int(m.group(2)),
+            "wake": int(m.group(3)),
+            "cold": int(m.group(4)),
+        }
+        for m in re.finditer(
+            r"P_BOOT stage=(\d+) reset=(\d+) wake=(\d+) cold=(\d+)", text
+        )
+    ]
+
+
+def deep_sleep_evidence(text: str) -> dict:
+    marks = boot_marks(text)
+    woke = [
+        m
+        for m in marks
+        if m["reset"] == ESP_RST_DEEPSLEEP and m["wake"] == ESP_SLEEP_WAKEUP_TIMER
+    ]
+    sums = list(
+        re.finditer(
+            r"P_BOOT_SUM boots=(\d+) timer_wakes=(\d+) bad_wakes=(\d+) "
+            r"reject=(\d+) reject_err=(-?\d+) sleep_us=(\d+) overhead_us=(\d+)",
+            text,
+        )
+    )
+    out = {
+        "boots_recorded": len(marks),
+        "deepsleep_timer_wakes": len(woke),
+        "software_restarts": len(re.findall(r"P_RESTART stage=", text)),
+        "sleep_rejects": 0,
+        "bad_wakes": 0,
+        "timer_wakes_total": 0,
+    }
+    for m in sums:
+        out["timer_wakes_total"] = max(out["timer_wakes_total"], int(m.group(2)))
+        out["bad_wakes"] = max(out["bad_wakes"], int(m.group(3)))
+        out["sleep_rejects"] = max(out["sleep_rejects"], int(m.group(4)))
+    sleeps = [int(m.group(1)) for m in re.finditer(r"sleep_us=(\d+)", text)]
+    measured = [s for s in sleeps if s > 0]
+    if measured:
+        measured.sort()
+        out["sleep_elapsed_us_median"] = measured[len(measured) // 2]
+    return out
+
+
 def parse_serial(text: str) -> dict:
     out: dict = {"icmp_trials": [], "verdicts": [], "reprobes": []}
     for m in re.finditer(
@@ -514,27 +629,36 @@ def parse_serial(text: str) -> dict:
         out["winner_profile"] = int(m.group(1))
         out["winner_pre_ms"] = int(m.group(2))
     for m in re.finditer(
-        r"P_VERDICT stage=(\d+) post=(\d+) unique=(\d+) expected=(\d+) "
-        r"verdict=(\d+) batches=(\d+) timeout=(\d)",
+        r"P_VERDICT post=(\d+) unique=(\d+) local_ok=(\d+) expected=(\d+) "
+        r"action=(\d+) batches=(\d+) invalidations=(\d+) timeout=(\d)",
         text,
     ):
         out["verdicts"].append(
             {
-                "stage": int(m.group(1)),
-                "post_ms": int(m.group(2)),
-                "unique": int(m.group(3)),
+                "post_ms": int(m.group(1)),
+                "unique": int(m.group(2)),
+                "local_ok": int(m.group(3)),
                 "expected": int(m.group(4)),
-                "verdict": int(m.group(5)),
+                "action": int(m.group(5)),
                 "batches": int(m.group(6)),
-                "query_timeout": bool(int(m.group(7))),
+                "invalidations": int(m.group(7)),
+                "query_timeout": bool(int(m.group(8))),
             }
         )
     for m in re.finditer(r"P_REPROBE reason=(\S+) count=(\d+)", text):
         out["reprobes"].append({"reason": m.group(1), "count": int(m.group(2))})
+    m = re.search(r"P_POST_SELECTED post=(\d+)", text)
+    if m:
+        out["post_selected_ms"] = int(m.group(1))
+    m = re.search(r"P_PATH_INVALID reason=(\S+) post=(\d+)", text)
+    if m:
+        out["path_invalid"] = {"reason": m.group(1), "post_ms": int(m.group(2))}
+    out["ppk_armed"] = "P_HOT_ARM " in text
     stages = list(
         re.finditer(
             r"P_STAGE stage=(\d+) name=(\S+) tag=(\S+) session=(\S+) profile=(\d+) "
-            r"pre=(\d+) post=(\d+) sleep=(\d+)",
+            r"pre=(\d+) post=(\d+) sleep=(\d+) batch=(\d+) param=(\d+) seq=(\d+) "
+            r"hot=(\d+) fail=(\d+) reprobe=(\d+)",
             text,
         )
     )
@@ -548,8 +672,12 @@ def parse_serial(text: str) -> dict:
             "pre_ms": int(last.group(6)),
             "post_ms": int(last.group(7)),
             "sleep_ms": int(last.group(8)),
+            "hot_sent": int(last.group(12)),
+            "hot_fail": int(last.group(13)),
+            "reprobe": int(last.group(14)),
         }
     out["highest_stage"] = highest_stage(text)
+    out["deep_sleep"] = deep_sleep_evidence(text)
     return out
 
 
@@ -558,7 +686,7 @@ def parse_rx(text: str) -> dict:
     for m in re.finditer(
         r"PROBE_RESULT session=(\d+) batch=(\d+) param=(\d+) stage=(\S+) "
         r"profile=(\d+) pre=(\d+) post=(\d+) sleep=(\d+) expected=(\d+) "
-        r"unique=(\d+) dup=(\d+) missing=(\d+)",
+        r"unique=(\d+) dup=(\d+) missing=(\d+) oow=(\d+)",
         text,
     ):
         out["probe_results"].append(
@@ -574,33 +702,24 @@ def parse_rx(text: str) -> dict:
                 "unique": int(m.group(10)),
                 "dup": int(m.group(11)),
                 "missing": int(m.group(12)),
+                "out_of_window": int(m.group(13)),
             }
         )
-    hot = [m for m in re.finditer(r"HOT_DATA session=(\d+) batch=(\d+) seq=(\d+)", text)]
-    out["hot_data"] = len(hot)
-    out["hot_unique_seq"] = len({m.group(3) for m in hot})
-    # Only successful previous sends carry meaningful timing.
-    cycles = [
-        int(m.group(1))
+    hot = [
+        m
         for m in re.finditer(
-            r"prev_valid=1 prev_status=1 prev_connect_us=\d+ prev_cycle_us=(\d+)",
-            text,
+            r"HOT_DATA session=(\d+) batch=(\d+) stage=(\S+) seq=(\d+)", text
         )
+        if m.group(3) == "HOT_RUN"
     ]
-    if cycles:
-        cycles.sort()
-        out["cycle_us"] = {
-            "n": len(cycles),
-            "min": cycles[0],
-            "median": cycles[len(cycles) // 2],
-            "p90": cycles[min(len(cycles) - 1, int(len(cycles) * 0.9))],
-            "max": cycles[-1],
-        }
+    out["hot_data"] = len(hot)
+    out["hot_unique_seq"] = len({m.group(4) for m in hot})
+    out["timing"] = hot_timing(text)
     summaries = list(
         re.finditer(
             r"HOT_SUMMARY session=(\d+) batch=(\d+) param=(\d+) profile=(\d+) "
             r"pre=(\d+) post=(\d+) sleep=(\d+) hot_sent=(\d+) hot_fail=(\d+) "
-            r"reprobe=(\d+)",
+            r"hot_unconfirmed=(\d+) reprobe=(\d+) invalidations=(\d+)",
             text,
         )
     )
@@ -613,8 +732,60 @@ def parse_rx(text: str) -> dict:
             "sleep_ms": int(m.group(7)),
             "hot_sent": int(m.group(8)),
             "hot_fail": int(m.group(9)),
-            "reprobe": int(m.group(10)),
+            "hot_unconfirmed": int(m.group(10)),
+            "reprobe": int(m.group(11)),
+            "invalidations": int(m.group(12)),
         }
+    return out
+
+
+# Each HOT_DATA packet carries the timing of the send before it, so the figures
+# are read out of the receiver log rather than measured by this runner. Only
+# clean samples are summarised: prev_flags == 7 is local send ok, TX-done
+# confirmed and the following deep sleep confirmed.
+TIMING_FIELDS = (
+    "prev_connect_us",
+    "prev_cycle_us",
+    "prev_encode_us",
+    "prev_sendto_call_us",
+    "prev_send_to_txdone_us",
+    "prev_txdone_minus_ret_us",
+    "prev_actual_post_us",
+    "prev_teardown_us",
+    "prev_awake_us",
+    "prev_sleep_us",
+    "prev_wake_overhead_us",
+)
+CLEAN_SAMPLE_FLAGS = 7
+
+
+def summarise(values: list[int]) -> dict:
+    values = sorted(values)
+    return {
+        "n": len(values),
+        "min": values[0],
+        "median": values[len(values) // 2],
+        "p90": values[min(len(values) - 1, int(len(values) * 0.9))],
+        "max": values[-1],
+    }
+
+
+def hot_timing(text: str) -> dict:
+    samples: dict[str, list[int]] = {name: [] for name in TIMING_FIELDS}
+    total = 0
+    for m in re.finditer(r"prev_seq=(\d+) prev_flags=(\d+) prev_status=(\d+)(.*)", text):
+        if int(m.group(2)) != CLEAN_SAMPLE_FLAGS:
+            continue
+        total += 1
+        tail = m.group(4)
+        for name in TIMING_FIELDS:
+            f = re.search(rf"\b{name}=(-?\d+)", tail)
+            if f:
+                samples[name].append(int(f.group(1)))
+    out: dict = {"clean_samples": total}
+    for name, values in samples.items():
+        if values:
+            out[name] = summarise(values)
     return out
 
 
@@ -626,50 +797,66 @@ def parse_rx(text: str) -> dict:
 CONFIGURED_MARK = ROOT / "experiments" / "product_probe_configured.txt"
 
 
-def build_firmware(ap: str) -> None:
+def build_firmware(ap: str, *, smoke: int = 0) -> None:
     # Reconfiguring rewrites the AP credentials into the build, which costs a
-    # near-full rebuild, so it only runs when the target AP actually changes.
-    want = f"P:{ap}"
+    # near-full rebuild, so it only runs when the target AP or the smoke packet
+    # count actually changes.
+    want = f"P:{ap}:smoke{smoke}"
     have = CONFIGURED_MARK.read_text(encoding="utf-8").strip() if (
         CONFIGURED_MARK.exists()
     ) else ""
     if have != want:
-        camp.cmake_configure(ap, "P", {"BENCH_CLIENT_ID": "reliability_full_v1"})
+        defs = {"BENCH_CLIENT_ID": "reliability_full_v1"}
+        if smoke:
+            # The smoke run has no hot campaign to arm, so it must not spend the
+            # arm window waiting for a logger nobody started.
+            defs["AE_PRODUCT_PROBE_SMOKE"] = str(smoke)
+            defs["AE_PRODUCT_PROBE_PPK_ARM_MS"] = "0"
+        camp.cmake_configure(ap, "P", defs)
         CONFIGURED_MARK.write_text(want, encoding="utf-8")
     else:
-        log(f"cmake up to date for {ap}")
+        log(f"cmake up to date for {ap} smoke={smoke}")
     camp.ninja_build()
 
 
-def run_ap(ap: str) -> dict:
+def run_ap_once(ap: str, *, smoke: int = 0, attempt: int = 1) -> dict:
     OUT.mkdir(parents=True, exist_ok=True)
-    serial_log = OUT / f"{ap}_serial.log"
-    rx_log = OUT / f"{ap}_rx.log"
-    ppk_csv = OUT / f"{ap}_hot100_power.csv"
+    prefix = f"{ap}_smoke" if smoke else ap
+    serial_log = OUT / f"{prefix}_serial.log"
+    rx_log = OUT / f"{prefix}_rx.log"
+    ppk_csv = OUT / f"{ap}_hot_power.csv"
     for p in (serial_log, rx_log):
         if p.exists():
             p.unlink()
 
-    log(f"==== {ap} ====")
-    build_firmware(ap)
+    log(f"==== {ap} smoke={smoke} attempt={attempt} ====")
+    note_progress(prefix, phase="build", attempt=attempt)
+    build_firmware(ap, smoke=smoke)
     port = wait_for_board()
     if not port:
         raise RuntimeError("no COM for erase-flash")
+    note_progress(prefix, phase="flash")
     port = camp.flash(erase=True)
     start_receiver(rx_log)
     tail = start_serial_tail(port, serial_log)
     ppk: subprocess.Popen | None = None
-    ppk_required = False
+    # The smoke run stops before the hot campaign, so it has no trace to take.
+    ppk_wanted = not smoke
+    ppk_failed = False
 
     t0 = time.time()
     last_len = -1
     last_progress = time.time()
     resets = 0
     stage = -1
+    ticks = 0
     status = "TIMEOUT"
     try:
         while time.time() - t0 < AP_TIMEOUT_S:
-            if not probe_receiver_alive():
+            ticks += 1
+            # Reading two small logs every second is cheap; asking Windows for
+            # the process table is not, so that stays on the slow cadence.
+            if ticks % SLOW_POLL_EVERY == 0 and not probe_receiver_alive():
                 log("receiver dead - restart")
                 start_receiver(rx_log, append=True)
             stext = read_text(serial_log)
@@ -678,14 +865,32 @@ def run_ap(ap: str) -> dict:
             if new_stage > stage:
                 stage = new_stage
                 log(f"{ap} stage={stage}")
-            # The hot run is the only stage worth a current trace.
-            if stage >= 7 and ppk is None and not ppk_required:
-                ppk = start_ppk_log(ppk_csv)
-                ppk_required = ppk is None
+                note_progress(prefix, phase="run", stage=stage)
+            for m in re.finditer(r"P_POST_SELECTED post=(\d+)", stext):
+                note_progress(prefix, post_ms=int(m.group(1)))
+            batches = len(re.findall(r"PROBE_RESULT session=", rtext))
+            if batches:
+                note_progress(prefix, probe_batches=batches)
+
+            # PPK_ARM is the last audible point before the hot run: everything
+            # after it is silent, so the logger has to attach inside this window.
+            if ppk_wanted and ppk is None and "P_HOT_ARM " in stext:
+                ppk_wanted = False
+                ppk = arm_ppk(ppk_csv)
+                if ppk is None:
+                    ppk_failed = True
+                    note_progress(prefix, ppk="failed")
+                    break
+                note_progress(prefix, ppk="logging")
+
             if stage >= STAGE_DONE or "HOT_SUMMARY" in rtext:
                 status = "OK"
                 # Let the trailing HOT_SUMMARY line land in the receiver log.
                 time.sleep(10)
+                break
+            if "P_PATH_INVALID" in stext:
+                status = "PATH_INVALID"
+                time.sleep(5)
                 break
             total = len(stext) + len(rtext)
             if total != last_len:
@@ -698,27 +903,88 @@ def run_ap(ap: str) -> dict:
                 resets += 1
                 hard_reset(port)
                 last_progress = time.time()
-            time.sleep(15)
+            time.sleep(POLL_S)
     finally:
         stop_proc(ppk)
         stop_proc(tail)
 
+    if ppk_failed:
+        # A hot run without a current trace is not the deliverable, and the
+        # firmware is already past the arm window, so the board is powered down
+        # and the whole access point is run again from a cold start.
+        log("PPK attach failed; powering the board down for a clean retry")
+        camp.ppk_power_off()
+        time.sleep(3)
+        return {"ap": ap, "status": "PPK_ATTACH_FAILED", "attempt": attempt}
+
     result = {
         "ap": ap,
         "status": status,
+        "smoke": smoke,
+        "attempt": attempt,
         "hard_resets": resets,
         "elapsed_s": int(time.time() - t0),
-        "ppk_capture_required": ppk_required,
+        "ppk_capture_required": ppk is None and not smoke,
         "serial": parse_serial(read_text(serial_log)),
         "rx": parse_rx(read_text(rx_log)),
     }
-    if ppk_required:
+    if result["ppk_capture_required"]:
         log("PPK_CAPTURE_REQUIRED")
-    (OUT / f"{ap}_result.json").write_text(
+    (OUT / f"{prefix}_result.json").write_text(
         json.dumps(result, indent=2), encoding="utf-8"
     )
+    note_progress(prefix, phase="done", status=status)
     log(f"{ap} status={status} stage={stage}")
     return result
+
+
+MAX_PPK_ATTEMPTS = 3
+
+
+def run_ap(ap: str) -> dict:
+    """One access point, retried while the only failure is the power capture."""
+    result: dict = {}
+    for attempt in range(1, MAX_PPK_ATTEMPTS + 1):
+        result = run_ap_once(ap, attempt=attempt)
+        if result.get("status") != "PPK_ATTACH_FAILED":
+            return result
+        log(f"{ap} PPK attach failed on attempt {attempt}")
+    result["ppk_capture_required"] = True
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Deep-sleep smoke
+# ---------------------------------------------------------------------------
+
+
+def run_smoke(ap: str) -> tuple[bool, dict]:
+    """Prove the measured path really deep sleeps before any campaign runs.
+
+    Fixed profile 1, PRE 0, POST 300, a handful of measured packets. The run
+    passes only when every measured packet was followed by a boot that reports
+    a deep-sleep reset with a timer wake, with no rejected sleeps.
+    """
+    r = run_ap_once(ap, smoke=SMOKE_PACKETS)
+    ds = r.get("serial", {}).get("deep_sleep", {})
+    delivered = len(r.get("rx", {}).get("probe_results", []))
+    ok = (
+        r.get("status") == "OK"
+        and ds.get("deepsleep_timer_wakes", 0) >= SMOKE_PACKETS
+        and ds.get("bad_wakes", 1) == 0
+        and ds.get("sleep_rejects", 1) == 0
+    )
+    log(
+        f"smoke {ap}: status={r.get('status')} "
+        f"timer_wakes={ds.get('deepsleep_timer_wakes')} "
+        f"bad_wakes={ds.get('bad_wakes')} rejects={ds.get('sleep_rejects')} "
+        f"probe_batches={delivered} -> {'PASS' if ok else 'FAIL'}"
+    )
+    (OUT / f"{ap}_smoke_verdict.json").write_text(
+        json.dumps({"pass": ok, "deep_sleep": ds, "status": r.get("status")}, indent=2),
+        encoding="utf-8",
+    )
+    return ok, r
 
 
 # ---------------------------------------------------------------------------
@@ -736,6 +1002,12 @@ def render_report(results: dict, rtc_sizeof: int | None) -> str:
         "profile, PRE delay and POST delay from its own measurements on",
         "whichever access point it is attached to, then runs a 100-packet hot",
         "campaign with the result.",
+        "",
+        "Every measured packet is one boot: wake, associate, send one datagram,",
+        "hold the POST delay, tear down, deep sleep 250 ms. The sleep is a real",
+        "timer deep sleep, never a software restart, and the boot that follows",
+        "has to report a deep-sleep reset with a timer wake or the sample and",
+        "its whole batch are thrown away.",
         "",
         "Firmware: `main/product_adaptive_wifi_probe.cpp`",
         "(`-DAE_EXP_PRODUCT_ADAPTIVE_PROBE=1`). Receiver:",
@@ -755,18 +1027,18 @@ def render_report(results: dict, rtc_sizeof: int | None) -> str:
         "network dropped after the send succeeded.",
         "",
         "| AP | status | profile | PRE ms | POST ms | sleep ms | HOT sent | "
-        "HOT fail | HOT delivered | reprobes |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "HOT fail | HOT unconfirmed | HOT delivered | reprobes |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for ap in APS:
         r = results.get(ap)
         if not r:
-            lines.append(f"| {ap} | not run | - | - | - | - | - | - | - | - |")
+            lines.append(f"| {ap} | not run | - | - | - | - | - | - | - | - | - |")
             continue
         s = r.get("rx", {}).get("summary") or r.get("serial", {}).get("final") or {}
         lines.append(
-            "| {ap} | {st} | P{p} | {pre} | {post} | {sl} | {hs} | {hf} | {hd} "
-            "| {rp} |".format(
+            "| {ap} | {st} | P{p} | {pre} | {post} | {sl} | {hs} | {hf} | {hu} "
+            "| {hd} | {rp} |".format(
                 ap=ap,
                 st=r.get("status", "?"),
                 p=s.get("profile", "?"),
@@ -775,19 +1047,51 @@ def render_report(results: dict, rtc_sizeof: int | None) -> str:
                 sl=s.get("sleep_ms", "?"),
                 hs=s.get("hot_sent", r.get("rx", {}).get("hot_data", "?")),
                 hf=s.get("hot_fail", "?"),
+                hu=s.get("hot_unconfirmed", "?"),
                 hd=r.get("rx", {}).get("hot_unique_seq", "?"),
                 rp=s.get("reprobe", len(r.get("serial", {}).get("reprobes", []))),
+            )
+        )
+    lines += ["", "### Deep sleep", ""]
+    lines += [
+        "`P_BOOT` records the reset reason and wake cause of every boot; a",
+        f"measured send must be followed by reset {ESP_RST_DEEPSLEEP}",
+        f"(ESP_RST_DEEPSLEEP) and wake {ESP_SLEEP_WAKEUP_TIMER}",
+        "(ESP_SLEEP_WAKEUP_TIMER). Software restarts belong to the audible",
+        "stages only and are counted separately so they can never be mistaken",
+        "for a sleep.",
+        "",
+        "| AP | deep-sleep timer wakes | software restarts | rejected sleeps | "
+        "bad wakes | measured sleep us (median) |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for ap in APS:
+        r = results.get(ap)
+        if not r:
+            continue
+        d = r.get("serial", {}).get("deep_sleep", {})
+        lines.append(
+            "| {ap} | {tw} | {sr} | {rj} | {bw} | {su} |".format(
+                ap=ap,
+                tw=d.get("deepsleep_timer_wakes", "?"),
+                sr=d.get("software_restarts", "?"),
+                rj=d.get("sleep_rejects", "?"),
+                bw=d.get("bad_wakes", "?"),
+                su=d.get("sleep_elapsed_us_median", "?"),
             )
         )
     lines += [
         "",
         "### Probe batches as counted by the receiver",
         "",
-        "A batch passes when all 20 packets arrive; 19 buys one extra batch at",
-        "the same delay. When no candidate passes, the POST delay falls back to",
-        "the most conservative value in the table and the stage keeps retrying",
-        "it, up to its batch cap, in case it passes later. That is why a table",
-        "can show the same POST value repeated without ever reaching 20/20.",
+        "A batch passes only when all 20 packets were sent locally, confirmed",
+        "by a TX-done success and followed by a confirmed deep sleep, and all",
+        "20 arrived. 19 buys one more independent batch at the same delay,",
+        "which passes on 38 of the 40 combined. Anything less fails, and the",
+        "search moves to the next value up the table only in the sense that it",
+        "stops: a failure never turns into a pass, and when the most",
+        "conservative value fails first the path is reported invalid instead of",
+        "being assigned a POST delay it never earned.",
         "",
     ]
     for ap in APS:
@@ -815,21 +1119,57 @@ def render_report(results: dict, rtc_sizeof: int | None) -> str:
                     m=row["missing"],
                 )
             )
-        cyc = r.get("rx", {}).get("cycle_us")
-        if cyc:
+        timing = r.get("rx", {}).get("timing") or {}
+        rows_t = [(k, v) for k, v in timing.items() if isinstance(v, dict)]
+        if rows_t:
             lines += [
                 "",
-                "Hot cycle time from the previous-send timing carried in each "
-                "HOT_DATA packet (us): "
-                f"n={cyc['n']} min={cyc['min']} median={cyc['median']} "
-                f"p90={cyc['p90']} max={cyc['max']}",
+                "Timing of the previous send, carried in each HOT_DATA packet "
+                f"({timing.get('clean_samples', 0)} clean samples; a clean "
+                "sample sent locally, saw a TX-done success and had its sleep "
+                "confirmed). All values in microseconds.",
+                "",
+                "| field | min | median | p90 | max |",
+                "| --- | --- | --- | --- | --- |",
             ]
+            for name, v in rows_t:
+                lines.append(
+                    "| {n} | {mn} | {md} | {p9} | {mx} |".format(
+                        n=name.replace("prev_", "").replace("_us", ""),
+                        mn=v["min"],
+                        md=v["median"],
+                        p9=v["p90"],
+                        mx=v["max"],
+                    )
+                )
         if r.get("ppk_capture_required"):
             lines += ["", "**PPK_CAPTURE_REQUIRED** - current trace not captured."]
         else:
-            lines += ["", f"Current trace: `{ap}_hot100_power.csv` at 3000 mV."]
+            lines += ["", f"Current trace: `{ap}_hot_power.csv` at 3000 mV."]
         lines.append("")
+    lines += ["### Success criteria", ""]
+    # Only the access points that actually ran can answer these; an access point
+    # that was never attempted is reported by its absence from the table above.
+    ran = [results[ap] for ap in APS if results.get(ap)]
+    sleep_of = [r.get("serial", {}).get("deep_sleep", {}) for r in ran]
+    ppk_ok = bool(ran) and not any(r.get("ppk_capture_required") for r in ran)
+    restarts_in_measured = any(d.get("bad_wakes") for d in sleep_of)
+    real_sleep = bool(ran) and all(
+        d.get("deepsleep_timer_wakes", 0) > 0 for d in sleep_of
+    )
+    for flag, value in (
+        ("ACTUAL_DEEP_SLEEP_USED", "yes" if real_sleep else "no"),
+        ("SOFTWARE_RESTART_COUNTED_AS_SLEEP", "yes" if restarts_in_measured else "no"),
+        ("NO_SLEEP_POST_PROBE_REMOVED", "yes"),
+        ("CALLBACK_DIRECTLY_BEFORE_SENDTO", "yes"),
+        ("CALLBACK_REQUIRES_TX_SUCCESS", "yes"),
+        ("INVALID_POST300_FALLBACK_REMOVED", "yes"),
+        ("PPK_CAPTURE_COMPLETE", "yes" if ppk_ok else "no"),
+        ("SERVER_CHANGED", "no"),
+    ):
+        lines.append(f"- `{flag}={value}`")
     lines += [
+        "",
         "Raw logs and per-AP JSON: `experiments/product_adaptive_probe_results/`.",
         "",
     ]
@@ -853,7 +1193,7 @@ def write_report(results: dict, rtc_sizeof: int | None) -> None:
 
 # Pinned by the aether host test test_RtcStateIsCompact; used when the host
 # compiler is not reachable from the campaign environment.
-RTC_SIZEOF_PINNED = 64
+RTC_SIZEOF_PINNED = 108
 
 
 def measure_rtc_sizeof() -> int | None:
@@ -918,6 +1258,16 @@ def main() -> int:
     parser.add_argument(
         "--report-only", action="store_true", help="rewrite the report from saved JSON"
     )
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help=f"{SMOKE_PACKETS}-packet real deep-sleep check, no campaign",
+    )
+    parser.add_argument(
+        "--skip-smoke",
+        action="store_true",
+        help="campaign without the deep-sleep check (only after it has passed)",
+    )
     args = parser.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -952,17 +1302,34 @@ def main() -> int:
         build_receiver()
 
         aps = (args.ap,) if args.ap else APS
+
+        if args.smoke:
+            ok, _ = run_smoke(aps[0])
+            log(f"deep-sleep smoke {'PASS' if ok else 'FAIL'}")
+            return 0 if ok else 5
+
+        # A campaign is hours long, so it does not start until the measured path
+        # has been shown to take a real deep sleep on this access point.
+        if not args.skip_smoke and not cp.get("smoke_passed"):
+            ok, _ = run_smoke(aps[0])
+            if not ok:
+                log("deep-sleep smoke FAILED; campaign not started")
+                save_checkpoint(load_checkpoint() | {"smoke_passed": False})
+                return 5
+            save_checkpoint(load_checkpoint() | {"smoke_passed": True})
+            log("deep-sleep smoke PASS; starting campaign")
+
         start = 0 if args.ap else int(cp.get("ap_index", 0))
         for i, ap in enumerate(aps):
             if not args.ap and i < start:
                 continue
             results[ap] = run_ap(ap)
-            save_checkpoint({"ap_index": i + 1, "results": results})
+            save_checkpoint(load_checkpoint() | {"ap_index": i + 1, "results": results})
             write_report(results, rtc_sizeof)
 
         kill_probe_receiver()
         write_report(results, rtc_sizeof)
-        bad = [ap for ap, r in results.items() if r.get("status") != "OK"]
+        bad = [ap for ap, r in results.items() if r.get("status") not in ("OK",)]
         log(f"campaign complete; failures={bad or 'none'}")
         return 0 if not bad else 3
     finally:

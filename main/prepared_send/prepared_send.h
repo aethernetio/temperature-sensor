@@ -25,6 +25,10 @@ namespace temp_sensor::prepared_send {
 
 enum class HotSendStatus {
   kSent,
+  // The whole datagram left the socket, so the prepared nonce is consumed and
+  // the packet must never be resent, but the Wi-Fi TX-done callback never
+  // reported success for it. The send is neither a failure nor a clean sample.
+  kSentTxUnconfirmed,
   kNoPreparedBlock,
   kNonceExhausted,
   kEncodeFailed,
@@ -33,6 +37,12 @@ enum class HotSendStatus {
   kSendFailed,
   kUnsupported,
 };
+
+// True when the nonce was consumed, whatever the TX-done outcome was.
+inline bool HotSendConsumedNonce(HotSendStatus status) {
+  return status == HotSendStatus::kSent ||
+         status == HotSendStatus::kSentTxUnconfirmed;
+}
 
 std::string_view ToString(HotSendStatus status);
 
@@ -129,11 +139,24 @@ enum class FastPostMode : std::uint8_t {
   kTxDoneCbPlus25 = 3,
 };
 
-// Diagnostic wait policy for late TX-done callback (experiment only).
+// Wait policy for the TX-done callback that follows sendto().
 enum class FastTxDoneWaitMode : std::uint8_t {
-  kFirstAny = 0,      // current production-like: first callback
-  kFirstSuccess = 1,  // wait first txStatus==true + 5 ms observe
+  kFirstAny = 0,      // lab diagnostic: first callback, whatever its status
+  kFirstSuccess = 1,  // lab diagnostic: first txStatus==true + 5 ms observe
+  // Product: first txStatus==true for this datagram, then straight into the
+  // POST hold. The 5 ms observe window of kFirstSuccess is diagnostic only and
+  // would be charged to every production send.
+  kFirstSuccessNoObserve = 2,
 };
+
+// Only a success callback that belongs to this datagram ends the wait.
+inline bool FastTxDoneRequiresSuccess(FastTxDoneWaitMode mode) {
+  return mode == FastTxDoneWaitMode::kFirstSuccess ||
+         mode == FastTxDoneWaitMode::kFirstSuccessNoObserve;
+}
+
+// A duration that was never observed. Distinct from a measured zero.
+static constexpr std::uint32_t kTimingMissing = 0xffffffffu;
 
 struct FastPathConfig {
   bool use_bssid{false};
@@ -222,6 +245,31 @@ struct FastSendResult {
   std::uint8_t used_static_arp{0};
   std::uint8_t arp_fallback_used{0};
   std::uint8_t fail_stage{0};  // 0=none 1=wifi 2=encode 3=sendto 4=other
+
+  // Product metrics. Each is a plain duration of one step, not a delta against
+  // sendto return, so they stay meaningful when the callback beats the syscall.
+  // Set on every attempt that reached EncodePacket.
+  std::uint32_t encode_us{0};
+  std::uint32_t socket_create_us{0};
+  std::uint32_t callback_register_us{0};
+  // Absolute esp_timer microseconds within this boot, so the ordering of the
+  // syscall and the callback can be audited afterwards.
+  std::uint32_t sendto_begin_us{0};
+  std::uint32_t sendto_return_us{0};
+  std::uint32_t first_success_callback_us{0};
+  std::uint32_t sendto_call_us{0};
+  // sendto begin → first success callback. kTimingMissing when none arrived.
+  std::uint32_t send_to_txdone_us{kTimingMissing};
+  // Signed: the callback may run before sendto() returns.
+  std::int32_t txdone_minus_sendto_return_us{0};
+  // First success callback → start of the Wi-Fi teardown, i.e. the POST hold
+  // as it actually happened. Zero when there was no success callback.
+  std::uint32_t actual_post_us{0};
+  std::uint8_t tx_done_confirmed{0};
+  // esp_wifi_set_tx_done_cb() rejected the registration, so nothing about this
+  // send's TX-done state can be trusted.
+  std::uint8_t tx_cb_register_failed{0};
+  std::int16_t tx_cb_register_rc{0};
 };
 
 // BASE = cached channel + static IPv4/netmask/gw + static ARP. No BSSID.

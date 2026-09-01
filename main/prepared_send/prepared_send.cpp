@@ -662,6 +662,15 @@ std::atomic<int> g_fast_cb_count{0};
 std::atomic<int> g_tx_wait_mode{0};  // FastTxDoneWaitMode as int
 TxDoneDiag g_tx_diag{};
 
+// Arming state for one datagram. The callback is registered immediately before
+// sendto() and disarmed as soon as the wait is over, so a callback belonging to
+// a previous datagram, to a retransmission, or to any other frame the driver
+// sends cannot be credited to this one.
+std::atomic<std::uint32_t> g_tx_generation{0};
+std::atomic<std::uint32_t> g_tx_armed_generation{0};
+std::atomic<bool> g_tx_armed{false};
+std::atomic<std::int64_t> g_tx_sendto_begin_us{0};
+
 void ResetTxDoneDiag() {
   g_tx_diag.total.store(0, std::memory_order_relaxed);
   g_tx_diag.success.store(0, std::memory_order_relaxed);
@@ -678,9 +687,17 @@ void ResetTxDoneDiag() {
 
 void FastTxDoneCb(std::uint8_t, std::uint8_t*, std::uint16_t*, bool txStatus) {
   auto const now = esp_timer_get_time();
+  if (!g_tx_armed.load(std::memory_order_acquire)) {
+    return;
+  }
   g_tx_diag.total.fetch_add(1, std::memory_order_relaxed);
   g_fast_cb_count.fetch_add(1, std::memory_order_relaxed);
   g_tx_diag.last_cb_us.store(now, std::memory_order_relaxed);
+
+  if (g_tx_armed_generation.load(std::memory_order_relaxed) !=
+      g_tx_generation.load(std::memory_order_relaxed)) {
+    return;
+  }
 
   int expected_first = -1;
   if (g_tx_diag.first_status.compare_exchange_strong(
@@ -690,10 +707,14 @@ void FastTxDoneCb(std::uint8_t, std::uint8_t*, std::uint16_t*, bool txStatus) {
 
   if (txStatus) {
     g_tx_diag.success.fetch_add(1, std::memory_order_relaxed);
-    std::int64_t expected_fs = 0;
-    if (g_tx_diag.first_success_us.compare_exchange_strong(
-            expected_fs, now, std::memory_order_relaxed)) {
-      g_fast_tx_done_success.store(true, std::memory_order_release);
+    // A success only belongs to this datagram when it was raised after the
+    // sendto() that carried it started.
+    if (now >= g_tx_sendto_begin_us.load(std::memory_order_relaxed)) {
+      std::int64_t expected_fs = 0;
+      if (g_tx_diag.first_success_us.compare_exchange_strong(
+              expected_fs, now, std::memory_order_relaxed)) {
+        g_fast_tx_done_success.store(true, std::memory_order_release);
+      }
     }
   } else {
     g_tx_diag.failed.fetch_add(1, std::memory_order_relaxed);
@@ -705,7 +726,55 @@ void FastTxDoneCb(std::uint8_t, std::uint8_t*, std::uint16_t*, bool txStatus) {
   g_fast_tx_done_seen.store(true, std::memory_order_release);
 }
 
-void ResetFastTxDone() { ResetTxDoneDiag(); }
+void ResetFastTxDone() {
+  g_tx_armed.store(false, std::memory_order_release);
+  ResetTxDoneDiag();
+}
+
+// Opens the window in which a TX-done callback may be credited to the datagram
+// about to be handed to sendto(). Nothing but the sendto() call itself belongs
+// between this and the syscall.
+std::uint32_t ArmFastTxDone() {
+  auto const generation =
+      g_tx_generation.fetch_add(1, std::memory_order_relaxed) + 1;
+  // Until the real sendto start is known no callback can qualify.
+  g_tx_sendto_begin_us.store(std::numeric_limits<std::int64_t>::max(),
+                             std::memory_order_relaxed);
+  g_tx_armed_generation.store(generation, std::memory_order_relaxed);
+  g_tx_armed.store(true, std::memory_order_release);
+  return generation;
+}
+
+void MarkFastTxDoneSendtoBegin(std::int64_t begin_us) {
+  g_tx_sendto_begin_us.store(begin_us, std::memory_order_release);
+}
+
+void DisarmFastTxDone() { g_tx_armed.store(false, std::memory_order_release); }
+
+// Durations are reported as plain non-negative microseconds; a measurement that
+// came out negative is a clock artefact, not a real interval.
+static std::uint32_t NonNegativeUs(std::int64_t us) {
+  if (us <= 0) {
+    return 0;
+  }
+  return us > 0xffffffffll ? 0xffffffffu : static_cast<std::uint32_t>(us);
+}
+
+// The TX-done callback can precede the sendto() return, so this difference is
+// genuinely signed.
+static std::int32_t ClampToInt32(std::int64_t value) {
+  constexpr auto kMax =
+      static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::max());
+  constexpr auto kMin =
+      static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::min());
+  if (value > kMax) {
+    return std::numeric_limits<std::int32_t>::max();
+  }
+  if (value < kMin) {
+    return std::numeric_limits<std::int32_t>::min();
+  }
+  return static_cast<std::int32_t>(value);
+}
 
 static std::uint32_t DeltaOrMissing(std::int64_t abs_us,
                                     std::int64_t sendto_return_us) {
@@ -828,6 +897,7 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
     ClearPreparedSendBlock();
     return HotSendStatus::kEncodeFailed;
   }
+  auto const t_encode1 = esp_timer_get_time();
 
   auto const resolved_block = g_prepared_send_message_block.Resolve();
   auto endpoint = resolved_block->endpoint;
@@ -839,11 +909,18 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
     return HotSendStatus::kSendFailed;
   }
 
+  auto const t_socket0 = esp_timer_get_time();
   int sock = socket(
       endpoint.address.Index() == ae::AddrVersion::kIpV6 ? AF_INET6 : AF_INET,
       SOCK_DGRAM, IPPROTO_IP);
+  auto const t_socket1 = esp_timer_get_time();
   if (sock < 0) {
     return HotSendStatus::kSendFailed;
+  }
+
+  if (timing != nullptr) {
+    timing->encode_us = NonNegativeUs(t_encode1 - t_encode0);
+    timing->socket_create_us = NonNegativeUs(t_socket1 - t_socket0);
   }
 
   if (timing != nullptr) {
@@ -868,8 +945,21 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
 
   ResetFastTxDone();
   g_tx_wait_mode.store(static_cast<int>(wait_mode), std::memory_order_relaxed);
-  (void)esp_wifi_set_tx_done_cb(&FastTxDoneCb);
 
+  auto const t_cb_reg0 = esp_timer_get_time();
+  esp_err_t const cb_rc = esp_wifi_set_tx_done_cb(&FastTxDoneCb);
+  auto const t_cb_reg1 = esp_timer_get_time();
+  if (timing != nullptr) {
+    timing->callback_register_us = NonNegativeUs(t_cb_reg1 - t_cb_reg0);
+    timing->tx_cb_register_rc = static_cast<std::int16_t>(cb_rc);
+    timing->tx_cb_register_failed = cb_rc == ESP_OK ? 0 : 1;
+  }
+
+  // Nothing but the two arming stores separates this from sendto(): no Wi-Fi
+  // call, no ARP, no delay and no logging may be inserted here.
+  (void)ArmFastTxDone();
+  auto const t_sendto_begin = esp_timer_get_time();
+  MarkFastTxDoneSendtoBegin(t_sendto_begin);
   auto sent = sendto(sock, packet.data(), packet.size(), 0,
                      reinterpret_cast<sockaddr*>(&dest_storage), dest_len);
   auto const t_send_ret = esp_timer_get_time();
@@ -877,13 +967,22 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
     auto const es = t_send_ret - t_encode0;
     timing->encode_send_us =
         es < 0 ? 0 : static_cast<std::uint32_t>(es);
+    timing->sendto_begin_us = NonNegativeUs(t_sendto_begin);
+    timing->sendto_return_us = NonNegativeUs(t_send_ret);
+    timing->sendto_call_us = NonNegativeUs(t_send_ret - t_sendto_begin);
   }
 
   if (sent != static_cast<ssize_t>(packet.size())) {
+    DisarmFastTxDone();
     (void)esp_wifi_set_tx_done_cb(nullptr);
     close(sock);
     return HotSendStatus::kSendFailed;
   }
+
+  bool const need_success = FastTxDoneRequiresSuccess(wait_mode);
+  // The registration failed, so no callback can be trusted and waiting for one
+  // would only burn the whole timeout.
+  bool const can_observe = cb_rc == ESP_OK;
 
   constexpr std::int64_t kObserveUs = 5000;
   std::int64_t const kMaxUs =
@@ -892,13 +991,13 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
   std::uint32_t total_at_success = 0;
 
   auto condition_ready = [&]() -> bool {
-    if (wait_mode == FastTxDoneWaitMode::kFirstSuccess) {
+    if (need_success) {
       return g_fast_tx_done_success.load(std::memory_order_acquire);
     }
     return g_fast_tx_done_seen.load(std::memory_order_acquire);
   };
 
-  while ((esp_timer_get_time() - t_send_ret) < kMaxUs) {
+  while (can_observe && (esp_timer_get_time() - t_send_ret) < kMaxUs) {
     if (condition_ready()) {
       condition_met = true;
       break;
@@ -906,6 +1005,8 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
     vTaskDelay(pdMS_TO_TICKS(1));
   }
 
+  // The observe window is a diagnostic: it measures what arrives after the
+  // first success and must not be charged to a production send.
   if (condition_met && wait_mode == FastTxDoneWaitMode::kFirstSuccess) {
     total_at_success = g_tx_diag.total.load(std::memory_order_relaxed);
     auto const t_obs0 = esp_timer_get_time();
@@ -915,6 +1016,7 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
   }
 
   auto const t_cb_done = esp_timer_get_time();
+  DisarmFastTxDone();
   (void)esp_wifi_set_tx_done_cb(nullptr);
   close(sock);
 
@@ -926,12 +1028,35 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
     after_success = delta > 255 ? 255 : static_cast<std::uint8_t>(delta);
   }
 
+  auto const first_success_us =
+      g_tx_diag.first_success_us.load(std::memory_order_relaxed);
+  bool const tx_done_confirmed = can_observe && first_success_us > 0;
+
   if (timing != nullptr) {
     auto const wait = t_cb_done - t_send_ret;
     timing->tx_done_wait_us =
         wait < 0 ? 0 : static_cast<std::uint32_t>(wait);
+    timing->tx_done_confirmed = tx_done_confirmed ? 1 : 0;
+    if (tx_done_confirmed) {
+      timing->first_success_callback_us = NonNegativeUs(first_success_us);
+      timing->send_to_txdone_us =
+          NonNegativeUs(first_success_us - t_sendto_begin);
+      timing->txdone_minus_sendto_return_us =
+          ClampToInt32(first_success_us - t_send_ret);
+    } else {
+      timing->first_success_callback_us = 0;
+      timing->send_to_txdone_us = kTimingMissing;
+      timing->txdone_minus_sendto_return_us = 0;
+    }
     FillTxDoneTiming(timing, t_send_ret, condition_met, after_success,
                      wait_mode);
+  }
+
+  // The datagram is on the air either way and its nonce is spent, but a
+  // parameter must never be judged from a send whose transmission the driver
+  // never confirmed.
+  if (need_success && !tx_done_confirmed) {
+    return HotSendStatus::kSentTxUnconfirmed;
   }
   return HotSendStatus::kSent;
 }
@@ -955,6 +1080,8 @@ std::string_view ToString(HotSendStatus status) {
   switch (status) {
     case HotSendStatus::kSent:
       return "sent";
+    case HotSendStatus::kSentTxUnconfirmed:
+      return "sent-tx-unconfirmed";
     case HotSendStatus::kNoPreparedBlock:
       return "no-prepared-block";
     case HotSendStatus::kNonceExhausted:
@@ -1880,7 +2007,9 @@ FastSendResult SendPreparedOnceWithFastPath(
         hold_ms = 25;
       }
     }
-    if (hold_ms > 0) {
+    // The hold starts where the TX-done wait ended, so it is the time the radio
+    // is deliberately kept up after the frame was acknowledged as transmitted.
+    if (hold_ms > 0 && HotSendConsumedNonce(encode_status)) {
       vTaskDelay(pdMS_TO_TICKS(hold_ms));
     }
   } else {
@@ -1895,7 +2024,7 @@ FastSendResult SendPreparedOnceWithFastPath(
     }
   }
 
-  if (encode_status == HotSendStatus::kSent) {
+  if (HotSendConsumedNonce(encode_status)) {
     out.sendto_ok = 1;
     out.status_flags |=
         static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk) |
@@ -1951,6 +2080,12 @@ FastSendResult SendPreparedOnceWithFastPath(
   }
 
   auto const t_teardown0 = esp_timer_get_time();
+  // The POST delay as it really happened: from the transmission the driver
+  // confirmed to the moment the radio starts coming down.
+  if (out.tx_done_confirmed != 0) {
+    out.actual_post_us = NonNegativeUs(
+        t_teardown0 - static_cast<std::int64_t>(out.first_success_callback_us));
+  }
   CleanupHotPathWifiRuntime();
   auto const t_end = esp_timer_get_time();
   {

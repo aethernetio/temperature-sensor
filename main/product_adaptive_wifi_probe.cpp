@@ -8,30 +8,29 @@
  * the profile, the PRE delay and the POST delay all come out of measurements
  * made against whatever access point the device is attached to.
  *
- * Stage flow, one stage per boot. Every transition keeps the RTC state and
- * re-enters at the next stage. The transition mechanism is a software restart:
- * on this target a timer deep sleep is accepted and then never completes, so
- * the chip spins in the sleep entry path until the interrupt watchdog resets
- * it. Set AE_PRODUCT_PROBE_DEEP_SLEEP=1 to use the 250 ms timer deep sleep
- * where it works.
+ * The measured stages send exactly one datagram per wake and then enter a real
+ * timer deep sleep, which is how production sends behave. A software restart is
+ * never a substitute for that sleep: a sample whose sleep the following boot
+ * cannot confirm is discarded together with its whole batch.
  *
- *   0 ICMP_SELECT          raw Wi-Fi, pick profile then PRE delay
- *   1 FULL_PREPARE         Aether FULL: marker + prepared block for stage 2
- *   2 POST_PROBE           20 prepared sends, no sleep between them
- *   3 POST_QUERY           Aether FULL: query the batch, judge the POST delay
- *   4 SLEEP_CONFIRM        20 prepared sends, one per boot
- *   5 SLEEP_CONFIRM_QUERY  Aether FULL: query the sleep-confirm batch
- *   6 PROBE_COMPLETE       Aether FULL: marker + prepared block for stage 7
- *   7 HOT_RUN              100 prepared HOT sends, one per boot
- *   8 HOT_SUMMARY          Aether FULL: totals
- *   9 DONE                 idle
+ *   0 ICMP_SELECT              raw Wi-Fi, pick profile then PRE delay
+ *   1 FULL_PREPARE_POST_BATCH  Aether FULL: marker + prepared block
+ *   2 POST_PROBE_SLEEP250      one prepared send per wake, deep sleep between
+ *   3 POST_QUERY               Aether FULL: query the batch, judge the POST
+ *   4 HOT_PREPARE              Aether FULL: marker + prepared block for HOT
+ *   5 PPK_ARM                  audible arm marker, wait for the power logger
+ *   6 HOT_RUN                  production sends, one per wake, deep sleep
+ *   7 HOT_SUMMARY              Aether FULL: totals
+ *   8 DONE                     idle
  *
- * A deep-sleep timer wake or the restart above preserves the stage. Any other
- * reset restarts at stage 0, which is also what a pre-Encode Wi-Fi failure on
- * the hot path forces: the network may have changed, so the selected
- * parameters are no longer trusted.
+ * Stages 1, 3, 4 and 7 run the full Aether stack and hand over with a software
+ * restart, which preserves RTC state; entering deep sleep straight after that
+ * teardown panics the chip. Stages 2, 5 and 6 hand over with a real timer deep
+ * sleep. Any other reset restarts at stage 0, which is also what a pre-Encode
+ * Wi-Fi failure on the hot path forces: the network may have changed, so the
+ * selected parameters are no longer trusted.
  *
- * Stages 2, 4 and 7 are measured and must not print.
+ * Stages 2 and 6 are measured and must not print.
  */
 
 #include <cassert>
@@ -92,11 +91,24 @@ static constexpr auto kServiceUid =
     ae::Uid::FromString("5aade50f-00d9-4624-b097-e203cdcf1e38");
 #endif
 
-#ifndef AE_PRODUCT_PROBE_DEEP_SLEEP
-#  define AE_PRODUCT_PROBE_DEEP_SLEEP 0
+// Non-zero runs the deep-sleep smoke instead of the campaign: no ICMP search,
+// fixed P1/PRE 0/POST 300, this many measured sends, then stop. It exists to
+// prove that the measured path really deep sleeps before any long run starts.
+#ifndef AE_PRODUCT_PROBE_SMOKE
+#  define AE_PRODUCT_PROBE_SMOKE 0
 #endif
+static constexpr std::uint16_t kSmokePackets = AE_PRODUCT_PROBE_SMOKE;
+static constexpr bool kSmokeMode = kSmokePackets > 0;
 
-// Stage transition sleep, and the sleep between sleep-confirm and hot sends.
+// How long PPK_ARM stays awake so the campaign runner can attach its power
+// logger before the first production packet.
+#ifndef AE_PRODUCT_PROBE_PPK_ARM_MS
+#  define AE_PRODUCT_PROBE_PPK_ARM_MS 20000
+#endif
+static constexpr std::uint32_t kPpkArmMs = AE_PRODUCT_PROBE_PPK_ARM_MS;
+
+// The measured deep sleep, and the sleep every stage handover uses when it can
+// sleep at all.
 static constexpr std::uint32_t kStageSleepUs =
     static_cast<std::uint32_t>(probe::kProbeSleepMs) * 1000u;
 
@@ -104,24 +116,21 @@ static constexpr std::uint32_t kStageSleepUs =
 static constexpr std::uint16_t kMaxBatchAttempts =
     static_cast<std::uint16_t>(probe::kProbeHotCount + 40);
 
-// Probe batches allowed per stage before the current best value is accepted.
-static constexpr std::uint16_t kMaxProbeBatchesPerStage = 12;
+// Total probe batches across the whole POST search. The descending table needs
+// at most two batches per candidate, so exceeding this means something outside
+// the algorithm is wrong and the path is declared invalid rather than guessed.
+static constexpr std::uint16_t kMaxProbeBatches = 24;
 
 // Wall clock budget for one Aether FULL boot.
 static constexpr std::uint32_t kFullStageTimeoutMs = 60000;
-
-// POST ladder used when a confirmation batch has to be retried more
-// conservatively than the descending search suggested.
-static constexpr std::uint16_t kPostLadder[] = {0, 10, 25, 50, 100, 200, 300};
 
 #if defined(ESP_PLATFORM)
 
 // Which piece of work the current Aether FULL boot performs.
 enum class FullPurpose : std::uint8_t {
-  kPrepareBatch,
+  kPreparePostBatch,
   kQueryPostBatch,
-  kQuerySleepBatch,
-  kProbeComplete,
+  kPrepareHot,
   kHotSummary,
 };
 
@@ -136,29 +145,30 @@ struct IcmpCache {
 };
 
 // RTC_DATA_ATTR only survives deep sleep; the bootloader reloads it on a
-// software restart. The stage machine has to survive both, because a rejected
-// deep sleep falls back to a restart, so the state is kept uninitialised and
-// cleared explicitly whenever the boot is cold.
+// software restart. The stage machine has to survive both, so the state is kept
+// uninitialised and cleared explicitly whenever the boot is cold.
 RTC_NOINIT_ATTR probe::ProbeRtcState g_rtc;
 RTC_NOINIT_ATTR prepared_send::PreparedWifiRtcCache g_rtc_wifi_cache;
 RTC_NOINIT_ATTR IcmpCache g_icmp_cache;
 RTC_NOINIT_ATTR std::uint16_t g_rtc_batch_attempts;
-RTC_NOINIT_ATTR std::uint16_t g_rtc_stage_batches;
+RTC_NOINIT_ATTR std::uint16_t g_rtc_total_batches;
 RTC_NOINIT_ATTR std::uint64_t g_rtc_sleep_arm_us;
-// Deep sleep can be rejected; the count is reported once the run is audible
-// again so a measured stage never has to print.
+// Deep sleep can be rejected. A measured stage cannot print, so the counts are
+// carried in RTC and reported once the run is audible again.
 RTC_NOINIT_ATTR std::uint16_t g_rtc_sleep_reject;
 RTC_NOINIT_ATTR std::int16_t g_rtc_sleep_reject_err;
+RTC_NOINIT_ATTR std::uint16_t g_rtc_timer_wakes;
+RTC_NOINIT_ATTR std::uint16_t g_rtc_bad_wakes;
 
-// Boot history. A measured stage cannot print, so each boot records how it
-// woke and the next audible stage reports the whole trail.
+// Boot history, for the same reason: each boot records how it woke and the next
+// audible stage reports the whole trail.
 struct BootMark {
   std::uint8_t stage;
   std::uint8_t reset_reason;
   std::uint8_t wakeup_cause;
   std::uint8_t cold;
 };
-static constexpr std::uint8_t kBootMarkCount = 8;
+static constexpr std::uint8_t kBootMarkCount = 16;
 RTC_NOINIT_ATTR BootMark g_rtc_boot_marks[kBootMarkCount];
 RTC_NOINIT_ATTR std::uint8_t g_rtc_boot_mark_count;
 
@@ -169,6 +179,8 @@ static const auto kWifiInit = ae::WiFiInit{
 
 ExperimentEarlyEntrySnapshot g_early{};
 std::uint32_t g_sleep_elapsed_us = 0;
+std::uint32_t g_wake_overhead_us = 0;
+bool g_woke_from_timer_deep_sleep = false;
 
 std::shared_ptr<ae::AetherApp> g_app;
 ae::Client::ptr g_client;
@@ -178,7 +190,7 @@ ae::Subscription g_stream_sub;
 ae::Subscription g_data_sub;
 ae::Subscription g_write_sub;
 
-FullPurpose g_purpose{FullPurpose::kPrepareBatch};
+FullPurpose g_purpose{FullPurpose::kPreparePostBatch};
 bool g_had_aether_app = false;
 bool g_write_armed = false;
 bool g_write_ok = false;
@@ -209,9 +221,11 @@ probe::ProbeStage Stage() { return probe::ProductProbeStage(g_rtc); }
 
 // Measured stages must stay silent: any console write distorts the cycle time.
 bool StageIsMeasured(probe::ProbeStage stage) {
-  return stage == probe::ProbeStage::kPostProbe ||
-         stage == probe::ProbeStage::kSleepConfirm ||
-         stage == probe::ProbeStage::kHotRun;
+  return probe::ProbeStageIsMeasured(stage);
+}
+
+std::uint16_t BatchSize() {
+  return kSmokeMode ? kSmokePackets : probe::kProbeBatchSize;
 }
 
 void ReportBootMarks() {
@@ -229,11 +243,16 @@ void ReportBootMarks() {
                 static_cast<unsigned>(m.wakeup_cause),
                 static_cast<unsigned>(m.cold));
   }
-  std::printf("P_BOOT_SUM boots=%u reject=%u reject_err=%d sleep_us=%lu\n",
-              static_cast<unsigned>(g_rtc_boot_mark_count),
-              static_cast<unsigned>(g_rtc_sleep_reject),
-              static_cast<int>(g_rtc_sleep_reject_err),
-              static_cast<unsigned long>(g_sleep_elapsed_us));
+  std::printf(
+      "P_BOOT_SUM boots=%u timer_wakes=%u bad_wakes=%u reject=%u "
+      "reject_err=%d sleep_us=%lu overhead_us=%lu\n",
+      static_cast<unsigned>(g_rtc_boot_mark_count),
+      static_cast<unsigned>(g_rtc_timer_wakes),
+      static_cast<unsigned>(g_rtc_bad_wakes),
+      static_cast<unsigned>(g_rtc_sleep_reject),
+      static_cast<int>(g_rtc_sleep_reject_err),
+      static_cast<unsigned long>(g_sleep_elapsed_us),
+      static_cast<unsigned long>(g_wake_overhead_us));
   std::fflush(stdout);
   g_rtc_boot_mark_count = 0;
 }
@@ -260,33 +279,32 @@ void SayStage(char const* tag) {
   std::fflush(stdout);
 }
 
-// The stage transition that follows the raw ICMP search cannot deep sleep:
-// entering sleep straight after that Wi-Fi teardown panics the chip. RTC state
-// survives a restart, so the run continues at the next stage either way. Deep
-// sleep is what the later stages measure, and those run from the prepared send
-// path, which sleeps reliably.
+// Stage handover for the boots that cannot sleep: entering deep sleep straight
+// after an Aether or raw Wi-Fi teardown panics the chip. RTC state survives a
+// restart, so the run continues at the next stage either way. This is never
+// used to end a measured send.
 [[noreturn]] void RestartToNextStage() {
-  if (!StageIsMeasured(Stage())) {
-    std::printf("P_RESTART stage=%u intended_sleep_us=%lu\n",
-                static_cast<unsigned>(g_rtc.stage),
-                static_cast<unsigned long>(kStageSleepUs));
-    std::fflush(stdout);
-  }
+  assert(!StageIsMeasured(Stage()) &&
+         "measured stages must hand over with a real deep sleep");
+  std::printf("P_RESTART stage=%u\n", static_cast<unsigned>(g_rtc.stage));
+  std::fflush(stdout);
   g_rtc_sleep_arm_us = 0;
   esp_restart();
   for (;;) {
   }
 }
 
+// The real thing: RTC domains held up, wake armed on the timer, and no restart
+// fallback that could be mistaken for a sleep. Everything the measured stages
+// report about sleeping comes from here.
 [[noreturn]] void DeepSleepToNextStage() {
-#  if !AE_PRODUCT_PROBE_DEEP_SLEEP
-  // Deep sleep never completes on this target: the request is accepted and the
-  // chip then spins in the sleep entry loop with interrupts off until the
-  // interrupt watchdog resets it. Stage timing therefore uses a restart, which
-  // keeps the same RTC state, and the sleep path stays available behind the
-  // build flag for targets where it works.
-  RestartToNextStage();
-#  else
+  // The parked sample was awake for exactly this long. Boots without a sample
+  // must not overwrite the figure belonging to the last one that had it.
+  if (probe::ProductProbeHasPendingSample(g_rtc)) {
+    auto const awake = esp_timer_get_time();
+    g_rtc.prev.awake_us = awake < 0 ? 0 : static_cast<std::uint32_t>(awake);
+  }
+
   esp_sleep_enable_timer_wakeup(kStageSleepUs);
   g_rtc_sleep_arm_us = esp_rtc_get_time_us();
 #  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
@@ -304,9 +322,9 @@ void SayStage(char const* tag) {
   }
   auto const err = esp_deep_sleep_try_to_start();
 
-  // The request was refused. Record it, then retry with the variant that does
-  // not allow rejection; if even that returns, restart instead, because RTC
-  // state survives a restart and the run can continue from the next stage.
+  // The request was refused. Record it and retry with the variant that cannot
+  // be rejected. The next boot sees a reset reason other than a timer wake and
+  // throws the batch away, so a refused sleep can never become a sample.
   if (g_rtc_sleep_reject < 0xffff) {
     ++g_rtc_sleep_reject;
   }
@@ -316,8 +334,6 @@ void SayStage(char const* tag) {
     std::fflush(stdout);
   }
   esp_deep_sleep_start();
-  esp_restart();
-#  endif
   for (;;) {
   }
 }
@@ -337,7 +353,7 @@ void ReleaseApp() {
   g_rtc_wifi_cache = prepared_send::PreparedWifiRtcCache{};
   g_icmp_cache = IcmpCache{};
   g_rtc_batch_attempts = 0;
-  g_rtc_stage_batches = 0;
+  g_rtc_total_batches = 0;
   probe::ProductProbeFailureResetStage(g_rtc);
   std::printf("P_REPROBE reason=%s count=%u\n", reason,
               static_cast<unsigned>(g_rtc.reprobe_count));
@@ -347,17 +363,6 @@ void ReleaseApp() {
 
 ae::DataBuffer ToDataBuffer(std::uint8_t const* data, std::size_t size) {
   return ae::DataBuffer{data, data + size};
-}
-
-// Next more conservative POST value, or the current one when already highest.
-std::uint16_t RaisePost(std::uint16_t current) {
-  constexpr auto kCount = sizeof(kPostLadder) / sizeof(kPostLadder[0]);
-  for (std::size_t i = 0; i < kCount; ++i) {
-    if (kPostLadder[i] > current) {
-      return kPostLadder[i];
-    }
-  }
-  return kPostLadder[kCount - 1];
 }
 
 // ---------------------------------------------------------------------------
@@ -544,8 +549,29 @@ probe::IcmpTrial RunIcmpTrial(ae::WifiProbeProfile profile,
   return trial;
 }
 
+// The smoke run measures the sleep path, not the network, so it skips the
+// search entirely and pins the parameters it was asked for.
+[[noreturn]] void RunSmokeSelectStage() {
+  g_rtc.profile = static_cast<std::uint8_t>(ae::WifiProbeProfile::kP1CachedIp);
+  g_rtc.pre_ms = 0;
+  g_rtc.post_search = probe::PostSearchState{};
+  g_rtc.post_ms = probe::PostSearchCurrent(g_rtc.post_search);
+  std::printf("P_SMOKE packets=%u profile=%u pre=%u post=%u sleep=%u\n",
+              static_cast<unsigned>(kSmokePackets),
+              static_cast<unsigned>(g_rtc.profile),
+              static_cast<unsigned>(g_rtc.pre_ms),
+              static_cast<unsigned>(g_rtc.post_ms),
+              static_cast<unsigned>(g_rtc.sleep_ms));
+  std::fflush(stdout);
+  probe::ProductProbeAdvanceStage(g_rtc);
+  RestartToNextStage();
+}
+
 [[noreturn]] void RunIcmpSelectStage() {
   SayStage("begin");
+  if (kSmokeMode) {
+    RunSmokeSelectStage();
+  }
 
   // Seed the cache with a canonical P0 association so the cached-IP and
   // cached-channel profiles have something to reuse.
@@ -567,7 +593,6 @@ probe::IcmpTrial RunIcmpTrial(ae::WifiProbeProfile profile,
   vTaskDelay(pdMS_TO_TICKS(500));
 
   auto const pre_table = probe::ProductPreTable();
-  auto const post_table = probe::ProductPostTable();
   // Profiles are compared at the first PRE candidate; the PRE search then runs
   // against the winning profile only.
   auto const compare_pre = pre_table.primary[0];
@@ -616,9 +641,9 @@ probe::IcmpTrial RunIcmpTrial(ae::WifiProbeProfile profile,
   }
   std::fflush(stdout);
 
-  // First POST candidate for the batch stages.
-  g_rtc.post_search = probe::ParamSearchState{};
-  g_rtc.post_ms = probe::ParamSearchCurrent(post_table, g_rtc.post_search);
+  // The POST search always starts at the most conservative candidate.
+  g_rtc.post_search = probe::PostSearchState{};
+  g_rtc.post_ms = probe::PostSearchCurrent(g_rtc.post_search);
   probe::ProductProbeAdvanceStage(g_rtc);
   RestartToNextStage();
 }
@@ -636,16 +661,25 @@ prepared_send::FastPathConfig MakeFastConfig() {
   cfg.wifi_nvs_enable = true;
   cfg.auth = prepared_send::FastAuthMode::kWpa2;
   cfg.retry_max = 10;
-  // Wait for the TX-done callback, then hold for the selected POST delay.
+  // Hold for the selected POST delay measured from the TX-done success of this
+  // datagram. Waiting for the first callback of any status would accept a
+  // failed transmission, and the 5 ms observe window of kFirstSuccess is a lab
+  // diagnostic that production must not pay for.
   cfg.post_mode = prepared_send::FastPostMode::kTxDoneCb;
+  cfg.tx_done_wait = prepared_send::FastTxDoneWaitMode::kFirstSuccessNoObserve;
   cfg.post_delay_ms = g_rtc.post_ms;
   return cfg;
 }
 
-void ComputeSleepElapsed() {
+void ComputeWakeMetrics() {
   g_sleep_elapsed_us = 0;
-  if (static_cast<esp_reset_reason_t>(g_early.reset_reason) !=
-      ESP_RST_DEEPSLEEP) {
+  g_wake_overhead_us = 0;
+  g_woke_from_timer_deep_sleep =
+      static_cast<esp_reset_reason_t>(g_early.reset_reason) ==
+          ESP_RST_DEEPSLEEP &&
+      static_cast<esp_sleep_wakeup_cause_t>(g_early.wakeup_cause) ==
+          ESP_SLEEP_WAKEUP_TIMER;
+  if (!g_woke_from_timer_deep_sleep) {
     return;
   }
   if (g_rtc_sleep_arm_us == 0 ||
@@ -656,6 +690,9 @@ void ComputeSleepElapsed() {
   g_sleep_elapsed_us = elapsed > 0xffffffffull
                            ? 0xffffffffu
                            : static_cast<std::uint32_t>(elapsed);
+  if (g_sleep_elapsed_us > kStageSleepUs) {
+    g_wake_overhead_us = g_sleep_elapsed_us - kStageSleepUs;
+  }
 }
 
 bool WifiFailedBeforeEncode(prepared_send::FastSendResult const& r) {
@@ -665,35 +702,16 @@ bool WifiFailedBeforeEncode(prepared_send::FastSendResult const& r) {
   bool const encode_ok =
       (r.status_flags &
        static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk)) != 0;
-  return !encode_ok && r.status != prepared_send::HotSendStatus::kSent;
+  return !encode_ok && !prepared_send::HotSendConsumedNonce(r.status);
 }
 
-// Payload for the next packet of the current batch. Probe batches carry the
-// parameter under test; the hot run additionally carries the previous send's
-// timing, because the current send's own timing is not known yet.
+// Payload for the next packet of the current batch. The POST probe and the hot
+// run send the same message so the delay is selected with exactly the packet
+// production uses. It carries the previous send's timing because the current
+// send's own cost is only known after it is over.
 std::size_t BuildBatchPayload(std::uint16_t seq, std::uint8_t* out,
                               std::size_t capacity) {
-  if (Stage() == probe::ProbeStage::kHotRun) {
-    probe::HotData msg{};
-    msg.session = g_rtc.session;
-    msg.batch_id = g_rtc.batch_id;
-    msg.parameter_id = g_rtc.parameter_id;
-    msg.seq = seq;
-    msg.profile = g_rtc.profile;
-    msg.pre_ms = g_rtc.pre_ms;
-    msg.post_ms = g_rtc.post_ms;
-    msg.sleep_ms = g_rtc.sleep_ms;
-    msg.prev_seq = g_rtc.prev_seq;
-    msg.prev_connect_us = g_rtc.prev_connect_us;
-    msg.prev_cycle_us = g_rtc.prev_cycle_us;
-    msg.prev_txdone_us = g_rtc.prev_txdone_us;
-    msg.prev_sleep_elapsed_us = g_rtc.prev_sleep_elapsed_us;
-    msg.prev_status = g_rtc.prev_status;
-    msg.prev_valid = g_rtc.prev_valid;
-    return probe::Pack(msg, out, capacity);
-  }
-
-  probe::ProbeData msg{};
+  probe::HotData msg{};
   msg.session = g_rtc.session;
   msg.batch_id = g_rtc.batch_id;
   msg.parameter_id = g_rtc.parameter_id;
@@ -702,12 +720,29 @@ std::size_t BuildBatchPayload(std::uint16_t seq, std::uint8_t* out,
   msg.profile = g_rtc.profile;
   msg.pre_ms = g_rtc.pre_ms;
   msg.post_ms = g_rtc.post_ms;
-  // The no-sleep probe batch is measured without any sleep at all.
-  msg.sleep_ms = Stage() == probe::ProbeStage::kPostProbe ? 0 : g_rtc.sleep_ms;
+  msg.sleep_ms = g_rtc.sleep_ms;
+
+  auto const& prev = g_rtc.prev;
+  msg.prev_seq = prev.seq;
+  msg.prev_status = prev.status;
+  msg.prev_flags = prev.flags;
+  msg.prev_connect_us = prev.connect_us;
+  msg.prev_cycle_us = prev.cycle_us;
+  msg.prev_encode_us = prev.encode_us;
+  msg.prev_sendto_call_us = prev.sendto_call_us;
+  msg.prev_send_to_txdone_us = prev.send_to_txdone_us;
+  msg.prev_txdone_minus_sendto_return_us = prev.txdone_minus_sendto_return_us;
+  msg.prev_actual_post_us = prev.actual_post_us;
+  msg.prev_teardown_us = prev.teardown_us;
+  msg.prev_awake_us = prev.awake_us;
+  msg.prev_sleep_elapsed_us = prev.sleep_elapsed_us;
+  msg.prev_wake_overhead_us = prev.wake_overhead_us;
   return probe::Pack(msg, out, capacity);
 }
 
-// Sends one prepared packet. Returns false when the probe has to restart.
+// Sends one prepared packet and parks it as the pending sample. Returns false
+// when the probe has to restart, which only happens while the prepared nonce is
+// still untouched.
 bool SendOnePreparedPacket() {
   if (!prepared_send::PreparedWifiRtcCacheIsValid(g_rtc_wifi_cache)) {
     return false;
@@ -727,6 +762,7 @@ bool SendOnePreparedPacket() {
   ++g_rtc_batch_attempts;
 
   auto const seq = probe::ProductProbeNextSeq(g_rtc);
+  (void)probe::ProductProbeNextGeneration(g_rtc);
   std::uint8_t buffer[probe::kMaxProbeMessageSize]{};
   auto const size = BuildBatchPayload(seq, buffer, sizeof(buffer));
   if (size == 0) {
@@ -738,49 +774,136 @@ bool SendOnePreparedPacket() {
       g_cfg, ToDataBuffer(buffer, size), &g_wifi_snapshot);
   auto const cycle_end = esp_timer_get_time();
 
-  if (result.status == prepared_send::HotSendStatus::kSent) {
-    auto const delta = cycle_end - cycle_start;
-    probe::ProductProbeRecordHotSend(
-        g_rtc, seq, result.connect_us,
-        delta < 0 ? 0 : static_cast<std::uint32_t>(delta),
-        result.tx_done_wait_us, g_sleep_elapsed_us, 1);
-    return true;
-  }
-
-  probe::ProductProbeRecordHotFailure(g_rtc);
   if (WifiFailedBeforeEncode(result)) {
-    // The nonce was not consumed. The network changed under us, so the
-    // selected parameters have to be measured again.
+    // The nonce was not consumed. The network changed under us, so the selected
+    // parameters have to be measured again.
     return false;
   }
-  // Encode or send failure after Wi-Fi came up: retry the same slot.
+
+  // Everything below consumed a prepared nonce, so the slot is spent whatever
+  // happened afterwards and the packet must never be resent.
+  probe::ProbeSendTiming timing{};
+  timing.seq = seq;
+  timing.connect_us = result.connect_us;
+  auto const delta = cycle_end - cycle_start;
+  timing.cycle_us = delta < 0 ? 0 : static_cast<std::uint32_t>(delta);
+  timing.encode_us = result.encode_us;
+  timing.sendto_call_us = result.sendto_call_us;
+  timing.send_to_txdone_us = result.send_to_txdone_us;
+  timing.txdone_minus_sendto_return_us = result.txdone_minus_sendto_return_us;
+  timing.actual_post_us = result.actual_post_us;
+  timing.teardown_us = result.teardown_us;
+  timing.flags = probe::ProbeSampleSet(
+      timing.flags, probe::ProbeSampleFlag::kSendtoOk, result.sendto_ok != 0);
+  timing.flags = probe::ProbeSampleSet(
+      timing.flags, probe::ProbeSampleFlag::kTxDoneConfirmed,
+      result.tx_done_confirmed != 0 && result.tx_cb_register_failed == 0);
+
+  switch (result.status) {
+    case prepared_send::HotSendStatus::kSent:
+      timing.status = 1;
+      break;
+    case prepared_send::HotSendStatus::kSentTxUnconfirmed:
+      // Counted as unconfirmed at commit time, not as a send failure: the
+      // datagram did leave the socket.
+      timing.status = 2;
+      break;
+    default:
+      timing.status = 0;
+      probe::ProductProbeRecordHotFailure(g_rtc);
+      break;
+  }
+
+  probe::ProductProbeParkSample(g_rtc, timing);
   return true;
 }
 
-// Stage 2: the whole batch in one boot, nothing between the packets.
-[[noreturn]] void RunPostProbeStage() {
-  while (g_rtc.batch_sent < g_rtc.batch_expected) {
-    if (!SendOnePreparedPacket()) {
-      Reprobe("post_probe_send");
-    }
+// Stages 2 and 6. One datagram per wake, one real deep sleep per datagram, and
+// a sample only joins the batch once the boot after it proves that the sleep
+// happened.
+
+// The batch was not measured the way production sends, so it is thrown away
+// whole. Restarting it needs a fresh prepared block, because the discarded
+// packets already spent nonces out of the current one.
+[[noreturn]] void RestartBatchWithNewBlock(char const* reason) {
+  bool const hot = Stage() == probe::ProbeStage::kHotRun;
+  if (g_rtc_bad_wakes < 0xffff) {
+    ++g_rtc_bad_wakes;
   }
-  probe::ProductProbeAdvanceStage(g_rtc);
+  probe::ProductProbeInvalidateBatch(g_rtc);
+  if (probe::ProductProbeBatchInvalidationsExhausted(g_rtc)) {
+    Reprobe(reason);
+  }
+  g_rtc_batch_attempts = 0;
+  probe::ProductProbeSetStage(g_rtc,
+                              hot ? probe::ProbeStage::kHotPrepare
+                                  : probe::ProbeStage::kFullPreparePostBatch);
+  RestartToNextStage();
+}
+
+[[noreturn]] void RunMeasuredBatchStage() {
+  bool const hot = Stage() == probe::ProbeStage::kHotRun;
+
+  if (probe::ProductProbeHasPendingSample(g_rtc)) {
+    g_rtc.prev.sleep_elapsed_us = g_sleep_elapsed_us;
+    g_rtc.prev.wake_overhead_us = g_wake_overhead_us;
+    if (!probe::ProductProbeCommitPendingSample(g_rtc,
+                                                g_woke_from_timer_deep_sleep)) {
+      RestartBatchWithNewBlock(hot ? "hot_sleep_unconfirmed"
+                                   : "post_sleep_unconfirmed");
+    }
+  } else if (g_rtc.batch_armed == 0) {
+    // The batch is entered from a software restart, so the first send would
+    // have no deep sleep in front of it. Spend one boot on that sleep.
+    g_rtc.batch_armed = 1;
+    DeepSleepToNextStage();
+  } else if (!g_woke_from_timer_deep_sleep) {
+    RestartBatchWithNewBlock(hot ? "hot_arm_unconfirmed"
+                                 : "post_arm_unconfirmed");
+  }
+
+  if (g_rtc.batch_sent >= g_rtc.batch_expected) {
+    // The last sample's sleep was confirmed by this very boot, so the handover
+    // to the next Aether stage may restart.
+    probe::ProductProbeAdvanceStage(g_rtc);
+    RestartToNextStage();
+  }
+
+  if (!SendOnePreparedPacket()) {
+    Reprobe(hot ? "hot_send" : "post_send");
+  }
   DeepSleepToNextStage();
 }
 
-// Stages 4 and 7: one packet per boot with a deep sleep in between.
-[[noreturn]] void RunSleepingBatchStage() {
-  if (g_rtc.batch_sent >= g_rtc.batch_expected) {
-    probe::ProductProbeAdvanceStage(g_rtc);
-    DeepSleepToNextStage();
-  }
-  bool const hot = Stage() == probe::ProbeStage::kHotRun;
-  if (!SendOnePreparedPacket()) {
-    Reprobe(hot ? "hot_send" : "sleep_confirm_send");
-  }
-  if (g_rtc.batch_sent >= g_rtc.batch_expected) {
-    probe::ProductProbeAdvanceStage(g_rtc);
-  }
+// ---------------------------------------------------------------------------
+// Stage 5: arm the power logger
+// ---------------------------------------------------------------------------
+
+// The hot run is silent, so this is the only announcement the campaign runner
+// gets. It waits here long enough for the runner to release the PPK2 hold and
+// bring its logger up before the first production packet leaves.
+[[noreturn]] void RunPpkArmStage() {
+  SayStage("begin");
+  std::printf(
+      "P_HOT_ARM session=%08lx profile=%u pre=%u post=%u sleep=%u count=%u "
+      "wait_ms=%lu\n",
+      static_cast<unsigned long>(g_rtc.session),
+      static_cast<unsigned>(g_rtc.profile), static_cast<unsigned>(g_rtc.pre_ms),
+      static_cast<unsigned>(g_rtc.post_ms),
+      static_cast<unsigned>(g_rtc.sleep_ms),
+      static_cast<unsigned>(g_rtc.batch_expected),
+      static_cast<unsigned long>(kPpkArmMs));
+  std::fflush(stdout);
+
+  vTaskDelay(pdMS_TO_TICKS(kPpkArmMs));
+
+  std::printf("P_HOT_ARM_GO\n");
+  std::fflush(stdout);
+
+  probe::ProductProbeSetStage(g_rtc, probe::ProbeStage::kHotRun);
+  // This sleep is the hot run's arming sleep, so the first production packet is
+  // preceded by exactly the same deep sleep as every other one.
+  g_rtc.batch_armed = 1;
   DeepSleepToNextStage();
 }
 
@@ -789,8 +912,7 @@ bool SendOnePreparedPacket() {
 // ---------------------------------------------------------------------------
 
 bool PurposeIsQuery(FullPurpose purpose) {
-  return purpose == FullPurpose::kQueryPostBatch ||
-         purpose == FullPurpose::kQuerySleepBatch;
+  return purpose == FullPurpose::kQueryPostBatch;
 }
 
 void PreConstructCleanup() {
@@ -838,7 +960,9 @@ std::size_t BuildFullPayload(std::uint8_t* out, std::size_t capacity) {
     msg.sleep_ms = g_rtc.sleep_ms;
     msg.hot_sent = g_rtc.hot_sent;
     msg.hot_fail = g_rtc.hot_fail;
+    msg.hot_unconfirmed = g_rtc.hot_unconfirmed;
     msg.reprobe_count = g_rtc.reprobe_count;
+    msg.batch_invalidations = g_rtc.batch_invalidations;
     return probe::Pack(msg, out, capacity);
   }
   if (PurposeIsQuery(g_purpose)) {
@@ -849,7 +973,7 @@ std::size_t BuildFullPayload(std::uint8_t* out, std::size_t capacity) {
     msg.expected = g_rtc.batch_expected;
     return probe::Pack(msg, out, capacity);
   }
-  // Stage markers: FULL_PREPARE and PROBE_COMPLETE.
+  // Stage markers: FULL_PREPARE_POST_BATCH and HOT_PREPARE.
   probe::ProbeData msg{};
   msg.session = g_rtc.session;
   msg.batch_id = g_rtc.batch_id;
@@ -998,117 +1122,105 @@ bool ExportBlockForNextBatch(std::uint16_t reserve) {
              static_cast<std::uint32_t>(reserve);
 }
 
-// Sets up the next prepared batch of `expected` packets at the current POST.
-bool BeginPreparedStage(probe::ProbeStage stage, std::uint16_t expected) {
+// Sets up the next prepared batch of `expected` packets at the current POST and
+// leaves the run at `next_stage`.
+bool BeginPreparedBatch(probe::ProbeStage next_stage, std::uint16_t expected) {
   g_cfg = MakeFastConfig();
   if (!ExportBlockForNextBatch(expected)) {
     return false;
   }
-  if (stage == probe::ProbeStage::kHotRun) {
+  if (next_stage == probe::ProbeStage::kPpkArm) {
     // Probe batches share the send counters; the summary must report the
     // production run only.
     g_rtc.hot_sent = 0;
     g_rtc.hot_fail = 0;
+    g_rtc.hot_unconfirmed = 0;
   }
   probe::ProductProbeBeginBatch(g_rtc, g_rtc.post_ms, expected);
   g_rtc_batch_attempts = 0;
-  probe::ProductProbeSetStage(g_rtc, stage);
+  if (g_rtc_total_batches < 0xffff) {
+    ++g_rtc_total_batches;
+  }
+  probe::ProductProbeSetStage(g_rtc, next_stage);
   return true;
 }
 
-// Judges the batch just queried and decides what the next boot does.
-bool ApplyQueryVerdict() {
-  auto const table = probe::ProductPostTable();
-  auto const verdict = probe::JudgeBatch(g_query.last_unique,
-                                        g_rtc.batch_expected,
-                                        g_rtc.extra_batch_used != 0);
-  bool const sleep_stage = g_purpose == FullPurpose::kQuerySleepBatch;
-  auto const probe_stage = sleep_stage ? probe::ProbeStage::kSleepConfirm
-                                       : probe::ProbeStage::kPostProbe;
+// Judges the batch just queried and decides what the next boot does. No branch
+// here can turn a failing measurement into a selected POST delay.
+bool ApplyPostVerdict() {
+  auto stats = probe::ProductProbeBatchStats(g_rtc, g_query.last_unique);
+  auto const action = probe::PostSearchRecordBatch(g_rtc.post_search, stats);
 
   std::printf(
-      "P_VERDICT stage=%u post=%u unique=%u expected=%u verdict=%u batches=%u "
-      "timeout=%d\n",
-      static_cast<unsigned>(g_rtc.stage), static_cast<unsigned>(g_rtc.post_ms),
-      static_cast<unsigned>(g_query.last_unique),
-      static_cast<unsigned>(g_rtc.batch_expected),
-      static_cast<unsigned>(verdict),
-      static_cast<unsigned>(g_rtc_stage_batches), g_query_timed_out ? 1 : 0);
+      "P_VERDICT post=%u unique=%u local_ok=%u expected=%u action=%u "
+      "batches=%u invalidations=%u timeout=%d\n",
+      static_cast<unsigned>(g_rtc.post_ms), static_cast<unsigned>(stats.unique),
+      static_cast<unsigned>(stats.local_ok),
+      static_cast<unsigned>(stats.expected), static_cast<unsigned>(action),
+      static_cast<unsigned>(g_rtc_total_batches),
+      static_cast<unsigned>(g_rtc.batch_invalidations),
+      g_query_timed_out ? 1 : 0);
   std::fflush(stdout);
 
-  ++g_rtc_stage_batches;
+  auto const finish_invalid = [](char const* reason) {
+    std::printf("P_PATH_INVALID reason=%s post=%u\n", reason,
+                static_cast<unsigned>(g_rtc.post_ms));
+    std::fflush(stdout);
+    // No hot run and no power capture: there is no POST delay this network
+    // supports, so there is nothing to demonstrate.
+    probe::ProductProbeSetStage(g_rtc, probe::ProbeStage::kDone);
+    return true;
+  };
 
-  // A near miss buys exactly one more batch at the same POST value.
-  if (verdict == probe::BatchVerdict::kExtraBatch &&
-      g_rtc_stage_batches < kMaxProbeBatchesPerStage) {
-    g_rtc.extra_batch_used = 1;
-    return BeginPreparedStage(probe_stage, probe::kProbeBatchSize);
-  }
-  g_rtc.extra_batch_used = 0;
-
-  if (sleep_stage) {
-    // The POST delay is already settled; a failing sleep confirmation only
-    // means the sleeping hot path needs more slack than the no-sleep probe.
-    // kProbeComplete is an Aether stage, so no prepared block is exported here.
-    auto const accept = [&]() {
-      g_rtc_stage_batches = 0;
-      probe::ProductProbeSetStage(g_rtc, probe::ProbeStage::kProbeComplete);
-      return true;
-    };
-    if (verdict == probe::BatchVerdict::kPass ||
-        g_rtc_stage_batches >= kMaxProbeBatchesPerStage) {
-      return accept();
-    }
-    auto const raised = RaisePost(g_rtc.post_ms);
-    if (raised == g_rtc.post_ms) {
-      return accept();
-    }
-    g_rtc.post_ms = raised;
-    return BeginPreparedStage(probe::ProbeStage::kSleepConfirm,
-                              probe::kProbeBatchSize);
+  if (g_rtc_total_batches >= kMaxProbeBatches &&
+      action != probe::PostSearchAction::kFinishedSelected) {
+    return finish_invalid("batch_budget");
   }
 
-  probe::ParamSearchRecord(table, g_rtc.post_search,
-                           verdict == probe::BatchVerdict::kPass);
-  bool const search_done = probe::ParamSearchFinished(g_rtc.post_search);
-  if (search_done) {
-    g_rtc.post_ms = probe::ParamSearchFailed(g_rtc.post_search)
-                        ? table.extended[table.extended_count - 1]
-                        : probe::ParamSearchSelected(g_rtc.post_search);
-  } else {
-    g_rtc.post_ms = probe::ParamSearchCurrent(table, g_rtc.post_search);
+  switch (action) {
+    case probe::PostSearchAction::kMeasureCandidate:
+      g_rtc.post_ms = probe::PostSearchCurrent(g_rtc.post_search);
+      return BeginPreparedBatch(probe::ProbeStage::kPostProbeSleep250,
+                                BatchSize());
+    case probe::PostSearchAction::kSecondBatch:
+    case probe::PostSearchAction::kRetryBatch:
+      // Same candidate, a fresh and independently identified batch.
+      return BeginPreparedBatch(probe::ProbeStage::kPostProbeSleep250,
+                                BatchSize());
+    case probe::PostSearchAction::kFinishedInvalid:
+      return finish_invalid("no_post_delivers");
+    case probe::PostSearchAction::kFinishedSelected:
+      break;
   }
 
-  // The search is over and the winning value already delivered a full batch:
-  // move to the sleeping confirmation of the same value.
-  if (search_done && verdict == probe::BatchVerdict::kPass) {
-    g_rtc_stage_batches = 0;
-    return BeginPreparedStage(probe::ProbeStage::kSleepConfirm,
-                              probe::kProbeBatchSize);
+  g_rtc.post_ms = probe::PostSearchSelected(g_rtc.post_search);
+  std::printf("P_POST_SELECTED post=%u\n",
+              static_cast<unsigned>(g_rtc.post_ms));
+  std::fflush(stdout);
+  if (kSmokeMode) {
+    // The smoke run only had to prove that the measured path really sleeps.
+    probe::ProductProbeSetStage(g_rtc, probe::ProbeStage::kDone);
+    return true;
   }
-  if (g_rtc_stage_batches >= kMaxProbeBatchesPerStage) {
-    g_rtc_stage_batches = 0;
-    return BeginPreparedStage(probe::ProbeStage::kSleepConfirm,
-                              probe::kProbeBatchSize);
-  }
-  return BeginPreparedStage(probe_stage, probe::kProbeBatchSize);
+  probe::ProductProbeSetStage(g_rtc, probe::ProbeStage::kHotPrepare);
+  return true;
 }
 
 // Runs while the Aether app is still alive, so prepared export and Save work.
 void FinishWorkInLoop() {
   bool ok = false;
   switch (g_purpose) {
-    case FullPurpose::kPrepareBatch:
-      ok = g_write_ok && BeginPreparedStage(probe::ProbeStage::kPostProbe,
-                                            probe::kProbeBatchSize);
+    case FullPurpose::kPreparePostBatch:
+      ok =
+          g_write_ok && BeginPreparedBatch(
+                            probe::ProbeStage::kPostProbeSleep250, BatchSize());
       break;
-    case FullPurpose::kProbeComplete:
-      ok = g_write_ok && BeginPreparedStage(probe::ProbeStage::kHotRun,
+    case FullPurpose::kPrepareHot:
+      ok = g_write_ok && BeginPreparedBatch(probe::ProbeStage::kPpkArm,
                                             probe::kProbeHotCount);
       break;
     case FullPurpose::kQueryPostBatch:
-    case FullPurpose::kQuerySleepBatch:
-      ok = ApplyQueryVerdict();
+      ok = ApplyPostVerdict();
       break;
     case FullPurpose::kHotSummary:
       if (g_write_ok) {
@@ -1133,8 +1245,8 @@ void FinishWorkInLoop() {
     Reprobe("full_stage");
   }
   SayStage("full_done");
-  // The Aether teardown leaves the chip in the same state the ICMP search
-  // does, so this transition restarts instead of sleeping.
+  // The Aether teardown leaves the chip in the same state the ICMP search does,
+  // so this transition restarts instead of sleeping.
   RestartToNextStage();
 }
 
@@ -1143,7 +1255,7 @@ void FinishWorkInLoop() {
 // ---------------------------------------------------------------------------
 
 // A deep-sleep timer wake continues the run. So does the software restart the
-// sleep-reject fallback issues, because it preserves the same RTC state.
+// stage handovers issue, because it preserves the same RTC state.
 bool IsColdBoot() {
   auto const reset = static_cast<esp_reset_reason_t>(g_early.reset_reason);
   if (reset == ESP_RST_SW) {
@@ -1158,7 +1270,7 @@ bool IsColdBoot() {
 
 void PrepareOnBoot() {
   g_early = GetExperimentEarlyEntrySnapshot();
-  ComputeSleepElapsed();
+  ComputeWakeMetrics();
   bool const cold = IsColdBoot() || g_rtc.stage >= probe::kProbeStageCount;
 
   BootMark mark{};
@@ -1180,11 +1292,15 @@ void PrepareOnBoot() {
     g_rtc_wifi_cache = prepared_send::PreparedWifiRtcCache{};
     g_icmp_cache = IcmpCache{};
     g_rtc_batch_attempts = 0;
-    g_rtc_stage_batches = 0;
+    g_rtc_total_batches = 0;
     g_rtc_sleep_arm_us = 0;
     g_rtc_sleep_reject = 0;
     g_rtc_sleep_reject_err = 0;
+    g_rtc_timer_wakes = 0;
+    g_rtc_bad_wakes = 0;
     probe::ProductProbeColdBootReset(g_rtc, esp_random());
+  } else if (g_woke_from_timer_deep_sleep && g_rtc_timer_wakes < 0xffff) {
+    ++g_rtc_timer_wakes;
   }
   g_cfg = MakeFastConfig();
 }
@@ -1206,9 +1322,9 @@ void setup() {
   if (stage == probe::ProbeStage::kIcmpSelect) {
     RunIcmpSelectStage();
   }
-  if (stage == probe::ProbeStage::kFullPrepare) {
+  if (stage == probe::ProbeStage::kFullPreparePostBatch) {
     SayStage("begin");
-    StartFullStage(FullPurpose::kPrepareBatch);
+    StartFullStage(FullPurpose::kPreparePostBatch);
     return;
   }
   if (stage == probe::ProbeStage::kPostQuery) {
@@ -1216,14 +1332,9 @@ void setup() {
     StartFullStage(FullPurpose::kQueryPostBatch);
     return;
   }
-  if (stage == probe::ProbeStage::kSleepConfirmQuery) {
+  if (stage == probe::ProbeStage::kHotPrepare) {
     SayStage("begin");
-    StartFullStage(FullPurpose::kQuerySleepBatch);
-    return;
-  }
-  if (stage == probe::ProbeStage::kProbeComplete) {
-    SayStage("begin");
-    StartFullStage(FullPurpose::kProbeComplete);
+    StartFullStage(FullPurpose::kPrepareHot);
     return;
   }
   if (stage == probe::ProbeStage::kHotSummary) {
@@ -1236,7 +1347,7 @@ void setup() {
     g_idle = true;
     return;
   }
-  // Prepared batch stages run synchronously from loop().
+  // PPK_ARM and the measured batch stages run synchronously from loop().
 }
 
 void loop() {
@@ -1252,12 +1363,11 @@ void loop() {
   // the prepared stages must only start once the app is gone. Otherwise the
   // prepared send races the still-running Aether Wi-Fi.
   if (!g_app) {
-    if (stage == probe::ProbeStage::kPostProbe) {
-      RunPostProbeStage();
+    if (stage == probe::ProbeStage::kPpkArm) {
+      RunPpkArmStage();
     }
-    if (stage == probe::ProbeStage::kSleepConfirm ||
-        stage == probe::ProbeStage::kHotRun) {
-      RunSleepingBatchStage();
+    if (StageIsMeasured(stage)) {
+      RunMeasuredBatchStage();
     }
     Reprobe("no_app");
   }

@@ -252,6 +252,10 @@ set(AE_EXP_ADAPTIVE_WIFI_PROBE_A "" CACHE STRING "Adaptive Wi-Fi probe Phase A I
 set(AE_EXP_ADAPTIVE_WIFI_PROBE_B "" CACHE STRING "Adaptive Wi-Fi probe Phase B existing Ping (set to 1)")
 set(AE_EXP_ADAPTIVE_WIFI_PROBE_C "" CACHE STRING "Adaptive Wi-Fi probe Phase C prepared HOT sleep (set to 1)")
 set(AE_EXP_PRODUCT_ADAPTIVE_PROBE "" CACHE STRING "Product adaptive Wi-Fi probe, self-selecting (set to 1)")
+# The measured stages always deep sleep; these only size the run.
+set(AE_PRODUCT_PROBE_SMOKE "" CACHE STRING "Product probe deep-sleep smoke: measured packets, then stop")
+set(AE_PRODUCT_PROBE_PPK_ARM_MS "" CACHE STRING "Product probe PPK_ARM audible wait before the hot run (ms)")
+set(AE_PRODUCT_PROBE_MAX_BATCH_INVALIDATIONS "" CACHE STRING "Product probe unconfirmed-sleep batch retries")
 set(AE_EXP_PREPARED_TX_DONE_DIAG "" CACHE STRING "Silent TX-done callback diagnostic 1x50 (set to 1)")
 set(AE_EXP_PREPARED_MAC_RETRY_DIAG "" CACHE STRING "Silent MAC retry-limit diagnostic 7x50 (set to 1)")
 set(AE_EXP_PREPARED_BOOT_WIFI_OPT "" CACHE STRING "Silent boot/wifi HOT opt campaign 11x30 (set to 1)")
@@ -325,7 +329,9 @@ if(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
              AE_PRODUCT_PROBE_ICMP_PER_CONNECT AE_PRODUCT_PROBE_BATCH_SIZE
              AE_PRODUCT_PROBE_BATCH_TOLERANCE AE_PRODUCT_PROBE_QUERY_STABLE_MS
              AE_PRODUCT_PROBE_QUERY_TIMEOUT_MS AE_PRODUCT_PROBE_HOT_COUNT
-             AE_PRODUCT_PROBE_SLEEP_MS)
+             AE_PRODUCT_PROBE_SLEEP_MS
+             AE_PRODUCT_PROBE_MAX_BATCH_INVALIDATIONS
+             AE_PRODUCT_PROBE_PPK_ARM_MS AE_PRODUCT_PROBE_SMOKE)
     if(DEFINED ${_d} AND NOT "${${_d}}" STREQUAL "")
       target_compile_definitions(${TARGET_NAME} PRIVATE "${_d}=${${_d}}")
     endif()
