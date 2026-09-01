@@ -237,11 +237,10 @@ void ReportBootMarks() {
                          : g_rtc_boot_mark_count;
   for (std::uint8_t i = 0; i < count; ++i) {
     auto const& m = g_rtc_boot_marks[i];
-    std::printf("P_BOOT stage=%u reset=%u wake=%u cold=%u\n",
-                static_cast<unsigned>(m.stage),
-                static_cast<unsigned>(m.reset_reason),
-                static_cast<unsigned>(m.wakeup_cause),
-                static_cast<unsigned>(m.cold));
+    std::printf(
+        "P_BOOT stage=%u reset=%u wake=%u cold=%u\n",
+        static_cast<unsigned>(m.stage), static_cast<unsigned>(m.reset_reason),
+        static_cast<unsigned>(m.wakeup_cause), static_cast<unsigned>(m.cold));
   }
   std::printf(
       "P_BOOT_SUM boots=%u timer_wakes=%u bad_wakes=%u reject=%u "
@@ -261,14 +260,12 @@ void SayStage(char const* tag) {
   if (StageIsMeasured(Stage())) {
     return;
   }
-  ReportBootMarks();
   std::printf(
       "P_STAGE stage=%u name=%s tag=%s session=%08lx profile=%u pre=%u post=%u "
       "sleep=%u batch=%u param=%u seq=%u hot=%u fail=%u reprobe=%u\n",
       static_cast<unsigned>(g_rtc.stage), probe::ProbeStageName(Stage()), tag,
       static_cast<unsigned long>(g_rtc.session),
-      static_cast<unsigned>(g_rtc.profile),
-      static_cast<unsigned>(g_rtc.pre_ms),
+      static_cast<unsigned>(g_rtc.profile), static_cast<unsigned>(g_rtc.pre_ms),
       static_cast<unsigned>(g_rtc.post_ms),
       static_cast<unsigned>(g_rtc.sleep_ms),
       static_cast<unsigned>(g_rtc.batch_id),
@@ -286,6 +283,10 @@ void SayStage(char const* tag) {
 [[noreturn]] void RestartToNextStage() {
   assert(!StageIsMeasured(Stage()) &&
          "measured stages must hand over with a real deep sleep");
+  // The replay waits until the end of the boot on purpose. A wake re-enumerates
+  // the USB console, so anything written in the first moments of a boot is lost
+  // and the sleep evidence would disappear with it.
+  ReportBootMarks();
   std::printf("P_RESTART stage=%u\n", static_cast<unsigned>(g_rtc.stage));
   std::fflush(stdout);
   g_rtc_sleep_arm_us = 0;
@@ -315,8 +316,7 @@ void SayStage(char const* tag) {
 #  endif
   bool const audible = !StageIsMeasured(Stage());
   if (audible) {
-    std::printf("P_SLEEP stage=%u us=%lu\n",
-                static_cast<unsigned>(g_rtc.stage),
+    std::printf("P_SLEEP stage=%u us=%lu\n", static_cast<unsigned>(g_rtc.stage),
                 static_cast<unsigned long>(kStageSleepUs));
     std::fflush(stdout);
   }
@@ -399,8 +399,7 @@ void OnIcmpWifiEvent(void*, esp_event_base_t base, std::int32_t id, void*) {
 
 void IcmpTeardown() {
   esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, &OnIcmpWifiEvent);
-  esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
-                               &OnIcmpWifiEvent);
+  esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, &OnIcmpWifiEvent);
   esp_wifi_disconnect();
   esp_wifi_stop();
   esp_wifi_deinit();
@@ -424,8 +423,7 @@ bool IcmpConnect(ae::WifiProbeProfile profile, std::uint16_t pre_ms,
   bool const use_ip = ae::WifiProbeProfileUsesCachedIp(profile) &&
                       g_icmp_cache.valid != 0 && g_icmp_cache.ip != 0;
   bool const use_channel = ae::WifiProbeProfileUsesChannel(profile) &&
-                           g_icmp_cache.valid != 0 &&
-                           g_icmp_cache.channel != 0;
+                           g_icmp_cache.valid != 0 && g_icmp_cache.channel != 0;
   g_icmp_wait_ip = !use_ip;
 
   nvs_flash_init();
@@ -634,10 +632,10 @@ probe::IcmpTrial RunIcmpTrial(ae::WifiProbeProfile profile,
     std::printf("P_ICMP_WINNER profile=%u pre=%u loss_ppt=%lu mean_ms=%lu\n",
                 static_cast<unsigned>(g_rtc.profile),
                 static_cast<unsigned>(g_rtc.pre_ms),
-                static_cast<unsigned long>(probe::IcmpTrialLossPpt(
-                    candidates[winner].trial)),
-                static_cast<unsigned long>(probe::IcmpTrialConnectMeanMs(
-                    candidates[winner].trial)));
+                static_cast<unsigned long>(
+                    probe::IcmpTrialLossPpt(candidates[winner].trial)),
+                static_cast<unsigned long>(
+                    probe::IcmpTrialConnectMeanMs(candidates[winner].trial)));
   }
   std::fflush(stdout);
 
@@ -814,6 +812,26 @@ bool SendOnePreparedPacket() {
       break;
   }
 
+  if (kSmokeMode) {
+    // The measured stage is silent in a campaign because the console distorts
+    // the cycle, but the smoke exists to be watched.
+    std::printf(
+        "P_SEND seq=%u status=%u sendto_ok=%u txdone=%u cb_reg_fail=%u "
+        "size=%u left=%lu connect_us=%lu encode_us=%lu sendto_us=%lu "
+        "txdone_us=%lu\n",
+        static_cast<unsigned>(seq), static_cast<unsigned>(timing.status),
+        static_cast<unsigned>(result.sendto_ok),
+        static_cast<unsigned>(result.tx_done_confirmed),
+        static_cast<unsigned>(result.tx_cb_register_failed),
+        static_cast<unsigned>(size),
+        static_cast<unsigned long>(prepared_send::PreparedMessageLeft()),
+        static_cast<unsigned long>(result.connect_us),
+        static_cast<unsigned long>(result.encode_us),
+        static_cast<unsigned long>(result.sendto_call_us),
+        static_cast<unsigned long>(result.send_to_txdone_us));
+    std::fflush(stdout);
+  }
+
   probe::ProductProbeParkSample(g_rtc, timing);
   return true;
 }
@@ -928,24 +946,23 @@ void PreConstructCleanup() {
 void ConstructAether() {
   PreConstructCleanup();
   g_had_aether_app = true;
-  g_app = ae::AetherApp::Construct(
-      ae::AetherAppContext{}.AdaptersFactory(
-          [&](ae::AetherAppContext const& ctx) {
-            auto ap = ae::AdapterRegistry::ptr{ctx.aether()->adapter_registry};
-            if (!ap.is_valid()) {
-              ap = ae::AdapterRegistry::ptr::Create(
-                  ae::CreateWith{ctx.domain()}
-                      .with_id(ae::GlobalId::kAdapterRegistry)
-                      .with_flags(ae::ObjFlags::kUnloadedByDefault));
-            }
-            auto loaded_reg = ap.Load();
-            assert(loaded_reg && "AdapterRegistry load failed");
-            loaded_reg->Clear();
-            loaded_reg->Add(ae::WifiAdapter::ptr::Create(
-                ae::CreateWith{ctx.domain()}, ctx.aether(), ctx.poller(),
-                ctx.dns_resolver(), kWifiInit));
-            return ap;
-          }));
+  g_app = ae::AetherApp::Construct(ae::AetherAppContext{}.AdaptersFactory(
+      [&](ae::AetherAppContext const& ctx) {
+        auto ap = ae::AdapterRegistry::ptr{ctx.aether()->adapter_registry};
+        if (!ap.is_valid()) {
+          ap = ae::AdapterRegistry::ptr::Create(
+              ae::CreateWith{ctx.domain()}
+                  .with_id(ae::GlobalId::kAdapterRegistry)
+                  .with_flags(ae::ObjFlags::kUnloadedByDefault));
+        }
+        auto loaded_reg = ap.Load();
+        assert(loaded_reg && "AdapterRegistry load failed");
+        loaded_reg->Clear();
+        loaded_reg->Add(ae::WifiAdapter::ptr::Create(
+            ae::CreateWith{ctx.domain()}, ctx.aether(), ctx.poller(),
+            ctx.dns_resolver(), kWifiInit));
+        return ap;
+      }));
 }
 
 std::size_t BuildFullPayload(std::uint8_t* out, std::size_t capacity) {
@@ -1008,11 +1025,24 @@ void WriteFullPayload() {
 }
 
 void OnFullData(ae::DataBuffer const& data) {
+  // Anything arriving on the FULL stream is worth naming: a query that is
+  // answered but not understood looks exactly like one that was never answered.
+  probe::ProbeMsgType type{};
+  auto const known = probe::PeekType(data.data(), data.size(), type);
+  std::printf("P_FULL_RX size=%u known=%d type=%u\n",
+              static_cast<unsigned>(data.size()), known ? 1 : 0,
+              static_cast<unsigned>(type));
+  std::fflush(stdout);
+
   probe::ProbeResult result{};
   if (!probe::Unpack(data.data(), data.size(), result)) {
     return;
   }
   if (result.session != g_rtc.session || result.batch_id != g_rtc.batch_id) {
+    std::printf("P_QUERY_STALE session=%08lx batch=%u\n",
+                static_cast<unsigned long>(result.session),
+                static_cast<unsigned>(result.batch_id));
+    std::fflush(stdout);
     return;
   }
   g_query_unique = result.unique;
@@ -1043,6 +1073,17 @@ void MaybeStartFullWork() {
 void OnFullClientReady(ae::Client::ptr client_ptr) {
   g_client = std::move(client_ptr);
   auto client = g_client.Load();
+  if (PurposeIsQuery(g_purpose)) {
+    // The query is the only stage that waits for an answer, and an answer only
+    // arrives as fast as the client asks the server for it. Without this the
+    // result sits unread on the server until the stage gives up, which is what
+    // made every batch look like nothing had been delivered.
+    client->connectivity_policy()->ResetRxTimings();
+    client->connectivity_policy()
+        ->ConfigureRxTimings(ae::RequestPolicy::All{})
+        .ForAllPriorities(ae::RxTimingConf::Every(std::chrono::seconds{1})
+                              .WithWindow(std::chrono::seconds{1}));
+  }
   auto cloud = client->cloud().Load();
   if (cloud) {
     for (auto& [sid, cs] : cloud->servers()) {
@@ -1052,8 +1093,12 @@ void OnFullClientReady(ae::Client::ptr client_ptr) {
       }
     }
   }
+  // The port has to come from the manager: a default handle sends fine but is
+  // not registered for receiving, so every reply from the receiver was routed
+  // to a port nothing listened on and the query could only ever time out.
+  auto handle = client->message_stream_manager().CreatePort(kServiceUid);
   g_stream = std::make_unique<ae::P2pStream>(*g_app, client, kServiceUid,
-                                            ae::P2pPortHandle{});
+                                             std::move(handle));
   g_data_sub = g_stream->out_data_event().Subscribe(
       [](ae::DataBuffer const& data) { OnFullData(data); });
   g_stream_sub =
@@ -1096,6 +1141,7 @@ void PumpQuery() {
     g_query_have_result = false;
     auto const action = probe::LateQueryOnResult(g_query, now, g_query_unique);
     if (action == probe::LateQueryAction::kQueryAgain) {
+      probe::LateQueryMarkSent(g_query, now);
       WriteFullPayload();
       return;
     }
@@ -1107,19 +1153,31 @@ void PumpQuery() {
       probe::LateQueryAction::kTimeout) {
     g_query_timed_out = true;
     g_query_finished = true;
+    return;
+  }
+  // Nothing came back. The query is a single message with nothing behind it to
+  // retransmit, so ask again rather than spending the whole budget waiting on a
+  // request that may never have arrived.
+  if (probe::LateQueryRetryDue(g_query, now)) {
+    probe::LateQueryMarkSent(g_query, now);
+    WriteFullPayload();
   }
 }
 
 bool ExportBlockForNextBatch(std::uint16_t reserve) {
-  if (!prepared_send::CapturePreparedWifiRtcCache(&g_rtc_wifi_cache)) {
-    return false;
-  }
-  if (!prepared_send::ExportPreparedSendBlock(g_client, kServiceUid, reserve)) {
-    return false;
-  }
-  return prepared_send::HasPreparedSendBlock() &&
-         prepared_send::PreparedMessageLeft() ==
-             static_cast<std::uint32_t>(reserve);
+  auto const cache_ok =
+      prepared_send::CapturePreparedWifiRtcCache(&g_rtc_wifi_cache);
+  auto const block_ok = cache_ok && prepared_send::ExportPreparedSendBlock(
+                                        g_client, kServiceUid, reserve);
+  auto const left = block_ok ? prepared_send::PreparedMessageLeft() : 0u;
+  // A batch that silently starts on a stale block looks exactly like a network
+  // that drops everything, so name the handover the batch depends on.
+  std::printf("P_PREP cache=%d block=%d reserve=%u left=%lu\n",
+              cache_ok ? 1 : 0, block_ok ? 1 : 0,
+              static_cast<unsigned>(reserve), static_cast<unsigned long>(left));
+  std::fflush(stdout);
+  return block_ok && prepared_send::HasPreparedSendBlock() &&
+         left == static_cast<std::uint32_t>(reserve);
 }
 
 // Sets up the next prepared batch of `expected` packets at the current POST and
@@ -1344,6 +1402,9 @@ void setup() {
   }
   if (stage == probe::ProbeStage::kDone) {
     SayStage("done");
+    // Nothing restarts after this, so this is the last chance to replay what
+    // the silent boots recorded.
+    ReportBootMarks();
     g_idle = true;
     return;
   }

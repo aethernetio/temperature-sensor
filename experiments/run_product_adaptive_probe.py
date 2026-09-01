@@ -605,7 +605,14 @@ def deep_sleep_evidence(text: str) -> dict:
 
 
 def parse_serial(text: str) -> dict:
-    out: dict = {"icmp_trials": [], "verdicts": [], "reprobes": []}
+    out: dict = {
+        "icmp_trials": [],
+        "verdicts": [],
+        "reprobes": [],
+        "sends": [],
+        "preps": [],
+        "query_results": [],
+    }
     for m in re.finditer(
         r"P_ICMP profile=(-?\d+) pre=(\d+) connects=(\d+) ok=(\d+) icmp_s=(\d+) "
         r"icmp_r=(\d+) loss_ppt=(\d+) mean_ms=(\d+) pass=(\d)",
@@ -643,6 +650,52 @@ def parse_serial(text: str) -> dict:
                 "batches": int(m.group(6)),
                 "invalidations": int(m.group(7)),
                 "query_timeout": bool(int(m.group(8))),
+            }
+        )
+    for m in re.finditer(
+        r"P_SEND seq=(\d+) status=(\d+) sendto_ok=(\d+) txdone=(\d+) "
+        r"cb_reg_fail=(\d+) size=(\d+) left=(\d+) connect_us=(\d+) "
+        r"encode_us=(\d+) sendto_us=(\d+) txdone_us=(\d+)",
+        text,
+    ):
+        out["sends"].append(
+            {
+                "seq": int(m.group(1)),
+                "status": int(m.group(2)),
+                "sendto_ok": bool(int(m.group(3))),
+                "tx_done": bool(int(m.group(4))),
+                "cb_register_failed": bool(int(m.group(5))),
+                "size": int(m.group(6)),
+                "left": int(m.group(7)),
+                "connect_us": int(m.group(8)),
+                "encode_us": int(m.group(9)),
+                "sendto_us": int(m.group(10)),
+                "send_to_txdone_us": int(m.group(11)),
+            }
+        )
+    for m in re.finditer(
+        r"P_PREP cache=(\d) block=(\d) reserve=(\d+) left=(\d+)", text
+    ):
+        out["preps"].append(
+            {
+                "cache": bool(int(m.group(1))),
+                "block": bool(int(m.group(2))),
+                "reserve": int(m.group(3)),
+                "left": int(m.group(4)),
+            }
+        )
+    for m in re.finditer(
+        r"P_QUERY_RESULT batch=(\d+) expected=(\d+) unique=(\d+) dup=(\d+) "
+        r"miss=(\d+)",
+        text,
+    ):
+        out["query_results"].append(
+            {
+                "batch": int(m.group(1)),
+                "expected": int(m.group(2)),
+                "unique": int(m.group(3)),
+                "dup": int(m.group(4)),
+                "missing": int(m.group(5)),
             }
         )
     for m in re.finditer(r"P_REPROBE reason=(\S+) count=(\d+)", text):
@@ -705,13 +758,13 @@ def parse_rx(text: str) -> dict:
                 "out_of_window": int(m.group(13)),
             }
         )
-    hot = [
-        m
-        for m in re.finditer(
-            r"HOT_DATA session=(\d+) batch=(\d+) stage=(\S+) seq=(\d+)", text
-        )
-        if m.group(3) == "HOT_RUN"
-    ]
+    every_hot = list(
+        re.finditer(r"HOT_DATA session=(\d+) batch=(\d+) stage=(\S+) seq=(\d+)", text)
+    )
+    # Measured packets carry the same payload in every measured stage, so the
+    # unfiltered count is what tells a probe batch apart from a dead network.
+    out["hot_data_count"] = len(every_hot)
+    hot = [m for m in every_hot if m.group(3) == "HOT_RUN"]
     out["hot_data"] = len(hot)
     out["hot_unique_seq"] = len({m.group(4) for m in hot})
     out["timing"] = hot_timing(text)
@@ -806,12 +859,16 @@ def build_firmware(ap: str, *, smoke: int = 0) -> None:
         CONFIGURED_MARK.exists()
     ) else ""
     if have != want:
-        defs = {"BENCH_CLIENT_ID": "reliability_full_v1"}
-        if smoke:
+        # These are cache entries, so the campaign has to blank them explicitly:
+        # inheriting a smoke run's packet count would silently cut the campaign
+        # down to three packets.
+        defs = {
+            "BENCH_CLIENT_ID": "reliability_full_v1",
+            "AE_PRODUCT_PROBE_SMOKE": str(smoke) if smoke else "",
             # The smoke run has no hot campaign to arm, so it must not spend the
             # arm window waiting for a logger nobody started.
-            defs["AE_PRODUCT_PROBE_SMOKE"] = str(smoke)
-            defs["AE_PRODUCT_PROBE_PPK_ARM_MS"] = "0"
+            "AE_PRODUCT_PROBE_PPK_ARM_MS": "0" if smoke else "",
+        }
         camp.cmake_configure(ap, "P", defs)
         CONFIGURED_MARK.write_text(want, encoding="utf-8")
     else:
@@ -825,6 +882,10 @@ def run_ap_once(ap: str, *, smoke: int = 0, attempt: int = 1) -> dict:
     serial_log = OUT / f"{prefix}_serial.log"
     rx_log = OUT / f"{prefix}_rx.log"
     ppk_csv = OUT / f"{ap}_hot_power.csv"
+    # A receiver left over from an earlier run still owns its log file, so it has
+    # to go before the logs are cleared rather than when the next one starts.
+    kill_probe_receiver()
+    kill_orphan_serial_tails()
     for p in (serial_log, rx_log):
         if p.exists():
             p.unlink()
@@ -835,10 +896,18 @@ def run_ap_once(ap: str, *, smoke: int = 0, attempt: int = 1) -> dict:
     port = wait_for_board()
     if not port:
         raise RuntimeError("no COM for erase-flash")
+    # The receiver has to be on the air before the device is: a prepared send is
+    # one datagram with no retry, so anything the firmware sends while its peer
+    # is still connecting is simply lost and looks like a delivery failure.
+    start_receiver(rx_log)
     note_progress(prefix, phase="flash")
     port = camp.flash(erase=True)
-    start_receiver(rx_log)
     tail = start_serial_tail(port, serial_log)
+    # Flashing already reset the board, so the first boot would run before the
+    # tail attached and its markers would be missing from the log. Reset again
+    # now that the tail is listening, and read the run from a cold boot.
+    time.sleep(1)
+    hard_reset(port)
     ppk: subprocess.Popen | None = None
     # The smoke run stops before the hot campaign, so it has no trace to take.
     ppk_wanted = not smoke
@@ -963,25 +1032,54 @@ def run_smoke(ap: str) -> tuple[bool, dict]:
 
     Fixed profile 1, PRE 0, POST 300, a handful of measured packets. The run
     passes only when every measured packet was followed by a boot that reports
-    a deep-sleep reset with a timer wake, with no rejected sleeps.
+    a deep-sleep reset with a timer wake, with no rejected sleeps, and every
+    send was confirmed by a TX-done success.
+
+    Delivery is reported but is not a gate. PRE is pinned to 0 here, which is
+    the least forgiving setting the probe can pick, so a network that drops
+    those packets says nothing about the sleep and callback semantics this run
+    exists to prove.
     """
     r = run_ap_once(ap, smoke=SMOKE_PACKETS)
-    ds = r.get("serial", {}).get("deep_sleep", {})
-    delivered = len(r.get("rx", {}).get("probe_results", []))
+    kill_probe_receiver()
+    serial = r.get("serial", {})
+    ds = serial.get("deep_sleep", {})
+    verdicts = serial.get("verdicts", [])
+    delivered = r.get("rx", {}).get("hot_data_count", 0)
+    # A sample only counts as locally good when the datagram left the socket,
+    # a TX-done success came back for it, and the boot after it proved the
+    # deep sleep. That is exactly what the smoke has to demonstrate.
+    good = max((v["local_ok"] for v in verdicts), default=0)
+    wakes = max(
+        ds.get("deepsleep_timer_wakes", 0),
+        ds.get("timer_wakes_total", 0),
+    )
     ok = (
-        r.get("status") == "OK"
-        and ds.get("deepsleep_timer_wakes", 0) >= SMOKE_PACKETS
+        r.get("status") not in {"FLASH_FAIL", "BUILD_FAIL", "NO_SERIAL"}
+        and good >= SMOKE_PACKETS
+        and wakes >= SMOKE_PACKETS
         and ds.get("bad_wakes", 1) == 0
         and ds.get("sleep_rejects", 1) == 0
+        and not any(v["query_timeout"] for v in verdicts)
     )
     log(
-        f"smoke {ap}: status={r.get('status')} "
-        f"timer_wakes={ds.get('deepsleep_timer_wakes')} "
+        f"smoke {ap}: status={r.get('status')} local_ok={good} "
+        f"timer_wakes={wakes} "
         f"bad_wakes={ds.get('bad_wakes')} rejects={ds.get('sleep_rejects')} "
-        f"probe_batches={delivered} -> {'PASS' if ok else 'FAIL'}"
+        f"delivered={delivered} -> {'PASS' if ok else 'FAIL'}"
     )
     (OUT / f"{ap}_smoke_verdict.json").write_text(
-        json.dumps({"pass": ok, "deep_sleep": ds, "status": r.get("status")}, indent=2),
+        json.dumps(
+            {
+                "pass": ok,
+                "deep_sleep": ds,
+                "status": r.get("status"),
+                "verdicts": verdicts,
+                "local_ok": good,
+                "delivered": delivered,
+            },
+            indent=2,
+        ),
         encoding="utf-8",
     )
     return ok, r
