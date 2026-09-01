@@ -337,6 +337,7 @@ def clear_exp_flags(extra: dict[str, str]) -> list[str]:
         "AE_EXP_ADAPTIVE_WIFI_PROBE_A",
         "AE_EXP_ADAPTIVE_WIFI_PROBE_B",
         "AE_EXP_ADAPTIVE_WIFI_PROBE_C",
+        "AE_EXP_PRODUCT_ADAPTIVE_PROBE",
         "AE_EXP_PREPARED_TX_DONE_DIAG",
         "AE_EXP_PREPARED_MAC_RETRY_DIAG",
         "AE_EXP_PREPARED_BOOT_WIFI_OPT",
@@ -413,6 +414,7 @@ def cmake_configure(ap: str, phase: str, defs: dict[str, str]) -> None:
         "A": "AE_EXP_ADAPTIVE_WIFI_PROBE_A",
         "B": "AE_EXP_ADAPTIVE_WIFI_PROBE_B",
         "C": "AE_EXP_ADAPTIVE_WIFI_PROBE_C",
+        "P": "AE_EXP_PRODUCT_ADAPTIVE_PROBE",
     }[phase]
     extra = {phase_key: "1"}
     args.extend(clear_exp_flags(extra))

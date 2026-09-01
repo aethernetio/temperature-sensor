@@ -74,6 +74,12 @@ elseif(AE_EXP_ADAPTIVE_WIFI_PROBE_C)
     "experiment_early_entry.cpp"
     "prepared_send/prepared_send.cpp"
   )
+elseif(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
+  list(APPEND src_list
+    "product_adaptive_wifi_probe.cpp"
+    "experiment_early_entry.cpp"
+    "prepared_send/prepared_send.cpp"
+  )
 elseif(AE_EXP_PREPARED_TX_DONE_DIAG)
   list(APPEND src_list
     "prepared_tx_done_diag_bench.cpp"
@@ -245,6 +251,7 @@ set(AE_EXP_FULL_AETHER_AETHERNETIO "" CACHE STRING "Canonical FULL Aether aether
 set(AE_EXP_ADAPTIVE_WIFI_PROBE_A "" CACHE STRING "Adaptive Wi-Fi probe Phase A ICMP matrix (set to 1)")
 set(AE_EXP_ADAPTIVE_WIFI_PROBE_B "" CACHE STRING "Adaptive Wi-Fi probe Phase B existing Ping (set to 1)")
 set(AE_EXP_ADAPTIVE_WIFI_PROBE_C "" CACHE STRING "Adaptive Wi-Fi probe Phase C prepared HOT sleep (set to 1)")
+set(AE_EXP_PRODUCT_ADAPTIVE_PROBE "" CACHE STRING "Product adaptive Wi-Fi probe, self-selecting (set to 1)")
 set(AE_EXP_PREPARED_TX_DONE_DIAG "" CACHE STRING "Silent TX-done callback diagnostic 1x50 (set to 1)")
 set(AE_EXP_PREPARED_MAC_RETRY_DIAG "" CACHE STRING "Silent MAC retry-limit diagnostic 7x50 (set to 1)")
 set(AE_EXP_PREPARED_BOOT_WIFI_OPT "" CACHE STRING "Silent boot/wifi HOT opt campaign 11x30 (set to 1)")
@@ -311,6 +318,19 @@ ae_exp_define_if_set(AE_EXP_FULL_AETHER_AETHERNETIO)
 ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_A)
 ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_B)
 ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_C)
+ae_exp_define_if_set(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
+if(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
+  # Tuning knobs for the selection algorithm; empty means the header default.
+  foreach(_d AE_PRODUCT_PROBE_ICMP_BATCH AE_PRODUCT_PROBE_ICMP_EXTEND
+             AE_PRODUCT_PROBE_ICMP_PER_CONNECT AE_PRODUCT_PROBE_BATCH_SIZE
+             AE_PRODUCT_PROBE_BATCH_TOLERANCE AE_PRODUCT_PROBE_QUERY_STABLE_MS
+             AE_PRODUCT_PROBE_QUERY_TIMEOUT_MS AE_PRODUCT_PROBE_HOT_COUNT
+             AE_PRODUCT_PROBE_SLEEP_MS)
+    if(DEFINED ${_d} AND NOT "${${_d}}" STREQUAL "")
+      target_compile_definitions(${TARGET_NAME} PRIVATE "${_d}=${${_d}}")
+    endif()
+  endforeach()
+endif()
 if(AE_EXP_ADAPTIVE_WIFI_PROBE_A)
   foreach(_d AE_PROBE_RECONNECTS AE_PROBE_ICMP_PER AE_PROBE_PRE_RECONNECTS AE_PROBE_PASS_PCT)
     if(DEFINED ${_d} AND NOT "${${_d}}" STREQUAL "")

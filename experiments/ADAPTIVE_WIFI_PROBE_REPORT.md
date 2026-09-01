@@ -202,3 +202,30 @@ Watchdog: `run_adaptive_probe_v2_watchdog.ps1` (conservative busy-check; autores
 | Long-run seq integrity OK both APs? | **YES** (missing_in_span=0 both) |
 
 Checkpoint: **step_index=10** — V2 campaign complete. TCP receiver; erase-flash each firmware; chirkov then aethernetio per test.
+
+
+## PRODUCT ADAPTIVE PROBE
+
+One firmware, no hardcoded parameters. The device picks its Wi-Fi
+profile, PRE delay and POST delay from its own measurements on
+whichever access point it is attached to, then runs a 100-packet hot
+campaign with the result.
+
+Firmware: `main/product_adaptive_wifi_probe.cpp`
+(`-DAE_EXP_PRODUCT_ADAPTIVE_PROBE=1`). Receiver:
+aether `examples/probe_receiver` (TCP only). Selection algorithm:
+`examples/probe_receiver/product_probe_select.h`, host tests in
+aether `tests/test-product-probe`.
+
+`sizeof(ProbeRtcState)` = 64 bytes of RTC memory.
+
+### Selected parameters
+
+| AP | status | profile | PRE ms | POST ms | sleep ms | HOT sent | HOT fail | reprobes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| chirkov | not run | - | - | - | - | - | - | - |
+| aethernetio | not run | - | - | - | - | - | - | - |
+
+### Probe batches as counted by the receiver
+
+Raw logs and per-AP JSON: `experiments/product_adaptive_probe_results/`.
