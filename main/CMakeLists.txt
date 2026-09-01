@@ -80,6 +80,14 @@ elseif(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
     "experiment_early_entry.cpp"
     "prepared_send/prepared_send.cpp"
   )
+elseif(AE_EXP_PREPARED_POWER_FACTOR)
+  list(APPEND src_list
+    "prepared_power_factor_bench.cpp"
+    "experiment_early_entry.cpp"
+    "prepared_send/prepared_send.cpp"
+    "power_bench/power_bench_options.cpp"
+    "power_bench/power_bench_runtime.cpp"
+  )
 elseif(AE_EXP_PREPARED_TX_DONE_DIAG)
   list(APPEND src_list
     "prepared_tx_done_diag_bench.cpp"
@@ -252,6 +260,9 @@ set(AE_EXP_ADAPTIVE_WIFI_PROBE_A "" CACHE STRING "Adaptive Wi-Fi probe Phase A I
 set(AE_EXP_ADAPTIVE_WIFI_PROBE_B "" CACHE STRING "Adaptive Wi-Fi probe Phase B existing Ping (set to 1)")
 set(AE_EXP_ADAPTIVE_WIFI_PROBE_C "" CACHE STRING "Adaptive Wi-Fi probe Phase C prepared HOT sleep (set to 1)")
 set(AE_EXP_PRODUCT_ADAPTIVE_PROBE "" CACHE STRING "Product adaptive Wi-Fi probe, self-selecting (set to 1)")
+set(AE_EXP_PREPARED_POWER_FACTOR "" CACHE STRING "Prepared-send power factor study (set to 1)")
+set(AE_POWER_BENCH_VARIANT "" CACHE STRING "Power bench variant id baked into firmware")
+set(AE_POWER_BENCH_ARM_MS "" CACHE STRING "Power bench BENCH_ARM wait before HOT100 (ms)")
 # The measured stages always deep sleep; these only size the run.
 set(AE_PRODUCT_PROBE_SMOKE "" CACHE STRING "Product probe deep-sleep smoke: measured packets, then stop")
 set(AE_PRODUCT_PROBE_SMOKE_PRE_MS "" CACHE STRING "Product probe smoke: PRE delay to pin instead of searching")
@@ -324,6 +335,9 @@ ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_A)
 ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_B)
 ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_C)
 ae_exp_define_if_set(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
+ae_exp_define_if_set(AE_EXP_PREPARED_POWER_FACTOR)
+ae_exp_define_if_set(AE_POWER_BENCH_VARIANT)
+ae_exp_define_if_set(AE_POWER_BENCH_ARM_MS)
 if(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
   # Tuning knobs for the selection algorithm; empty means the header default.
   foreach(_d AE_PRODUCT_PROBE_ICMP_BATCH AE_PRODUCT_PROBE_ICMP_EXTEND
@@ -404,6 +418,8 @@ ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
    AE_EXP_PREPARED_MAC_RETRY_DIAG STREQUAL "1" OR
    AE_EXP_PREPARED_BOOT_WIFI_OPT STREQUAL "1" OR
    AE_EXP_PREPARED_BOOT_WIFI_VAL100 STREQUAL "1" OR
+   AE_EXP_PREPARED_POWER_FACTOR STREQUAL "1" OR
+   AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1" OR
    (AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1" AND
     NOT AE_EXP_BISECT_CONSOLE STREQUAL "1"))
   target_compile_definitions(aether PUBLIC "AE_EXP_SILENT=1")

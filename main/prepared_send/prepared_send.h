@@ -194,6 +194,14 @@ struct FastPathConfig {
   // false => WIFI_PS_NONE (reliability-first sleep campaign).
   bool ps_max_modem{false};
   bool fixed_1m{false};
+
+  // Power-factor bench (ignored by production probe unless set).
+  bool pmf_off{false};
+  std::uint8_t connected_ps_mode{0};  // 0=NONE 1=MIN 2=MAX
+  std::uint8_t listen_interval{1};
+  std::uint8_t phase_ps{0};          // M0..M4
+  bool encode_during_association{false};
+  std::uint8_t teardown_policy{0};   // 0=full 1=stop 2=direct sleep
 };
 
 struct FastSendResult {
@@ -314,6 +322,15 @@ FastPathConfig FastPathConfigForProbeProfile(ae::WifiProbeProfile profile,
 void ApplyProbeStateToHotConfig(ae::WifiProbeRtcState const& state,
                                 FastPathConfig* cfg,
                                 BisectWifiCacheSnapshot* cache);
+
+// Apply power-bench variant options into FastPathConfig.
+void ApplyPowerBenchToFastPath(FastPathConfig* cfg,
+                               std::uint8_t teardown_policy,
+                               bool pmf_off,
+                               std::uint8_t connected_ps_mode,
+                               std::uint8_t listen_interval,
+                               std::uint8_t phase_ps,
+                               bool encode_during_association);
 
 // Hot-path failure: degrade selected profile and force P0 next.
 void RecordHotProbeFailure(ae::WifiProbeRtcState* state,

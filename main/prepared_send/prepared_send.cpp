@@ -373,7 +373,11 @@ void WifiEventHandler(void*, esp_event_base_t event_base, std::int32_t event_id,
   }
 }
 
-void CleanupHotPathWifiRuntime() {
+void CleanupHotPathWifiRuntime(std::uint8_t teardown_policy) {
+  if (teardown_policy == 2) {
+    return;
+  }
+
   if (g_wifi_any_id_handler != nullptr) {
     esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                           g_wifi_any_id_handler);
@@ -390,6 +394,10 @@ void CleanupHotPathWifiRuntime() {
     auto err = esp_wifi_stop();
     (void)err;
     g_wifi_started = false;
+  }
+
+  if (teardown_policy == 1) {
+    return;
   }
 
   if (g_wifi_initialized) {
@@ -670,6 +678,7 @@ std::atomic<std::uint32_t> g_tx_generation{0};
 std::atomic<std::uint32_t> g_tx_armed_generation{0};
 std::atomic<bool> g_tx_armed{false};
 std::atomic<std::int64_t> g_tx_sendto_begin_us{0};
+static TaskHandle_t g_tx_done_wait_task{nullptr};
 
 void ResetTxDoneDiag() {
   g_tx_diag.total.store(0, std::memory_order_relaxed);
@@ -714,6 +723,9 @@ void FastTxDoneCb(std::uint8_t, std::uint8_t*, std::uint16_t*, bool txStatus) {
       if (g_tx_diag.first_success_us.compare_exchange_strong(
               expected_fs, now, std::memory_order_relaxed)) {
         g_fast_tx_done_success.store(true, std::memory_order_release);
+        if (g_tx_done_wait_task != nullptr) {
+          xTaskNotifyGive(g_tx_done_wait_task);
+        }
       }
     }
   } else {
@@ -877,6 +889,140 @@ extern "C" esp_err_t esp_wifi_internal_set_retry_counter(uint8_t short_retry,
 // Prefer: EncodePacket + socket, then optional MAC retry counter, then
 // ResetFastTxDone + tx-done cb + immediate sendto. No Wi-Fi ops between
 // set_retry_counter and sendto. CONTROL leaves set_mac_retry_limit=false.
+HotSendStatus SendHotArtifactsWithLateTxDone(HotSendArtifacts& artifacts,
+                                             FastPathConfig const& cfg,
+                                             FastSendResult* timing) {
+  if (!artifacts.ready || artifacts.sock < 0) {
+    return HotSendStatus::kSendFailed;
+  }
+
+  auto const wait_mode = cfg.tx_done_wait;
+  auto const t_encode0 = esp_timer_get_time();
+
+  if (timing != nullptr) {
+    timing->mac_retry_called = 0;
+    timing->mac_retry_set_rc = -1;
+    timing->mac_short_retry = cfg.mac_short_retry;
+    timing->mac_long_retry = cfg.mac_long_retry;
+    timing->retry_cfg_us = 0;
+  }
+  if (cfg.set_mac_retry_limit) {
+    auto const t_rc0 = esp_timer_get_time();
+    esp_err_t const rc = esp_wifi_internal_set_retry_counter(
+        cfg.mac_short_retry, cfg.mac_long_retry);
+    auto const t_rc1 = esp_timer_get_time();
+    if (timing != nullptr) {
+      timing->mac_retry_called = 1;
+      timing->mac_retry_set_rc = static_cast<std::int16_t>(rc);
+      auto const d = t_rc1 - t_rc0;
+      timing->retry_cfg_us = d < 0 ? 0 : static_cast<std::uint32_t>(d);
+    }
+  }
+
+  ResetFastTxDone();
+  g_tx_wait_mode.store(static_cast<int>(wait_mode), std::memory_order_relaxed);
+
+  auto const t_cb_reg0 = esp_timer_get_time();
+  esp_err_t const cb_rc = esp_wifi_set_tx_done_cb(&FastTxDoneCb);
+  auto const t_cb_reg1 = esp_timer_get_time();
+  if (timing != nullptr) {
+    timing->encode_us = 0;
+    timing->socket_create_us = 0;
+    timing->callback_register_us = NonNegativeUs(t_cb_reg1 - t_cb_reg0);
+    timing->tx_cb_register_rc = static_cast<std::int16_t>(cb_rc);
+    timing->tx_cb_register_failed = cb_rc == ESP_OK ? 0 : 1;
+  }
+
+  (void)ArmFastTxDone();
+  auto const t_sendto_begin = esp_timer_get_time();
+  MarkFastTxDoneSendtoBegin(t_sendto_begin);
+  auto sent = sendto(artifacts.sock, artifacts.packet.data(),
+                     artifacts.packet.size(), 0,
+                     reinterpret_cast<sockaddr*>(&artifacts.dest),
+                     artifacts.dest_len);
+  auto const t_send_ret = esp_timer_get_time();
+  if (timing != nullptr) {
+    auto const es = t_send_ret - t_encode0;
+    timing->encode_send_us =
+        es < 0 ? 0 : static_cast<std::uint32_t>(es);
+    timing->sendto_begin_us = NonNegativeUs(t_sendto_begin);
+    timing->sendto_return_us = NonNegativeUs(t_send_ret);
+    timing->sendto_call_us = NonNegativeUs(t_send_ret - t_sendto_begin);
+  }
+
+  if (sent != static_cast<ssize_t>(artifacts.packet.size())) {
+    DisarmFastTxDone();
+    (void)esp_wifi_set_tx_done_cb(nullptr);
+    CloseHotSendArtifacts(&artifacts);
+    return HotSendStatus::kSendFailed;
+  }
+
+  bool const need_success = FastTxDoneRequiresSuccess(wait_mode);
+  bool const can_observe = cb_rc == ESP_OK;
+  constexpr std::int64_t kObserveUs = 5000;
+  std::int64_t const kMaxUs =
+      static_cast<std::int64_t>(cfg.tx_done_timeout_ms) * 1000;
+  bool condition_met = false;
+  std::uint32_t total_at_success = 0;
+
+  auto condition_ready = [&]() -> bool {
+    if (need_success) {
+      return g_fast_tx_done_success.load(std::memory_order_acquire);
+    }
+    return g_fast_tx_done_seen.load(std::memory_order_acquire);
+  };
+
+  g_tx_done_wait_task = xTaskGetCurrentTaskHandle();
+  if (condition_ready()) {
+    condition_met = true;
+  } else if (can_observe) {
+    auto const wait_start = esp_timer_get_time();
+    while ((esp_timer_get_time() - wait_start) < kMaxUs) {
+      if (condition_ready()) {
+        condition_met = true;
+        break;
+      }
+      uint32_t notified = 0;
+      auto const remaining_us = kMaxUs - (esp_timer_get_time() - wait_start);
+      TickType_t const ticks =
+          pdMS_TO_TICKS(remaining_us > 1000 ? remaining_us / 1000 : 1);
+      if (xTaskNotifyWait(0, ULONG_MAX, &notified, ticks) == pdTRUE) {
+        if (condition_ready()) {
+          condition_met = true;
+          break;
+        }
+      }
+    }
+  }
+  g_tx_done_wait_task = nullptr;
+
+  if (condition_met && wait_mode == FastTxDoneWaitMode::kFirstSuccess) {
+    total_at_success = g_tx_diag.total.load(std::memory_order_relaxed);
+    auto const t_obs0 = esp_timer_get_time();
+    while ((esp_timer_get_time() - t_obs0) < kObserveUs) {
+      uint32_t notified = 0;
+      (void)xTaskNotifyWait(0, ULONG_MAX, &notified, pdMS_TO_TICKS(1));
+    }
+  }
+
+  auto const t_cb_done = esp_timer_get_time();
+  DisarmFastTxDone();
+  (void)esp_wifi_set_tx_done_cb(nullptr);
+  CloseHotSendArtifacts(&artifacts);
+
+  bool const tx_done_confirmed = condition_met;
+  if (timing != nullptr) {
+    FillTxDoneTiming(timing, t_send_ret, condition_met, total_at_success,
+                     wait_mode);
+    timing->tx_done_wait_us = NonNegativeUs(t_cb_done - t_send_ret);
+  }
+
+  if (need_success && !tx_done_confirmed) {
+    return HotSendStatus::kSentTxUnconfirmed;
+  }
+  return HotSendStatus::kSent;
+}
+
 HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
                                              FastSendResult* timing,
                                              FastPathConfig const& cfg) {
@@ -997,21 +1143,38 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
     return g_fast_tx_done_seen.load(std::memory_order_acquire);
   };
 
-  while (can_observe && (esp_timer_get_time() - t_send_ret) < kMaxUs) {
-    if (condition_ready()) {
-      condition_met = true;
-      break;
+  g_tx_done_wait_task = xTaskGetCurrentTaskHandle();
+  if (condition_ready()) {
+    condition_met = true;
+  } else if (can_observe) {
+    auto const wait_start = esp_timer_get_time();
+    while ((esp_timer_get_time() - wait_start) < kMaxUs) {
+      if (condition_ready()) {
+        condition_met = true;
+        break;
+      }
+      uint32_t notified = 0;
+      auto const remaining_us = kMaxUs - (esp_timer_get_time() - wait_start);
+      TickType_t const ticks =
+          pdMS_TO_TICKS(remaining_us > 1000 ? remaining_us / 1000 : 1);
+      if (xTaskNotifyWait(0, ULONG_MAX, &notified, ticks) == pdTRUE) {
+        if (condition_ready()) {
+          condition_met = true;
+          break;
+        }
+      }
     }
-    vTaskDelay(pdMS_TO_TICKS(1));
   }
+  g_tx_done_wait_task = nullptr;
 
-  // The observe window is a diagnostic: it measures what arrives after the
+  // Legacy diagnostic observe window for kFirstSuccess only.
   // first success and must not be charged to a production send.
   if (condition_met && wait_mode == FastTxDoneWaitMode::kFirstSuccess) {
     total_at_success = g_tx_diag.total.load(std::memory_order_relaxed);
     auto const t_obs0 = esp_timer_get_time();
     while ((esp_timer_get_time() - t_obs0) < kObserveUs) {
-      vTaskDelay(pdMS_TO_TICKS(1));
+      uint32_t notified = 0;
+      (void)xTaskNotifyWait(0, ULONG_MAX, &notified, pdMS_TO_TICKS(1));
     }
   }
 
@@ -1066,7 +1229,7 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
 
 bool EnsureWifiConnectedForHotPath() { return true; }
 
-void CleanupHotPathWifiRuntime() {}
+void CleanupHotPathWifiRuntime(std::uint8_t /*teardown_policy*/) {}
 
 HotSendStatus EncodeAndUdpSend(ae::DataBuffer const&) {
   return HotSendStatus::kUnsupported;
@@ -1550,6 +1713,135 @@ bool StartBisectWifi(BisectFactorConfig const& cfg) {
   return true;
 }
 
+void ApplyConnectedPsMode(FastPathConfig const& cfg) {
+  if (cfg.ps_max_modem || cfg.connected_ps_mode == 2) {
+    (void)esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+  } else if (cfg.connected_ps_mode == 1) {
+    (void)esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+  } else {
+    (void)esp_wifi_set_ps(WIFI_PS_NONE);
+  }
+}
+
+void ApplyPhasePsBeforeTx(FastPathConfig const& cfg) {
+  if (cfg.phase_ps == 3 || cfg.phase_ps == 4) {
+    (void)esp_wifi_set_ps(WIFI_PS_NONE);
+  }
+}
+
+void WaitUntilPreDeadline(std::int64_t ready_us, FastPathConfig const& cfg) {
+  if (cfg.pre_delay_ms == 0) {
+    return;
+  }
+  auto const deadline =
+      ready_us + static_cast<std::int64_t>(cfg.pre_delay_ms) * 1000;
+  while (esp_timer_get_time() < deadline) {
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }
+}
+
+struct HotSendArtifacts {
+  ae::DataBuffer packet{};
+  int sock{-1};
+  sockaddr_storage dest{};
+  socklen_t dest_len{0};
+  bool ready{false};
+};
+
+void CloseHotSendArtifacts(HotSendArtifacts* artifacts) {
+  if (artifacts == nullptr || artifacts->sock < 0) {
+    return;
+  }
+  close(artifacts->sock);
+  artifacts->sock = -1;
+}
+
+HotSendStatus PrepareHotSendArtifacts(ae::DataBuffer const& payload,
+                                      HotSendArtifacts* artifacts) {
+  if (artifacts == nullptr) {
+    return HotSendStatus::kSendFailed;
+  }
+  *artifacts = HotSendArtifacts{};
+  if (!g_prepared_send_message_block.is_valid()) {
+    return HotSendStatus::kNoPreparedBlock;
+  }
+  if (g_prepared_send_message_block.Resolve()->message_left == 0) {
+    return HotSendStatus::kNonceExhausted;
+  }
+
+  auto encode_result = ae::prepared_packet::EncodePacket(
+      g_prepared_send_message_block, payload, artifacts->packet);
+  if (!encode_result) {
+    ClearPreparedSendBlock();
+    return HotSendStatus::kEncodeFailed;
+  }
+
+  auto const resolved_block = g_prepared_send_message_block.Resolve();
+  auto endpoint = resolved_block->endpoint;
+  if (!FillUdpDestination(endpoint,
+                          reinterpret_cast<sockaddr*>(&artifacts->dest),
+                          &artifacts->dest_len)) {
+    return HotSendStatus::kSendFailed;
+  }
+
+  artifacts->sock = socket(
+      endpoint.address.Index() == ae::AddrVersion::kIpV6 ? AF_INET6 : AF_INET,
+      SOCK_DGRAM, IPPROTO_IP);
+  if (artifacts->sock < 0) {
+    return HotSendStatus::kSendFailed;
+  }
+  artifacts->ready = true;
+  return HotSendStatus::kSent;
+}
+
+bool FinishFastWifiAssociation(FastPathConfig const& cfg,
+                               BisectWifiCacheSnapshot const& cache) {
+  EventBits_t bits = xEventGroupWaitBits(
+      g_wifi_event_group, kWifiReadyBit | kWifiFailBit, pdFALSE, pdFALSE,
+      pdMS_TO_TICKS(AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS));
+
+  if (cfg.fixed_1m) {
+    (void)esp_wifi_internal_set_fix_rate(WIFI_IF_STA, true, WIFI_PHY_RATE_1M_L);
+  }
+
+  if ((bits & kWifiReadyBit) == 0) {
+    return false;
+  }
+
+  g_bisect_actual_channel = ReadActualChannel();
+
+  bool used_static_arp = false;
+  bool arp_fallback = false;
+  if (cfg.use_static_arp && cache.valid_gw_mac && cache.valid_ip) {
+    std::memcpy(gateway_mac, cache.gw_mac, sizeof(gateway_mac));
+    gateway_mac_valid = true;
+    if (InstallStaticGatewayArp()) {
+      used_static_arp = true;
+    } else {
+      gateway_mac_valid = false;
+    }
+  }
+  if (!gateway_mac_valid && g_wifi_netif != nullptr &&
+      (cfg.use_static_arp || cfg.arp_wait_on_miss)) {
+    arp_fallback = cfg.use_static_arp ? true : arp_fallback;
+    if (!used_static_arp) {
+      arp_fallback = true;
+    }
+    auto const t_arp0 = esp_timer_get_time();
+    while ((esp_timer_get_time() - t_arp0) <
+           static_cast<std::int64_t>(AETHER_PREPARED_ARP_TIMEOUT_MS) * 1000) {
+      if (ResolveAndCacheGatewayMac(g_wifi_netif)) {
+        (void)InstallStaticGatewayArp();
+        break;
+      }
+      vTaskDelay(pdMS_TO_TICKS(50));
+    }
+  }
+  g_last_used_static_arp = used_static_arp ? 1 : 0;
+  g_last_arp_fallback = arp_fallback ? 1 : 0;
+  return true;
+}
+
 std::uint8_t ReadNegotiatedAuth() {
   wifi_ap_record_t ap_info{};
   if (esp_wifi_sta_get_ap_info(&ap_info) != ESP_OK) {
@@ -1559,7 +1851,8 @@ std::uint8_t ReadNegotiatedAuth() {
 }
 
 bool StartFastWifi(FastPathConfig const& cfg,
-                   BisectWifiCacheSnapshot const* cache_override) {
+                   BisectWifiCacheSnapshot const* cache_override,
+                   bool wait_ready = true) {
 #  ifndef WIFI_SSID
   return false;
 #  endif
@@ -1697,7 +1990,7 @@ bool StartFastWifi(FastPathConfig const& cfg,
   std::strncpy(reinterpret_cast<char*>(wifi_config.sta.password), WIFI_PASSWORD,
                sizeof(wifi_config.sta.password));
 
-  wifi_config.sta.pmf_cfg.capable = true;
+  wifi_config.sta.pmf_cfg.capable = cfg.pmf_off ? false : true;
   if (cfg.auth == FastAuthMode::kWpa2) {
     wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
     wifi_config.sta.sae_pwe_h2e = WPA3_SAE_PWE_UNSPECIFIED;
@@ -1726,6 +2019,10 @@ bool StartFastWifi(FastPathConfig const& cfg,
     wifi_config.sta.channel = cache.channel;
   }
 
+  if (cfg.connected_ps_mode == 2 && cfg.listen_interval > 0) {
+    wifi_config.sta.listen_interval = cfg.listen_interval;
+  }
+
   err = esp_wifi_set_mode(WIFI_MODE_STA);
   if (err != ESP_OK) {
     CleanupHotPathWifiRuntime();
@@ -1749,7 +2046,6 @@ bool StartFastWifi(FastPathConfig const& cfg,
   g_wifi_started = true;
 
   (void)esp_wifi_set_max_tx_power(80);
-  (void)esp_wifi_set_ps(WIFI_PS_NONE);
   if (cfg.force_ht20) {
     (void)esp_wifi_set_bandwidth(WIFI_IF_STA, WIFI_BW20);
   }
@@ -1758,50 +2054,13 @@ bool StartFastWifi(FastPathConfig const& cfg,
   } else if (cfg.dynamic_cs == 1) {
     (void)esp_wifi_set_dynamic_cs(true);
   }
-  // TX-done callback is installed immediately before sendto() for callback
-  // post modes — never here (association / PRE would fire unrelated TX).
+  ApplyConnectedPsMode(cfg);
 
-  EventBits_t bits = xEventGroupWaitBits(
-      g_wifi_event_group, kWifiReadyBit | kWifiFailBit, pdFALSE, pdFALSE,
-      pdMS_TO_TICKS(AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS));
-
-  if ((bits & kWifiReadyBit) == 0) {
-    return false;
+  if (!wait_ready) {
+    return true;
   }
 
-  g_bisect_actual_channel = ReadActualChannel();
-
-  bool used_static_arp = false;
-  bool arp_fallback = false;
-  if (cfg.use_static_arp && cache.valid_gw_mac && cache.valid_ip) {
-    std::memcpy(gateway_mac, cache.gw_mac, sizeof(gateway_mac));
-    gateway_mac_valid = true;
-    if (InstallStaticGatewayArp()) {
-      used_static_arp = true;
-    } else {
-      gateway_mac_valid = false;
-    }
-  }
-  if (!gateway_mac_valid && g_wifi_netif != nullptr &&
-      (cfg.use_static_arp || cfg.arp_wait_on_miss)) {
-    arp_fallback = cfg.use_static_arp ? true : arp_fallback;
-    if (!used_static_arp) {
-      arp_fallback = true;
-    }
-    auto const t_arp0 = esp_timer_get_time();
-    while ((esp_timer_get_time() - t_arp0) <
-           static_cast<std::int64_t>(AETHER_PREPARED_ARP_TIMEOUT_MS) * 1000) {
-      if (ResolveAndCacheGatewayMac(g_wifi_netif)) {
-        (void)InstallStaticGatewayArp();
-        break;
-      }
-      vTaskDelay(pdMS_TO_TICKS(50));
-    }
-  }
-  g_last_used_static_arp = used_static_arp ? 1 : 0;
-  g_last_arp_fallback = arp_fallback ? 1 : 0;
-
-  return true;
+  return FinishFastWifiAssociation(cfg, cache);
 }
 
 }  // namespace
@@ -1936,8 +2195,66 @@ FastSendResult SendPreparedOnceWithFastPath(
   }
 
   auto const t0 = esp_timer_get_time();
-  if (!StartFastWifi(cfg, wifi_cache)) {
-    CleanupHotPathWifiRuntime();
+  HotSendArtifacts artifacts{};
+  bool wifi_ready = false;
+  std::int64_t t_ready = t0;
+
+  if (cfg.encode_during_association) {
+    if (!StartFastWifi(cfg, wifi_cache, false)) {
+      CleanupHotPathWifiRuntime(cfg.teardown_policy);
+      out.status = HotSendStatus::kWifiFailed;
+      out.actual_channel = g_bisect_actual_channel;
+      out.negotiated_auth = ReadNegotiatedAuth();
+      auto const elapsed = esp_timer_get_time() - t0;
+      out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
+      out.connect_us = out.cycle_us;
+      out.fail_stage = 1;
+      return out;
+    }
+    auto const assoc_deadline =
+        t0 + static_cast<std::int64_t>(AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS) *
+                 1000;
+    bool encoded = false;
+    while (esp_timer_get_time() < assoc_deadline) {
+      EventBits_t const bits = xEventGroupGetBits(g_wifi_event_group);
+      if ((bits & kWifiFailBit) != 0) {
+        break;
+      }
+      if ((bits & kWifiReadyBit) != 0) {
+        wifi_ready = FinishFastWifiAssociation(cfg, cache);
+        t_ready = esp_timer_get_time();
+        break;
+      }
+      if (!encoded) {
+        auto const prep = PrepareHotSendArtifacts(payload, &artifacts);
+        if (prep == HotSendStatus::kEncodeFailed ||
+            prep == HotSendStatus::kNonceExhausted ||
+            prep == HotSendStatus::kNoPreparedBlock) {
+          CleanupHotPathWifiRuntime(cfg.teardown_policy);
+          out.status = prep;
+          out.fail_stage = prep == HotSendStatus::kWifiFailed ? 1 : 2;
+          auto const elapsed = esp_timer_get_time() - t0;
+          out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
+          return out;
+        }
+        encoded = artifacts.ready;
+      }
+      vTaskDelay(pdMS_TO_TICKS(1));
+    }
+    if (!wifi_ready) {
+      CloseHotSendArtifacts(&artifacts);
+      CleanupHotPathWifiRuntime(cfg.teardown_policy);
+      out.status = HotSendStatus::kWifiFailed;
+      out.fail_stage = 1;
+      out.actual_channel = g_bisect_actual_channel;
+      out.negotiated_auth = ReadNegotiatedAuth();
+      auto const elapsed = esp_timer_get_time() - t0;
+      out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
+      out.connect_us = out.cycle_us;
+      return out;
+    }
+  } else if (!StartFastWifi(cfg, wifi_cache)) {
+    CleanupHotPathWifiRuntime(cfg.teardown_policy);
     out.status = HotSendStatus::kWifiFailed;
     out.actual_channel = g_bisect_actual_channel;
     out.negotiated_auth = ReadNegotiatedAuth();
@@ -1955,9 +2272,11 @@ FastSendResult SendPreparedOnceWithFastPath(
       out.disconnect_count = d > 255 ? 255 : static_cast<std::uint8_t>(d);
     }
     return out;
+  } else {
+    wifi_ready = true;
+    t_ready = esp_timer_get_time();
   }
 
-  auto const t_ready = esp_timer_get_time();
   {
     auto const elapsed = t_ready - t0;
     out.connect_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
@@ -1988,15 +2307,19 @@ FastSendResult SendPreparedOnceWithFastPath(
     }
   }
 
-  if (cfg.pre_delay_ms > 0) {
-    vTaskDelay(pdMS_TO_TICKS(cfg.pre_delay_ms));
-  }
+  WaitUntilPreDeadline(t_ready, cfg);
+  ApplyPhasePsBeforeTx(cfg);
 
   HotSendStatus encode_status = HotSendStatus::kWifiFailed;
   auto const t_post0 = esp_timer_get_time();
   if (cfg.post_mode != FastPostMode::kFixedDelay) {
-    encode_status =
-        EncodeAndUdpSendWithLateTxDone(payload, &out, cfg);
+    if (cfg.encode_during_association && artifacts.ready) {
+      encode_status =
+          SendHotArtifactsWithLateTxDone(artifacts, cfg, &out);
+    } else {
+      encode_status =
+          EncodeAndUdpSendWithLateTxDone(payload, &out, cfg);
+    }
     std::uint16_t hold_ms = cfg.post_delay_ms;
     if (cfg.post_mode == FastPostMode::kTxDoneCbPlus10) {
       if (hold_ms < 10) {
@@ -2086,7 +2409,7 @@ FastSendResult SendPreparedOnceWithFastPath(
     out.actual_post_us = NonNegativeUs(
         t_teardown0 - static_cast<std::int64_t>(out.first_success_callback_us));
   }
-  CleanupHotPathWifiRuntime();
+  CleanupHotPathWifiRuntime(cfg.teardown_policy);
   auto const t_end = esp_timer_get_time();
   {
     auto const td = t_end - t_teardown0;
@@ -2297,6 +2620,36 @@ void ApplyProbeStateToHotConfig(ae::WifiProbeRtcState const& state,
   cache->gateway = state.gateway;
   std::memcpy(cache->gw_mac, state.gateway_mac, sizeof(cache->gw_mac));
   std::memcpy(cache->bssid, state.bssid, sizeof(cache->bssid));
+}
+
+void ApplyPowerBenchToFastPath(FastPathConfig* cfg,
+                               std::uint8_t teardown_policy, bool pmf_off,
+                               std::uint8_t connected_ps_mode,
+                               std::uint8_t listen_interval,
+                               std::uint8_t phase_ps,
+                               bool encode_during_association) {
+  if (cfg == nullptr) {
+    return;
+  }
+  cfg->pmf_off = pmf_off;
+  cfg->teardown_policy = teardown_policy;
+  cfg->listen_interval = listen_interval != 0 ? listen_interval : 1;
+  cfg->phase_ps = phase_ps;
+  cfg->encode_during_association = encode_during_association;
+  std::uint8_t ps = connected_ps_mode;
+  if (phase_ps == 1 && ps == 0) {
+    ps = 1;
+  }
+  if (phase_ps == 2 && ps == 0) {
+    ps = 2;
+  }
+  if (phase_ps == 3) {
+    ps = 1;
+  }
+  if (phase_ps == 4) {
+    ps = 2;
+  }
+  cfg->connected_ps_mode = ps;
 }
 
 void RecordHotProbeFailure(ae::WifiProbeRtcState* state,
