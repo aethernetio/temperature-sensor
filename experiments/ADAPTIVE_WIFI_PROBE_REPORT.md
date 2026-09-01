@@ -221,11 +221,66 @@ aether `tests/test-product-probe`.
 
 ### Selected parameters
 
-| AP | status | profile | PRE ms | POST ms | sleep ms | HOT sent | HOT fail | reprobes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| chirkov | not run | - | - | - | - | - | - | - |
-| aethernetio | not run | - | - | - | - | - | - | - |
+`HOT sent` and `HOT fail` are the device's own counters: a send fails
+only when the local send call fails. `HOT delivered` is how many of
+those packets the receiver saw, so the two differ by whatever the
+network dropped after the send succeeded.
+
+| AP | status | profile | PRE ms | POST ms | sleep ms | HOT sent | HOT fail | HOT delivered | reprobes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| chirkov | OK | P1 | 0 | 300 | 250 | 100 | 0 | 36 | 0 |
+| aethernetio | OK | P4 | 0 | 300 | 250 | 100 | 0 | 98 | 0 |
 
 ### Probe batches as counted by the receiver
+
+A batch passes when all 20 packets arrive; 19 buys one extra batch at
+the same delay. When no candidate passes, the POST delay falls back to
+the most conservative value in the table and the stage keeps retrying
+it, up to its batch cap, in case it passes later. That is why a table
+can show the same POST value repeated without ever reaching 20/20.
+
+**chirkov**
+
+| batch | stage | POST ms | expected | unique | dup | missing |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | POST_PROBE | 100 | 20 | 8 | 0 | 12 |
+| 2 | POST_PROBE | 200 | 20 | 11 | 0 | 9 |
+| 3 | POST_PROBE | 300 | 20 | 12 | 0 | 8 |
+| 4 | POST_PROBE | 300 | 20 | 15 | 0 | 5 |
+| 5 | POST_PROBE | 300 | 20 | 12 | 0 | 8 |
+| 6 | POST_PROBE | 300 | 20 | 12 | 0 | 8 |
+| 7 | POST_PROBE | 300 | 20 | 14 | 0 | 6 |
+| 8 | POST_PROBE | 300 | 20 | 15 | 0 | 5 |
+| 9 | POST_PROBE | 300 | 20 | 17 | 0 | 3 |
+| 10 | POST_PROBE | 300 | 20 | 16 | 0 | 4 |
+| 11 | POST_PROBE | 300 | 20 | 13 | 0 | 7 |
+| 12 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
+| 13 | SLEEP_CONFIRM | 300 | 20 | 5 | 0 | 15 |
+
+Hot cycle time from the previous-send timing carried in each HOT_DATA packet (us): n=36 min=499304 median=569311 p90=599248 max=629427
+
+**PPK_CAPTURE_REQUIRED** - current trace not captured.
+
+**aethernetio**
+
+| batch | stage | POST ms | expected | unique | dup | missing |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | POST_PROBE | 100 | 20 | 20 | 0 | 0 |
+| 2 | POST_PROBE | 200 | 20 | 20 | 0 | 0 |
+| 3 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
+| 4 | POST_PROBE | 300 | 20 | 18 | 0 | 2 |
+| 5 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
+| 6 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
+| 7 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
+| 8 | POST_PROBE | 300 | 20 | 18 | 0 | 2 |
+| 9 | POST_PROBE | 300 | 20 | 19 | 0 | 1 |
+| 10 | POST_PROBE | 300 | 20 | 20 | 0 | 0 |
+| 11 | POST_PROBE | 300 | 20 | 20 | 0 | 0 |
+| 12 | POST_PROBE | 300 | 20 | 20 | 0 | 0 |
+| 13 | SLEEP_CONFIRM | 300 | 20 | 19 | 0 | 1 |
+
+Hot cycle time from the previous-send timing carried in each HOT_DATA packet (us): n=98 min=569438 median=649484 p90=689419 max=839521
+
+**PPK_CAPTURE_REQUIRED** - current trace not captured.
 
 Raw logs and per-AP JSON: `experiments/product_adaptive_probe_results/`.

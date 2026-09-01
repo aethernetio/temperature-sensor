@@ -694,17 +694,24 @@ def render_report(results: dict, rtc_sizeof: int | None) -> str:
     lines += [
         "### Selected parameters",
         "",
-        "| AP | status | profile | PRE ms | POST ms | sleep ms | HOT sent | HOT fail | reprobes |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "`HOT sent` and `HOT fail` are the device's own counters: a send fails",
+        "only when the local send call fails. `HOT delivered` is how many of",
+        "those packets the receiver saw, so the two differ by whatever the",
+        "network dropped after the send succeeded.",
+        "",
+        "| AP | status | profile | PRE ms | POST ms | sleep ms | HOT sent | "
+        "HOT fail | HOT delivered | reprobes |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for ap in APS:
         r = results.get(ap)
         if not r:
-            lines.append(f"| {ap} | not run | - | - | - | - | - | - | - |")
+            lines.append(f"| {ap} | not run | - | - | - | - | - | - | - | - |")
             continue
         s = r.get("rx", {}).get("summary") or r.get("serial", {}).get("final") or {}
         lines.append(
-            "| {ap} | {st} | P{p} | {pre} | {post} | {sl} | {hs} | {hf} | {rp} |".format(
+            "| {ap} | {st} | P{p} | {pre} | {post} | {sl} | {hs} | {hf} | {hd} "
+            "| {rp} |".format(
                 ap=ap,
                 st=r.get("status", "?"),
                 p=s.get("profile", "?"),
@@ -713,10 +720,21 @@ def render_report(results: dict, rtc_sizeof: int | None) -> str:
                 sl=s.get("sleep_ms", "?"),
                 hs=s.get("hot_sent", r.get("rx", {}).get("hot_data", "?")),
                 hf=s.get("hot_fail", "?"),
+                hd=r.get("rx", {}).get("hot_unique_seq", "?"),
                 rp=s.get("reprobe", len(r.get("serial", {}).get("reprobes", []))),
             )
         )
-    lines += ["", "### Probe batches as counted by the receiver", ""]
+    lines += [
+        "",
+        "### Probe batches as counted by the receiver",
+        "",
+        "A batch passes when all 20 packets arrive; 19 buys one extra batch at",
+        "the same delay. When no candidate passes, the POST delay falls back to",
+        "the most conservative value in the table and the stage keeps retrying",
+        "it, up to its batch cap, in case it passes later. That is why a table",
+        "can show the same POST value repeated without ever reaching 20/20.",
+        "",
+    ]
     for ap in APS:
         r = results.get(ap)
         if not r:
