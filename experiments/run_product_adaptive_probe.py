@@ -131,7 +131,8 @@ def save_checkpoint(data: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def receiver_env(*, launch: bool = False) -> dict:
+def receiver_env() -> dict:
+    """Host environment for the receiver: no ESP toolchain, msys64 present."""
     e = os.environ.copy()
     if camp.CPM_SOURCE_CACHE.is_dir():
         e["CPM_SOURCE_CACHE"] = str(camp.CPM_SOURCE_CACHE)
@@ -141,20 +142,30 @@ def receiver_env(*, launch: bool = False) -> dict:
         r"C:\Program Files\Git\cmd",
         r"C:\Program Files\Git\usr\bin",
     ]
-    if launch and MINGW_BIN.is_dir():
+    if MINGW_BIN.is_dir():
         extra.insert(0, str(MINGW_BIN))
-    tail = [
-        p
-        for p in e.get("Path", "").split(";")
-        if p and "riscv32-esp-elf" not in p.lower()
-    ]
+    # The wrapper saves the PATH it started with; the ESP-flavoured PATH breaks
+    # the host compiler.
+    base = e.get("AE_HOST_PATH") or e.get("Path", "")
+    tail = [p for p in base.split(";") if p and "riscv32-esp-elf" not in p.lower()]
     e["Path"] = ";".join(dict.fromkeys(extra + tail))
     e.pop("CC", None)
     e.pop("CXX", None)
     return e
 
 
+def receiver_up_to_date() -> bool:
+    if not RX_EXE.exists():
+        return False
+    built = RX_EXE.stat().st_mtime
+    src_dir = AETHER / "examples" / "probe_receiver"
+    return all(p.stat().st_mtime <= built for p in src_dir.glob("*"))
+
+
 def build_receiver() -> None:
+    if receiver_up_to_date():
+        log("probe_receiver up to date")
+        return
     log("build TCP probe_receiver")
     RX_BUILD.mkdir(parents=True, exist_ok=True)
     cfg = [
@@ -212,7 +223,7 @@ def start_receiver(rx_log: Path, *, append: bool = False) -> None:
     camp.kill_receiver()
     session = camp.PREPARED_RX_SESSION
     (session / "state").mkdir(parents=True, exist_ok=True)
-    e = receiver_env(launch=True)
+    e = receiver_env()
     e["AE_RECEIVER_SESSION_DIR"] = str(session)
     err = rx_log.with_suffix(".err")
     mode = "a" if append and rx_log.exists() else "w"
@@ -331,6 +342,22 @@ def start_ppk_log(csv_path: Path) -> subprocess.Popen | None:
         return None
     log(f"PPK logging at {camp.PPK_VOLTAGE_MV} mV -> {csv_path.name}")
     return proc
+
+
+def wait_for_board(timeout_s: float = 1800) -> str | None:
+    """The board is powered through the PPK2, so assert power while waiting."""
+    log("WAIT_FOR_BOARD")
+    t0 = time.time()
+    camp.ppk_power_on(settle_s=3.0)
+    while time.time() - t0 < timeout_s:
+        port = camp.find_port(3)
+        if port:
+            log(f"board on {port}")
+            return port
+        if int(time.time() - t0) % 30 < 3:
+            camp.ppk_power_on(settle_s=2.0)
+        time.sleep(2)
+    return None
 
 
 def hard_reset(port: str) -> None:
@@ -514,6 +541,9 @@ def run_ap(ap: str) -> dict:
 
     log(f"==== {ap} ====")
     build_firmware(ap)
+    port = wait_for_board()
+    if not port:
+        raise RuntimeError("no COM for erase-flash")
     port = camp.flash(erase=True)
     start_receiver(rx_log)
     tail = start_serial_tail(port, serial_log)

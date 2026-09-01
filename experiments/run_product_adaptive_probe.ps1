@@ -24,6 +24,9 @@ $espPref = @(
   "C:\Espressif\python_env\idf6.0_py3.11_env\Scripts",
   "C:\Program Files\Git\cmd"
 ) -join ";"
+# The host build of the receiver needs the untouched PATH; the ESP build must
+# not see msys64 or the ULP objcopy resolves to the wrong architecture.
+$env:AE_HOST_PATH = $env:Path
 $filtered = ($env:Path -split ";" | Where-Object {
   $_ -and ($_ -notmatch '(?i)msys64') -and ($_ -notmatch '(?i)WindowsApps') -and ($_ -notmatch '(?i)\\Git\\mingw64\\bin')
 }) -join ";"
