@@ -219,8 +219,30 @@ def build_receiver() -> None:
     log("probe_receiver build ok")
 
 
+# camp.kill_receiver/receiver_alive target temperature_receiver.exe, so this
+# campaign needs its own pair or every poll would look like a dead receiver and
+# leave a new one behind on the same state directory.
+RX_IMAGE = "probe-receiver.exe"
+
+
+def kill_probe_receiver() -> None:
+    subprocess.run(
+        ["taskkill", "/F", "/IM", RX_IMAGE], capture_output=True, text=True
+    )
+    time.sleep(1)
+
+
+def probe_receiver_alive() -> bool:
+    r = subprocess.run(
+        ["tasklist", "/FI", f"IMAGENAME eq {RX_IMAGE}"],
+        capture_output=True,
+        text=True,
+    )
+    return RX_IMAGE in (r.stdout or "")
+
+
 def start_receiver(rx_log: Path, *, append: bool = False) -> None:
-    camp.kill_receiver()
+    kill_probe_receiver()
     session = camp.PREPARED_RX_SESSION
     (session / "state").mkdir(parents=True, exist_ok=True)
     e = receiver_env()
@@ -258,9 +280,30 @@ def parse_rx_uid(text: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+SERIAL_TAIL_MARK = "ae-product-probe-serial-tail"
+
+
+def kill_orphan_serial_tails() -> None:
+    """A killed runner leaves its reader holding the port, which blocks flash."""
+    subprocess.run(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine "
+            f"-match '{SERIAL_TAIL_MARK}' " + "} | ForEach-Object { "
+            "Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    time.sleep(1)
+
+
 def start_serial_tail(port: str, out_path: Path) -> subprocess.Popen:
     """Background serial reader that appends to out_path and survives resets."""
     script = f"""
+# {SERIAL_TAIL_MARK}
 import serial, time
 port={port!r}
 out={str(out_path)!r}
@@ -558,7 +601,7 @@ def run_ap(ap: str) -> dict:
     status = "TIMEOUT"
     try:
         while time.time() - t0 < AP_TIMEOUT_S:
-            if not camp.receiver_alive():
+            if not probe_receiver_alive():
                 log("receiver dead - restart")
                 start_receiver(rx_log, append=True)
             stext = read_text(serial_log)
@@ -809,6 +852,7 @@ def main() -> int:
     if not acquire_run_lock():
         return 4
     try:
+        kill_orphan_serial_tails()
         if args.build_only:
             build_receiver()
             for ap in APS:
@@ -830,7 +874,7 @@ def main() -> int:
             save_checkpoint({"ap_index": i + 1, "results": results})
             write_report(results, rtc_sizeof)
 
-        camp.kill_receiver()
+        kill_probe_receiver()
         write_report(results, rtc_sizeof)
         bad = [ap for ap, r in results.items() if r.get("status") != "OK"]
         log(f"campaign complete; failures={bad or 'none'}")
