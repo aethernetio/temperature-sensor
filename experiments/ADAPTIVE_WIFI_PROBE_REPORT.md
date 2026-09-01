@@ -86,7 +86,7 @@ Artifacts: `experiments/adaptive_probe_results/chirkov_phase_c.tsv`, `chirkov_al
 
 ## TCP RECEIVER / TWO-ROUTER RETAKE V2
 
-**Status:** IN PROGRESS (autonomous campaign)
+**Status:** COMPLETE (step_index=10, 2026-08-31)
 
 | Item | Value |
 |------|--------|
