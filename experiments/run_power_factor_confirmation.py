@@ -116,6 +116,11 @@ def changed_factors(variant_id: int) -> list[str]:
             "CPU80",
         ],
         314: ["FULL_TEARDOWN", "SKIP_VALIDATE", "DISC_PM_OFF", "WIFI_PS_MIN", "CPU80"],
+        315: ["SKIP_VALIDATE", "CPU80"],
+        316: ["SKIP_VALIDATE", "WIFI_PS_MIN"],
+        317: ["SKIP_VALIDATE", "DISC_PM_OFF"],
+        318: ["SKIP_VALIDATE", "CPU80", "WIFI_PS_MIN"],
+        319: ["SKIP_VALIDATE", "CPU80", "DISC_PM_OFF"],
     }
     factors.extend(runtime.get(variant_id, []))
     # de-dup preserve order
@@ -448,9 +453,11 @@ def select_combos(results: dict) -> list[tuple[str, str, int]]:
     checks = [
         ("CFM01_B1_SKIP_VALIDATE", 10, "SKIP"),
         ("CFM02_B2_DISC_PM_OFF", 11, "DISC"),
+        ("CFM02R_B2_DISC_PM_OFF", 11, "DISC"),
         ("CFM03_B3_WIFI_PS_MIN", 12, "PS"),
         ("CFM04_B7_CPU80", 16, "CPU"),
         ("CFM06_IO_TEARDOWN_CHIRKOV", 206, "IO"),
+        ("CFM11_IO_TEARDOWN_AETHERNETIO", 206, "IO"),
     ]
     for cfm, vid, tag in checks:
         cur = r.get(cfm)
@@ -465,6 +472,20 @@ def select_combos(results: dict) -> list[tuple[str, str, int]]:
 
     tags = {t for t, _ in confirmed}
     tasks: list[tuple[str, str, int]] = []
+
+    # Recover failed aethernetio A0-before (needed for IO delta on that AP).
+    ae0 = r.get("CFM10_A0_AETHERNETIO_BEFORE")
+    if not ae0 or ae0.get("status") != "OK" or not ae0.get("PASS_RX"):
+        tasks.append(("CFM10R_A0_AETHERNETIO_BEFORE", "aethernetio", 200))
+
+    # Re-measure B2 if it failed (sdk lock was broken / NO_ARM).
+    b2 = r.get("CFM02_B2_DISC_PM_OFF")
+    b2r = r.get("CFM02R_B2_DISC_PM_OFF")
+    if (not b2 or b2.get("status") != "OK" or not b2.get("PASS_RX")) and not (
+        b2r and b2r.get("status") == "OK" and b2r.get("PASS_RX")
+    ):
+        tasks.append(("CFM02R_B2_DISC_PM_OFF", "chirkov", 11))
+
     if "IO" in tags:
         if "SKIP" in tags:
             tasks.append(("CFM20_IO_SKIP", "chirkov", 300))
@@ -482,8 +503,18 @@ def select_combos(results: dict) -> list[tuple[str, str, int]]:
             tasks.append(("CFM32_IO_SKIP_PS_CPU", "chirkov", 312))
         if {"SKIP", "PS", "CPU", "DISC"} <= tags:
             tasks.append(("CFM33_IO_ALL", "chirkov", 313))
-        elif {"SKIP", "PS", "CPU"} <= tags and "DISC" not in tags:
-            pass
+
+    # Non-IO combinations when DirectDeepSleep is harmful on this AP.
+    if "SKIP" in tags and "CPU" in tags:
+        tasks.append(("CFM40_SKIP_CPU80", "chirkov", 315))
+    if "SKIP" in tags and "PS" in tags:
+        tasks.append(("CFM41_SKIP_PS_MIN", "chirkov", 316))
+    if "SKIP" in tags and "DISC" in tags:
+        tasks.append(("CFM42_SKIP_DISC_PM", "chirkov", 317))
+    if {"SKIP", "CPU", "PS"} <= tags:
+        tasks.append(("CFM43_SKIP_CPU_PS", "chirkov", 318))
+    if {"SKIP", "CPU", "DISC"} <= tags:
+        tasks.append(("CFM44_SKIP_CPU_DISC", "chirkov", 319))
     return tasks
 
 

@@ -378,6 +378,45 @@ PowerBenchOptions BuildVariant(std::uint16_t variant_id, char const* ap_ssid) {
         o.cpu_mhz = CpuFreqMhz::k80;
         return o;
       }
+    case 315:
+      {
+        auto o = BaselineA0(315);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        return o;
+      }
+    case 316:
+      {
+        auto o = BaselineA0(316);
+        o.skip_validate_deep_sleep = true;
+        o.connected_ps = ConnectedPsMode::kMinModem;
+        o.phase_ps = PhasePsMode::kM1;
+        return o;
+      }
+    case 317:
+      {
+        auto o = BaselineA0(317);
+        o.skip_validate_deep_sleep = true;
+        o.disconnected_pm = false;
+        return o;
+      }
+    case 318:
+      {
+        auto o = BaselineA0(318);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.connected_ps = ConnectedPsMode::kMinModem;
+        o.phase_ps = PhasePsMode::kM1;
+        return o;
+      }
+    case 319:
+      {
+        auto o = BaselineA0(319);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.disconnected_pm = false;
+        return o;
+      }
     default:
       return BaselineA0(variant_id);
   }

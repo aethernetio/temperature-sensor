@@ -143,6 +143,11 @@ def variant_name(variant_id: int) -> str:
         312: "CFM_IO_TEARDOWN_SKIP_PS_MIN_CPU80",
         313: "CFM_IO_TEARDOWN_ALL_CONFIRMED",
         314: "CFM_FULL_TEARDOWN_ALL_CONFIRMED",
+        315: "CFM_SKIP_CPU80",
+        316: "CFM_SKIP_PS_MIN",
+        317: "CFM_SKIP_DISC_PM",
+        318: "CFM_SKIP_CPU_PS",
+        319: "CFM_SKIP_CPU_DISC",
     }
     return names.get(variant_id, f"V{variant_id}")
 
@@ -190,13 +195,18 @@ SKIP_VALIDATE_VARIANTS = frozenset(
         312,
         313,
         314,
+        315,
+        316,
+        317,
+        318,
+        319,
     }
 )
 
 # Variants that must disable CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE.
 # Runtime PowerBenchOptions.disconnected_pm is not wired to an API; the real
 # factor is this Kconfig bit.
-DISC_PM_OFF_VARIANTS = frozenset({11, 201, 303, 313, 314})
+DISC_PM_OFF_VARIANTS = frozenset({11, 201, 303, 313, 314, 317, 319})
 
 
 def _set_kconfig_bool(text: str, symbol: str, enabled: bool) -> str:
