@@ -180,6 +180,9 @@ static bool g_using_bssid_cache = false;
 static int g_max_wifi_retry = AETHER_PREPARED_HOT_WIFI_MAX_RETRY;
 static constexpr EventBits_t kWifiReadyBit = BIT0;
 static constexpr EventBits_t kWifiFailBit = BIT1;
+static constexpr EventBits_t kWifiStoppedBit = BIT2;
+// When set, STA_DISCONNECTED must not auto-reconnect (intentional teardown).
+static bool g_wifi_teardown_in_progress = false;
 
 void CaptureApIntoCache() {
   wifi_ap_record_t ap_info{};
@@ -346,6 +349,11 @@ void WifiEventHandler(void*, esp_event_base_t event_base, std::int32_t event_id,
                                           std::memory_order_relaxed);
     }
 
+    if (g_wifi_teardown_in_progress) {
+      xEventGroupSetBits(g_wifi_event_group, kWifiStoppedBit);
+      return;
+    }
+
     if (g_wifi_retry_count < g_max_wifi_retry) {
       ++g_wifi_retry_count;
       g_wifi_reconnect_count.fetch_add(1, std::memory_order_relaxed);
@@ -374,29 +382,67 @@ void WifiEventHandler(void*, esp_event_base_t event_base, std::int32_t event_id,
 }
 
 void CleanupHotPathWifiRuntime(std::uint8_t teardown_policy = 0) {
+  // 2 = DirectDeepSleep: leave radio/runtime as-is (not portable production).
   if (teardown_policy == 2) {
     return;
   }
 
-  if (g_wifi_any_id_handler != nullptr) {
-    esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID,
-                                          g_wifi_any_id_handler);
-    g_wifi_any_id_handler = nullptr;
+  g_wifi_teardown_in_progress = true;
+
+  auto unregister_handlers = [] {
+    if (g_wifi_any_id_handler != nullptr) {
+      esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                            g_wifi_any_id_handler);
+      g_wifi_any_id_handler = nullptr;
+    }
+    if (g_wifi_got_ip_handler != nullptr) {
+      esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
+                                            g_wifi_got_ip_handler);
+      g_wifi_got_ip_handler = nullptr;
+    }
+  };
+
+  auto stop_wifi = [] {
+    if (g_wifi_started) {
+      auto err = esp_wifi_stop();
+      (void)err;
+      g_wifi_started = false;
+    }
+  };
+
+  // 3 = STOP_MINIMAL: stop radio only; skip handler unregister / deinit /
+  // netif / event-loop destruction (RAM is discarded on deep sleep).
+  if (teardown_policy == 3) {
+    stop_wifi();
+    g_wifi_teardown_in_progress = false;
+    return;
   }
 
-  if (g_wifi_got_ip_handler != nullptr) {
-    esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
-                                          g_wifi_got_ip_handler);
-    g_wifi_got_ip_handler = nullptr;
+  // 4 = STOP_DISCONNECT: ask AP to drop association, wait briefly, then stop.
+  if (teardown_policy == 4) {
+    if (g_wifi_event_group != nullptr) {
+      xEventGroupClearBits(g_wifi_event_group, kWifiStoppedBit);
+    }
+    if (g_wifi_started) {
+      (void)esp_wifi_disconnect();
+      if (g_wifi_event_group != nullptr) {
+        (void)xEventGroupWaitBits(g_wifi_event_group, kWifiStoppedBit, pdTRUE,
+                                  pdFALSE, pdMS_TO_TICKS(150));
+      }
+    }
+    unregister_handlers();
+    stop_wifi();
+    g_wifi_teardown_in_progress = false;
+    return;
   }
 
-  if (g_wifi_started) {
-    auto err = esp_wifi_stop();
-    (void)err;
-    g_wifi_started = false;
-  }
+  // 0 = FULL and 1 = STOP_FULL_SAFE share unregister + stop.
+  unregister_handlers();
+  stop_wifi();
 
+  // 1 = STOP_FULL_SAFE: leave driver/netif/event loop intact.
   if (teardown_policy == 1) {
+    g_wifi_teardown_in_progress = false;
     return;
   }
 
@@ -422,6 +468,7 @@ void CleanupHotPathWifiRuntime(std::uint8_t teardown_policy = 0) {
     esp_event_loop_delete_default();
     g_default_event_loop_created = false;
   }
+  g_wifi_teardown_in_progress = false;
 }
 
 bool StartWifiAttempt(bool use_bssid_cache, bool use_static_ip) {
@@ -434,6 +481,7 @@ bool StartWifiAttempt(bool use_bssid_cache, bool use_static_ip) {
 
   CleanupHotPathWifiRuntime();
 
+  g_wifi_teardown_in_progress = false;
   g_wait_got_ip = !use_static_ip;
   g_using_bssid_cache = use_bssid_cache;
   g_max_wifi_retry = use_bssid_cache ? 1 : AETHER_PREPARED_HOT_WIFI_MAX_RETRY;

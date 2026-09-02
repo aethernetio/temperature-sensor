@@ -417,6 +417,173 @@ PowerBenchOptions BuildVariant(std::uint16_t variant_id, char const* ap_ssid) {
         o.disconnected_pm = false;
         return o;
       }
+    // Best-config STOP-only matrix (SKIP + CPU80 + teardown variants).
+    // P0 control: confirmed portable winner with FULL teardown.
+    case 400:
+      {
+        auto o = BaselineA0(400);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kFull;
+        return o;
+      }
+    // P1: STOP_FULL_SAFE
+    case 401:
+      {
+        auto o = BaselineA0(401);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kStopOnly;
+        return o;
+      }
+    // P2: STOP_MINIMAL
+    case 402:
+      {
+        auto o = BaselineA0(402);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kStopMinimal;
+        return o;
+      }
+    // P3: STOP_DISCONNECT
+    case 403:
+      {
+        auto o = BaselineA0(403);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kStopDisconnect;
+        return o;
+      }
+    // Ablation / CPU retune around STOP (defaults to StopMinimal; runner picks).
+    case 500:  // A: SKIP + CPU80 + STOP_MINIMAL
+      {
+        auto o = BaselineA0(500);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kStopMinimal;
+        return o;
+      }
+    case 501:  // B: SKIP + CPU160 + STOP_MINIMAL
+      {
+        auto o = BaselineA0(501);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k160;
+        o.teardown = TeardownPolicy::kStopMinimal;
+        return o;
+      }
+    case 502:  // C: NO_SKIP + CPU80 + STOP_MINIMAL
+      {
+        auto o = BaselineA0(502);
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kStopMinimal;
+        return o;
+      }
+    case 503:  // D: SKIP + CPU80 + FULL
+      {
+        auto o = BaselineA0(503);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kFull;
+        return o;
+      }
+    case 504:  // E: SKIP + CPU160 + FULL
+      {
+        auto o = BaselineA0(504);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k160;
+        o.teardown = TeardownPolicy::kFull;
+        return o;
+      }
+    case 505:  // F: NO_SKIP + CPU80 + FULL
+      {
+        auto o = BaselineA0(505);
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kFull;
+        return o;
+      }
+    case 510:  // SKIP + STOP_MINIMAL + CPU160
+      {
+        auto o = BaselineA0(510);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k160;
+        o.teardown = TeardownPolicy::kStopMinimal;
+        return o;
+      }
+    case 511:  // SKIP + STOP_MINIMAL + CPU120
+      {
+        auto o = BaselineA0(511);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k120;
+        o.teardown = TeardownPolicy::kStopMinimal;
+        return o;
+      }
+    case 512:  // SKIP + STOP_MINIMAL + CPU80
+      {
+        auto o = BaselineA0(512);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kStopMinimal;
+        return o;
+      }
+    case 513:  // SKIP + STOP_MINIMAL + CPU40
+      {
+        auto o = BaselineA0(513);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k40;
+        o.teardown = TeardownPolicy::kStopMinimal;
+        return o;
+      }
+    case 520:  // BEST STOP + encode_during_association
+      {
+        auto o = BaselineA0(520);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kStopMinimal;
+        o.encode_during_association = true;
+        return o;
+      }
+    // Same as 401/402/403 but with STOP_FULL_SAFE for ablation if minimal fails.
+    case 530:
+      {
+        auto o = BaselineA0(530);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kStopOnly;
+        return o;
+      }
+    case 531:
+      {
+        auto o = BaselineA0(531);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k160;
+        o.teardown = TeardownPolicy::kStopOnly;
+        return o;
+      }
+    case 532:
+      {
+        auto o = BaselineA0(532);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k120;
+        o.teardown = TeardownPolicy::kStopOnly;
+        return o;
+      }
+    case 533:
+      {
+        auto o = BaselineA0(533);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k40;
+        o.teardown = TeardownPolicy::kStopOnly;
+        return o;
+      }
+    case 540:  // BEST STOP_FULL_SAFE + encode
+      {
+        auto o = BaselineA0(540);
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        o.teardown = TeardownPolicy::kStopOnly;
+        o.encode_during_association = true;
+        return o;
+      }
     default:
       return BaselineA0(variant_id);
   }

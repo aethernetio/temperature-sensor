@@ -26,8 +26,14 @@ namespace temp_sensor::power_bench {
 
 enum class TeardownPolicy : std::uint8_t {
   kFull = 0,
+  // STOP_FULL_SAFE: unregister Wi-Fi/IP handlers, esp_wifi_stop, no deinit.
   kStopOnly = 1,
+  // DirectDeepSleep: no stop/deinit (AP-dependent; not portable production).
   kDirectDeepSleep = 2,
+  // STOP_MINIMAL: esp_wifi_stop only (handlers/netif/event loop kept).
+  kStopMinimal = 3,
+  // STOP_DISCONNECT: disconnect (+short wait), then stop; no deinit.
+  kStopDisconnect = 4,
 };
 
 enum class PmfPolicy : std::uint8_t {

@@ -339,6 +339,11 @@ ae_exp_define_if_set(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
 ae_exp_define_if_set(AE_EXP_PREPARED_POWER_FACTOR)
 ae_exp_define_if_set(AE_POWER_BENCH_VARIANT)
 ae_exp_define_if_set(AE_POWER_BENCH_ARM_MS)
+ae_exp_define_if_set(AETHER_POWER_BENCH_HOT_ATTEMPTS)
+ae_exp_define_if_set(AETHER_POWER_BENCH_HOT_SLEEP_MS)
+ae_exp_define_if_set(AETHER_POWER_BENCH_MIN_RX_UNIQUE)
+ae_exp_define_if_set(AETHER_PREPARED_HOT_TEARDOWN_POLICY)
+ae_exp_define_if_set(AETHER_PREPARED_HOT_CPU_MHZ)
 if(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
   # Tuning knobs for the selection algorithm; empty means the header default.
   foreach(_d AE_PRODUCT_PROBE_ICMP_BATCH AE_PRODUCT_PROBE_ICMP_EXTEND

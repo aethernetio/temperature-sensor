@@ -148,6 +148,26 @@ def variant_name(variant_id: int) -> str:
         317: "CFM_SKIP_DISC_PM",
         318: "CFM_SKIP_CPU_PS",
         319: "CFM_SKIP_CPU_DISC",
+        400: "BEST_P0_SKIP_CPU80_FULL",
+        401: "BEST_P1_SKIP_CPU80_STOP_SAFE",
+        402: "BEST_P2_SKIP_CPU80_STOP_MIN",
+        403: "BEST_P3_SKIP_CPU80_STOP_DISC",
+        500: "ABL_SKIP_CPU80_STOP_MIN",
+        501: "ABL_SKIP_CPU160_STOP_MIN",
+        502: "ABL_NOSKIP_CPU80_STOP_MIN",
+        503: "ABL_SKIP_CPU80_FULL",
+        504: "ABL_SKIP_CPU160_FULL",
+        505: "ABL_NOSKIP_CPU80_FULL",
+        510: "CPU_SKIP_STOP_MIN_160",
+        511: "CPU_SKIP_STOP_MIN_120",
+        512: "CPU_SKIP_STOP_MIN_80",
+        513: "CPU_SKIP_STOP_MIN_40",
+        520: "BEST_STOP_MIN_ENCODE",
+        530: "CPU_SKIP_STOP_SAFE_80",
+        531: "CPU_SKIP_STOP_SAFE_160",
+        532: "CPU_SKIP_STOP_SAFE_120",
+        533: "CPU_SKIP_STOP_SAFE_40",
+        540: "BEST_STOP_SAFE_ENCODE",
     }
     return names.get(variant_id, f"V{variant_id}")
 
@@ -200,6 +220,24 @@ SKIP_VALIDATE_VARIANTS = frozenset(
         317,
         318,
         319,
+        400,
+        401,
+        402,
+        403,
+        500,
+        501,
+        503,
+        504,
+        510,
+        511,
+        512,
+        513,
+        520,
+        530,
+        531,
+        532,
+        533,
+        540,
     }
 )
 
@@ -374,7 +412,9 @@ def clear_power_exp_flags(extra: dict[str, str]) -> list[str]:
     return out
 
 
-def cmake_configure_power(ap: str, variant_id: int) -> None:
+def cmake_configure_power(
+    ap: str, variant_id: int, extra: dict[str, str] | None = None
+) -> None:
     wifi = camp.APS[ap]
     if BUILD.exists() and not (BUILD / "CMakeCache.txt").exists():
         import shutil
@@ -398,6 +438,7 @@ def cmake_configure_power(ap: str, variant_id: int) -> None:
     extra = {
         "AE_EXP_PREPARED_POWER_FACTOR": "1",
         "BENCH_CLIENT_ID": "reliability_full_v1",
+        **(extra or {}),
     }
     args = [
         str(camp.CMAKE),

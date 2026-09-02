@@ -201,7 +201,8 @@ struct FastPathConfig {
   std::uint8_t listen_interval{1};
   std::uint8_t phase_ps{0};          // M0..M4
   bool encode_during_association{false};
-  std::uint8_t teardown_policy{0};   // 0=full 1=stop 2=direct sleep
+  // 0=full 1=stop_full_safe 2=direct_deep_sleep 3=stop_minimal 4=stop_disconnect
+  std::uint8_t teardown_policy{0};
 };
 
 struct FastSendResult {

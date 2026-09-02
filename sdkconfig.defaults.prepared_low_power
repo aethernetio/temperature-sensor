@@ -1,0 +1,58 @@
+# Production-oriented prepared HOT low-power defaults (ESP32-C6).
+# Confirmed by isolated power-factor confirmation + best-config STOP study.
+# Apply after sdkconfig.defaults; do not enable SKIP_VALIDATE_ALWAYS / power-on skip.
+
+#
+# External RTC crystal (required for accurate deep-sleep wake)
+#
+CONFIG_RTC_CLK_SRC_EXT_CRYS=y
+# CONFIG_RTC_CLK_SRC_INT_RC is not set
+CONFIG_RTC_CLK_CAL_CYCLES=1024
+
+#
+# Deep-sleep boot: skip image validation only on deep-sleep wake
+#
+CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP=y
+# CONFIG_BOOTLOADER_SKIP_VALIDATE_ON_POWER_ON is not set
+# CONFIG_BOOTLOADER_SKIP_VALIDATE_ALWAYS is not set
+
+#
+# Measured / product silent console
+#
+CONFIG_ESP_CONSOLE_NONE=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+CONFIG_LOG_DEFAULT_LEVEL_NONE=y
+CONFIG_LOG_DEFAULT_LEVEL=0
+CONFIG_LOG_MAXIMUM_LEVEL=0
+CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y
+CONFIG_BOOTLOADER_LOG_LEVEL=0
+
+#
+# Wi-Fi disconnected PM (confirmed leave ON; DISCONNECTED_PM_OFF rejected)
+#
+CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE=y
+
+#
+# CPU / PM (runtime fixes max=min=80 via esp_pm; keep PM enabled)
+#
+CONFIG_PM_ENABLE=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_160=y
+
+#
+# Deep-sleep flash / domain power-down (safe defaults already used by project)
+#
+CONFIG_ESP_SLEEP_POWER_DOWN_FLASH=y
+CONFIG_ESP_SLEEP_PD_DOMAIN_VDDSDIO=y
+
+#
+# PHY: keep normal policy (do not force partial every wake)
+#
+CONFIG_ESP_PHY_RF_CAL_PARTIAL=y
+
+#
+# Wi-Fi NVS stays enabled (prior studies showed regression when disabled)
+#
+CONFIG_ESP_WIFI_NVS_ENABLED=y
+
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+CONFIG_LWIP_DHCPS_STATIC_ENTRIES=y

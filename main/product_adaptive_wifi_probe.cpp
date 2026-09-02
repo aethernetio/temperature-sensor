@@ -57,6 +57,7 @@
 #  include <esp_attr.h>
 #  include <esp_event.h>
 #  include <esp_netif.h>
+#  include <esp_pm.h>
 #  include <esp_random.h>
 #  include <esp_sleep.h>
 #  include <esp_system.h>
@@ -674,7 +675,26 @@ prepared_send::FastPathConfig MakeFastConfig() {
   cfg.post_mode = prepared_send::FastPostMode::kTxDoneCb;
   cfg.tx_done_wait = prepared_send::FastTxDoneWaitMode::kFirstSuccessNoObserve;
   cfg.post_delay_ms = g_rtc.post_ms;
+#ifndef AETHER_PREPARED_HOT_TEARDOWN_POLICY
+#  define AETHER_PREPARED_HOT_TEARDOWN_POLICY 0
+#endif
+  // 0=full 1=stop_full_safe 3=stop_minimal 4=stop_disconnect (2=direct forbidden).
+  cfg.teardown_policy =
+      static_cast<std::uint8_t>(AETHER_PREPARED_HOT_TEARDOWN_POLICY);
   return cfg;
+}
+
+void ApplyPreparedHotCpuIfConfigured() {
+#ifndef AETHER_PREPARED_HOT_CPU_MHZ
+#  define AETHER_PREPARED_HOT_CPU_MHZ 0
+#endif
+#if AETHER_PREPARED_HOT_CPU_MHZ > 0
+  esp_pm_config_t pm_cfg{};
+  pm_cfg.max_freq_mhz = AETHER_PREPARED_HOT_CPU_MHZ;
+  pm_cfg.min_freq_mhz = AETHER_PREPARED_HOT_CPU_MHZ;
+  pm_cfg.light_sleep_enable = false;
+  (void)esp_pm_configure(&pm_cfg);
+#endif
 }
 
 void ComputeWakeMetrics() {
@@ -1191,6 +1211,7 @@ bool ExportBlockForNextBatch(std::uint16_t reserve) {
 // Sets up the next prepared batch of `expected` packets at the current POST and
 // leaves the run at `next_stage`.
 bool BeginPreparedBatch(probe::ProbeStage next_stage, std::uint16_t expected) {
+  ApplyPreparedHotCpuIfConfigured();
   g_cfg = MakeFastConfig();
   if (!ExportBlockForNextBatch(expected)) {
     return false;

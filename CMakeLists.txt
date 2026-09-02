@@ -136,6 +136,10 @@ elseif(AE_EXP_PREPARED_WIFI_CACHE_5X20 STREQUAL "1" OR
 elseif(AE_EXP_PREPARED_MESSAGE_E2E STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.bench")
+elseif(AE_EXP_PREPARED_POWER_FACTOR STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
