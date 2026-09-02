@@ -1,0 +1,6 @@
+{
+  "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\140_chirkov.csv",
+  "ap": "chirkov",
+  "variant_id": 140,
+  "error": "could not find enough sleep plateaus for segmentation"
+}

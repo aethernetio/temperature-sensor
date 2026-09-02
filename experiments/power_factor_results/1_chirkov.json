@@ -1,0 +1,22 @@
+{
+  "ap": "chirkov",
+  "variant_id": 1,
+  "variant_name": "A0_REPEAT",
+  "status": "OK",
+  "attempt": 1,
+  "elapsed_s": 0,
+  "hot_sleep_ms": 2000,
+  "hot_attempts": 100,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\1_chirkov.csv",
+  "ppk_capture_ok": false,
+  "rx": {
+    "bench_arm": true,
+    "bench_unique": 99,
+    "hot_unique": 99,
+    "hot_max_seq": 100,
+    "hot_data_lines": 99,
+    "summary": null,
+    "bench_done": true
+  },
+  "note": "accepted max_seq>=100 with unique=99; PPK stopped to avoid disk fill; criterion fixed for subsequent variants"
+}

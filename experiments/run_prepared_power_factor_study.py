@@ -7,9 +7,9 @@ progress and the PPK arm point come from the TCP probe_receiver log only.
 Per (variant, ap):
   1. cmake with AE_EXP_PREPARED_POWER_FACTOR and AE_POWER_BENCH_VARIANT
   2. sdkconfig patches for measured runs (external RTC, silent console/log)
-  3. build, start probe_receiver, start ppk2_hold
+  3. build, start probe_receiver, PPK power-off (clear RTC), start ppk2_hold
   4. erase-flash
-  5. wait for BENCH_ARM in the receiver log
+  5. wait for BENCH_ARM in the receiver log (fail fast on stale HOT/NO_ARM)
   6. release PPK hold and log current for the HOT100 deep-sleep run
   7. wait for HOT100 completion (receiver)
   8. write raw CSV and a run summary under experiments/power_factor_results/
@@ -57,6 +57,8 @@ CHIRKOV_VARIANTS = (
 AETHERNETIO_VARIANTS = list(range(200, 209))
 
 RUN_TIMEOUT_S = 4 * 60 * 60
+ARM_TIMEOUT_S = 180
+HOT_IDLE_DONE_S = 25
 POLL_S = 1.0
 SLOW_POLL_EVERY = 15
 MAX_PPK_ATTEMPTS = 3
@@ -370,6 +372,7 @@ def parse_rx_progress(text: str) -> dict:
         hot_seq = [int(m.group(1)) for m in re.finditer(r"HOT_DATA .* seq=(\d+)", text)]
     all_seq = bench_seq if bench_seq else hot_seq
     unique = len(set(all_seq))
+    max_seq = max(all_seq) if all_seq else 0
     summaries = list(
         re.finditer(
             r"BENCH_SUMMARY .* hot_attempts=(\d+)", text
@@ -390,12 +393,14 @@ def parse_rx_progress(text: str) -> dict:
         sent = summary.get("hot_attempts", summary.get("hot_sent", 0))
         if sent >= K_HOT_ATTEMPTS:
             bench_done = True
-    if unique >= K_HOT_ATTEMPTS:
+    # Accept max seq as done: one lost packet must not stall PPK forever.
+    if unique >= K_HOT_ATTEMPTS or max_seq >= K_HOT_ATTEMPTS:
         bench_done = True
     return {
         "bench_arm": bench_arm,
         "bench_unique": unique,
         "hot_unique": unique,
+        "hot_max_seq": max_seq,
         "hot_data_lines": len(all_seq),
         "summary": summary,
         "bench_done": bench_done,
@@ -419,6 +424,10 @@ def run_variant_once(ap: str, variant_id: int, *, attempt: int = 1) -> dict:
     build_firmware(ap, variant_id)
 
     prod.start_receiver(rx_log)
+    # Drop rail before hold/flash so RTC_NOINIT from a prior HOT session is
+    # cleared; otherwise the board can resume HOT without BENCH_ARM.
+    camp.ppk_power_off()
+    time.sleep(2.0)
     hold = start_ppk_hold()
     if hold is None:
         return {
@@ -439,6 +448,8 @@ def run_variant_once(ap: str, variant_id: int, *, attempt: int = 1) -> dict:
     try:
         armed = False
         ticks = 0
+        last_progress_key: tuple | None = None
+        last_progress_at = time.time()
         while time.time() - t0 < RUN_TIMEOUT_S:
             ticks += 1
             if ticks % SLOW_POLL_EVERY == 0 and not prod.probe_receiver_alive():
@@ -456,6 +467,32 @@ def run_variant_once(ap: str, variant_id: int, *, attempt: int = 1) -> dict:
                     ppk_failed = True
                     break
                 armed = True
+                last_progress_at = time.time()
+
+            if not armed:
+                elapsed = time.time() - t0
+                stale_hot = rx_progress.get("hot_max_seq", 0) >= 1 or (
+                    rx_progress.get("hot_unique", 0) >= 1
+                )
+                if elapsed >= ARM_TIMEOUT_S or (
+                    stale_hot and elapsed >= 60 and not rx_progress["bench_arm"]
+                ):
+                    log(
+                        f"NO_ARM after {int(elapsed)}s "
+                        f"hot_max_seq={rx_progress.get('hot_max_seq', 0)} "
+                        f"(stale RTC or boot failure)"
+                    )
+                    status = "NO_ARM"
+                    break
+
+            progress_key = (
+                rx_progress.get("hot_unique", 0),
+                rx_progress.get("hot_max_seq", 0),
+                rx_progress.get("hot_data_lines", 0),
+            )
+            if progress_key != last_progress_key:
+                last_progress_key = progress_key
+                last_progress_at = time.time()
 
             if armed and rx_progress["bench_done"]:
                 status = "OK"
@@ -470,6 +507,20 @@ def run_variant_once(ap: str, variant_id: int, *, attempt: int = 1) -> dict:
             if armed and rx_progress["hot_unique"] >= K_HOT_ATTEMPTS:
                 status = "OK"
                 time.sleep(5)
+                break
+            # Device finished HOT but last seq/summary never arrived (Wi-Fi loss).
+            if (
+                armed
+                and rx_progress.get("hot_unique", 0) >= K_MIN_RX_UNIQUE
+                and (time.time() - last_progress_at) >= HOT_IDLE_DONE_S
+            ):
+                log(
+                    f"HOT idle-done unique={rx_progress.get('hot_unique')} "
+                    f"max_seq={rx_progress.get('hot_max_seq')} "
+                    f"idle>={HOT_IDLE_DONE_S}s"
+                )
+                status = "OK"
+                time.sleep(2)
                 break
 
             time.sleep(POLL_S)
@@ -509,11 +560,14 @@ def run_variant_once(ap: str, variant_id: int, *, attempt: int = 1) -> dict:
 
 def run_variant(ap: str, variant_id: int) -> dict:
     result: dict = {}
+    retryable = {"PPK_CAPTURE_FAILED", "PPK_HOLD_FAILED", "NO_ARM", "TIMEOUT"}
     for attempt in range(1, MAX_PPK_ATTEMPTS + 1):
         result = run_variant_once(ap, variant_id, attempt=attempt)
-        if result.get("status") not in {"PPK_CAPTURE_FAILED", "PPK_HOLD_FAILED"}:
+        if result.get("status") not in retryable:
             return result
-        log(f"retry {task_key(ap, variant_id)} after PPK failure")
+        log(f"retry {task_key(ap, variant_id)} after {result.get('status')}")
+        camp.ppk_power_off()
+        time.sleep(2.0)
     return result
 
 

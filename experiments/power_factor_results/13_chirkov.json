@@ -1,0 +1,21 @@
+{
+  "ap": "chirkov",
+  "variant_id": 13,
+  "variant_name": "B4_WIFI_PS_MAX_LI1",
+  "status": "OK",
+  "attempt": 1,
+  "elapsed_s": 332,
+  "hot_sleep_ms": 2000,
+  "hot_attempts": 100,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\13_chirkov.csv",
+  "ppk_capture_ok": true,
+  "rx": {
+    "bench_arm": true,
+    "bench_unique": 100,
+    "hot_unique": 100,
+    "hot_max_seq": 100,
+    "hot_data_lines": 100,
+    "summary": null,
+    "bench_done": true
+  }
+}

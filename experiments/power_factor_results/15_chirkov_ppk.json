@@ -1,0 +1,6 @@
+{
+  "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\15_chirkov.csv",
+  "ap": "chirkov",
+  "variant_id": 15,
+  "error": "expected 100 cycles after trimming, got 0 from 15_chirkov.csv"
+}

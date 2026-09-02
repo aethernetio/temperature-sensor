@@ -1,0 +1,20 @@
+{
+  "ap": "chirkov",
+  "variant_id": 0,
+  "variant_name": "A0_CLEAN",
+  "status": "OK",
+  "attempt": 1,
+  "elapsed_s": 297,
+  "hot_sleep_ms": 2000,
+  "hot_attempts": 100,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\0_chirkov.csv",
+  "ppk_capture_ok": true,
+  "rx": {
+    "bench_arm": true,
+    "bench_unique": 100,
+    "hot_unique": 100,
+    "hot_data_lines": 100,
+    "summary": null,
+    "bench_done": true
+  }
+}
