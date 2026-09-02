@@ -189,7 +189,8 @@ else()
         idf::esp_event
         idf::esp_timer
         idf::esp_netif
-        idf::esp_hw_support)
+        idf::esp_hw_support
+        idf::esp_pm)
 
     set(TARGET_NAME "${COMPONENT_LIB}")
     include(../cmake/CPM.cmake)

@@ -545,36 +545,50 @@ def flash(erase: bool = False) -> str:
             check=False,
         )
         time.sleep(2)
-        port = find_port(60) or port
+        port2 = find_port(180)
+        if not port2:
+            raise RuntimeError("no ESP COM after erase-flash reset")
+        port = port2
+        time.sleep(3)
     log(f"flash {port}")
-    r = subprocess.run(
-        [
-            str(PY),
-            "-m",
-            "esptool",
-            "--chip",
-            "esp32c6",
-            "-p",
-            port,
-            "-b",
-            "460800",
-            "--before",
-            "default-reset",
-            "--after",
-            "hard-reset",
-            "write-flash",
-            "@flash_args",
-        ],
-        cwd=str(BUILD),
-        env=env(),
-        capture_output=True,
-        text=True,
-    )
+    last: subprocess.CompletedProcess[str] | None = None
+    for attempt in range(8):
+        if attempt:
+            port = find_port(60) or port
+            log(f"flash retry {attempt + 1}/8 on {port}")
+            time.sleep(5)
+        r = subprocess.run(
+            [
+                str(PY),
+                "-m",
+                "esptool",
+                "--chip",
+                "esp32c6",
+                "-p",
+                port,
+                "-b",
+                "460800",
+                "--before",
+                "default-reset",
+                "--after",
+                "hard-reset",
+                "write-flash",
+                "@flash_args",
+            ],
+            cwd=str(BUILD),
+            env=env(),
+            capture_output=True,
+            text=True,
+        )
+        last = r
+        if r.returncode == 0:
+            break
+    assert last is not None
     (OUT / "flash_last.log").write_text(
-        (r.stdout or "") + "\n" + (r.stderr or ""), encoding="utf-8"
+        (last.stdout or "") + "\n" + (last.stderr or ""), encoding="utf-8"
     )
-    if r.returncode != 0:
-        raise RuntimeError(f"flash failed rc={r.returncode}")
+    if last.returncode != 0:
+        raise RuntimeError(f"flash failed rc={last.returncode}")
     return port
 
 

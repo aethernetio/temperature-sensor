@@ -82,7 +82,7 @@ struct RtcState {
   std::uint32_t magic;
   std::uint16_t version;
   std::uint8_t phase;
-  std::uint8_t pad0;
+  std::uint8_t hot_armed;
   std::uint32_t session;
   std::uint16_t variant_id;
   std::uint16_t seq;
@@ -98,6 +98,7 @@ struct RtcState {
 
 #if defined(ESP_PLATFORM)
 RTC_NOINIT_ATTR RtcState g_rtc{};
+// Survives esp_restart() into HOT and deep-sleep wakes (RTC_DATA zero-inits on restart).
 RTC_NOINIT_ATTR prepared_send::PreparedWifiRtcCache g_rtc_wifi_cache{};
 
 static const auto kWifiInit = ae::WiFiInit{
@@ -172,12 +173,14 @@ ae::DataBuffer ToDataBuffer(std::uint8_t const* data, std::size_t size) {
 [[noreturn]] void DeepSleepHot() {
   esp_sleep_enable_timer_wakeup(kSleepUs);
   g_rtc.sleep_arm_us = esp_rtc_get_time_us();
+  StoreRtc();  // CRC must cover sleep_arm_us or ValidRtc fails on wake.
 #  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
 #  endif
 #  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
 #  endif
+  (void)esp_deep_sleep_try_to_start();
   esp_deep_sleep_start();
   for (;;) {
   }
@@ -232,7 +235,11 @@ void WritePayload(std::uint8_t const* data, std::size_t size) {
   g_write_ok = false;
   auto& wa = g_stream->Write(ToDataBuffer(data, size));
   g_write_sub = wa.status_event().Subscribe([](ae::WriteAction::Status st) {
-    g_write_ok = (st == ae::WriteAction::Status::kDone);
+    if (st == ae::WriteAction::Status::kSuccess) {
+      g_write_ok = true;
+    } else if (st == ae::WriteAction::Status::kFail) {
+      g_write_ok = false;
+    }
   });
 }
 
@@ -242,62 +249,74 @@ bool ExportPrepared(std::uint32_t reserve) {
   auto const block_ok = cache_ok &&
                         prepared_send::ExportPreparedSendBlock(
                             g_client, kServiceUid, reserve);
+  auto const left = block_ok ? prepared_send::PreparedMessageLeft() : 0u;
+  (void)left;
   return block_ok && prepared_send::HasPreparedSendBlock() &&
          prepared_send::PreparedMessageLeft() == reserve;
 }
 
-void OnClientReady(ae::Client::ptr client) {
-  g_client = std::move(client);
-  for (auto* server : g_client->cloud_connection().servers()) {
-    if (server != nullptr) {
-      server->RebuildChannelsFromAdapters();
+void MaybeStartStreamWork() {
+  if (!g_stream || !g_stream->stream_info().is_writable || g_write_armed) {
+    return;
+  }
+  if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullPrepare)) {
+    if (ExportPrepared(kHotAttempts)) {
+      g_rtc.phase = static_cast<std::uint8_t>(Phase::kFullArm);
+      StoreRtc();
+      ReleaseApp();
+      prepared_send::ReleaseFullAetherWifiForHotPath();
+      RestartTo(Phase::kFullArm);
+    }
+    return;
+  }
+  if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullArm)) {
+    probe::BenchArm arm{};
+    arm.session = g_rtc.session;
+    arm.variant_id = g_rtc.variant_id;
+    arm.expected = kHotAttempts;
+    std::uint8_t buf[probe::kMaxProbeMessageSize]{};
+    auto const n = probe::Pack(arm, buf, sizeof(buf));
+    if (n > 0) {
+      WritePayload(buf, n);
+    }
+    return;
+  }
+  if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullSummary)) {
+    probe::BenchSummary sum{};
+    sum.session = g_rtc.session;
+    sum.variant_id = g_rtc.variant_id;
+    sum.hot_attempts = g_rtc.hot_attempts;
+    sum.sendto_ok = g_rtc.sendto_ok;
+    sum.txdone_ok = g_rtc.txdone_ok;
+    sum.wifi_fail = g_rtc.wifi_fail;
+    sum.tx_unconfirmed = g_rtc.tx_unconfirmed;
+    sum.bad_wakes = g_rtc.bad_wakes;
+    std::uint8_t buf[probe::kMaxProbeMessageSize]{};
+    auto const n = probe::Pack(sum, buf, sizeof(buf));
+    if (n > 0) {
+      WritePayload(buf, n);
     }
   }
-  auto handle = g_client->message_stream_manager().CreatePort(kServiceUid);
-  g_stream = std::make_unique<ae::P2pStream>(*g_app, g_client, kServiceUid,
+}
+
+void OnClientReady(ae::Client::ptr client_ptr) {
+  g_client = std::move(client_ptr);
+  auto client = g_client.Load();
+  auto cloud = client->cloud().Load();
+  if (cloud) {
+    for (auto& [sid, cs] : cloud->servers()) {
+      auto server = cs.server.Load();
+      if (server) {
+        server->RebuildChannelsFromAdapters();
+      }
+    }
+  }
+  auto handle = client->message_stream_manager().CreatePort(kServiceUid);
+  g_stream = std::make_unique<ae::P2pStream>(*g_app, client, kServiceUid,
                                              std::move(handle));
-  g_stream_sub = g_stream->stream_update_event().Subscribe([]() {
-    if (!g_stream || !g_stream->stream_info().is_writable || g_write_armed) {
-      return;
-    }
-    if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullPrepare)) {
-      if (ExportPrepared(kHotAttempts)) {
-        g_rtc.phase = static_cast<std::uint8_t>(Phase::kFullArm);
-        StoreRtc();
-        ReleaseApp();
-        RestartTo(Phase::kFullArm);
-      }
-      return;
-    }
-    if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullArm)) {
-      probe::BenchArm arm{};
-      arm.session = g_rtc.session;
-      arm.variant_id = g_rtc.variant_id;
-      arm.expected = kHotAttempts;
-      std::uint8_t buf[probe::kMaxProbeMessageSize]{};
-      auto const n = probe::Pack(arm, buf, sizeof(buf));
-      if (n > 0) {
-        WritePayload(buf, n);
-      }
-      return;
-    }
-    if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullSummary)) {
-      probe::BenchSummary sum{};
-      sum.session = g_rtc.session;
-      sum.variant_id = g_rtc.variant_id;
-      sum.hot_attempts = g_rtc.hot_attempts;
-      sum.sendto_ok = g_rtc.sendto_ok;
-      sum.txdone_ok = g_rtc.txdone_ok;
-      sum.wifi_fail = g_rtc.wifi_fail;
-      sum.tx_unconfirmed = g_rtc.tx_unconfirmed;
-      sum.bad_wakes = g_rtc.bad_wakes;
-      std::uint8_t buf[probe::kMaxProbeMessageSize]{};
-      auto const n = probe::Pack(sum, buf, sizeof(buf));
-      if (n > 0) {
-        WritePayload(buf, n);
-      }
-    }
-  });
+  g_stream_sub =
+      g_stream->stream_update_event().Subscribe([]() { MaybeStartStreamWork(); });
+  MaybeStartStreamWork();
 }
 
 void StartFullBoot() {
@@ -329,6 +348,7 @@ std::size_t BuildHotPayload(std::uint8_t flags, std::uint8_t* out,
 void RunHotOnce() {
   if (!prepared_send::PreparedWifiRtcCacheIsValid(g_rtc_wifi_cache)) {
     ++g_rtc.bad_wakes;
+    StoreRtc();
     return;
   }
   g_wifi_snapshot =
@@ -336,6 +356,7 @@ void RunHotOnce() {
   if (!prepared_send::HasPreparedSendBlock() ||
       prepared_send::PreparedMessageLeft() == 0) {
     ++g_rtc.bad_wakes;
+    StoreRtc();
     return;
   }
 
@@ -370,17 +391,43 @@ void RunHotOnce() {
   StoreRtc();
 }
 
+bool WokeFromTimerDeepSleep() {
+  return static_cast<esp_reset_reason_t>(g_early.reset_reason) ==
+             ESP_RST_DEEPSLEEP &&
+         static_cast<esp_sleep_wakeup_cause_t>(g_early.wakeup_cause) ==
+             ESP_SLEEP_WAKEUP_TIMER;
+}
+
 void PrepareOnBoot() {
-  g_early = CaptureExperimentEarlyEntry();
+  g_early = GetExperimentEarlyEntrySnapshot();
   g_bench = power_bench::BuildVariant(
       static_cast<std::uint16_t>(AE_POWER_BENCH_VARIANT), WIFI_SSID);
   (void)power_bench::ApplyRuntimeOptions(g_bench);
   power_bench::ApplyPhyCalibrationPolicy(g_bench);
   g_cfg = power_bench::MakeApFastPath(WIFI_SSID, g_bench);
 
-  bool const cold =
-      static_cast<esp_reset_reason_t>(g_early.reset_reason) != ESP_RST_DEEPSLEEP;
-  if (cold || !ValidRtc(g_rtc)) {
+  auto const reset = static_cast<esp_reset_reason_t>(g_early.reset_reason);
+  bool const valid = ValidRtc(g_rtc);
+  bool const cold = reset != ESP_RST_DEEPSLEEP;
+  auto const phase = static_cast<Phase>(g_rtc.phase);
+
+  if (reset == ESP_RST_BROWNOUT) {
+    if (valid) {
+      if (g_rtc.bad_wakes < 0xffff) {
+        ++g_rtc.bad_wakes;
+      }
+      StoreRtc();
+    } else {
+      InitRtc(Phase::kFullPrepare);
+    }
+  } else if (reset == ESP_RST_DEEPSLEEP && valid && phase == Phase::kHot) {
+    // Continue HOT deep-sleep wakes only.
+  } else if (valid && phase == Phase::kHot &&
+             (reset == ESP_RST_SW || reset == ESP_RST_POWERON)) {
+    // RestartTo(kHot) after BENCH_ARM uses esp_restart(); keep HOT RTC state.
+  } else if (!valid) {
+    InitRtc(Phase::kFullPrepare);
+  } else if (cold && phase == Phase::kDone) {
     InitRtc(Phase::kFullPrepare);
   }
 }
@@ -423,13 +470,19 @@ void loop() {
       if (g_write_armed && g_write_ok) {
         ReleaseApp();
         if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullArm)) {
+          // Match product adaptive: tear down Aether Wi-Fi, arm-wait, then
+          // deep-sleep into a clean HOT boot (same-boot send panics after
+          // ReleaseFullAetherWifiForHotPath).
+          prepared_send::ReleaseFullAetherWifiForHotPath();
           vTaskDelay(pdMS_TO_TICKS(AE_POWER_BENCH_ARM_MS));
           g_rtc.phase = static_cast<std::uint8_t>(Phase::kHot);
           g_rtc.seq = 0;
+          g_rtc.hot_armed = 1;
           StoreRtc();
-          RestartTo(Phase::kHot);
+          DeepSleepHot();
         } else if (g_rtc.phase ==
                    static_cast<std::uint8_t>(Phase::kFullSummary)) {
+          prepared_send::ReleaseFullAetherWifiForHotPath();
           g_rtc.phase = static_cast<std::uint8_t>(Phase::kDone);
           StoreRtc();
           g_idle = true;
@@ -445,6 +498,18 @@ void loop() {
       g_rtc.phase = static_cast<std::uint8_t>(Phase::kFullSummary);
       StoreRtc();
       RestartTo(Phase::kFullSummary);
+    }
+    if (g_rtc.hot_armed == 0) {
+      g_rtc.hot_armed = 1;
+      StoreRtc();
+      DeepSleepHot();
+    }
+    if (!WokeFromTimerDeepSleep()) {
+      if (g_rtc.bad_wakes < 0xffff) {
+        ++g_rtc.bad_wakes;
+      }
+      StoreRtc();
+      DeepSleepHot();
     }
     RunHotOnce();
     DeepSleepHot();

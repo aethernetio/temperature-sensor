@@ -373,7 +373,7 @@ void WifiEventHandler(void*, esp_event_base_t event_base, std::int32_t event_id,
   }
 }
 
-void CleanupHotPathWifiRuntime(std::uint8_t teardown_policy) {
+void CleanupHotPathWifiRuntime(std::uint8_t teardown_policy = 0) {
   if (teardown_policy == 2) {
     return;
   }
@@ -889,140 +889,6 @@ extern "C" esp_err_t esp_wifi_internal_set_retry_counter(uint8_t short_retry,
 // Prefer: EncodePacket + socket, then optional MAC retry counter, then
 // ResetFastTxDone + tx-done cb + immediate sendto. No Wi-Fi ops between
 // set_retry_counter and sendto. CONTROL leaves set_mac_retry_limit=false.
-HotSendStatus SendHotArtifactsWithLateTxDone(HotSendArtifacts& artifacts,
-                                             FastPathConfig const& cfg,
-                                             FastSendResult* timing) {
-  if (!artifacts.ready || artifacts.sock < 0) {
-    return HotSendStatus::kSendFailed;
-  }
-
-  auto const wait_mode = cfg.tx_done_wait;
-  auto const t_encode0 = esp_timer_get_time();
-
-  if (timing != nullptr) {
-    timing->mac_retry_called = 0;
-    timing->mac_retry_set_rc = -1;
-    timing->mac_short_retry = cfg.mac_short_retry;
-    timing->mac_long_retry = cfg.mac_long_retry;
-    timing->retry_cfg_us = 0;
-  }
-  if (cfg.set_mac_retry_limit) {
-    auto const t_rc0 = esp_timer_get_time();
-    esp_err_t const rc = esp_wifi_internal_set_retry_counter(
-        cfg.mac_short_retry, cfg.mac_long_retry);
-    auto const t_rc1 = esp_timer_get_time();
-    if (timing != nullptr) {
-      timing->mac_retry_called = 1;
-      timing->mac_retry_set_rc = static_cast<std::int16_t>(rc);
-      auto const d = t_rc1 - t_rc0;
-      timing->retry_cfg_us = d < 0 ? 0 : static_cast<std::uint32_t>(d);
-    }
-  }
-
-  ResetFastTxDone();
-  g_tx_wait_mode.store(static_cast<int>(wait_mode), std::memory_order_relaxed);
-
-  auto const t_cb_reg0 = esp_timer_get_time();
-  esp_err_t const cb_rc = esp_wifi_set_tx_done_cb(&FastTxDoneCb);
-  auto const t_cb_reg1 = esp_timer_get_time();
-  if (timing != nullptr) {
-    timing->encode_us = 0;
-    timing->socket_create_us = 0;
-    timing->callback_register_us = NonNegativeUs(t_cb_reg1 - t_cb_reg0);
-    timing->tx_cb_register_rc = static_cast<std::int16_t>(cb_rc);
-    timing->tx_cb_register_failed = cb_rc == ESP_OK ? 0 : 1;
-  }
-
-  (void)ArmFastTxDone();
-  auto const t_sendto_begin = esp_timer_get_time();
-  MarkFastTxDoneSendtoBegin(t_sendto_begin);
-  auto sent = sendto(artifacts.sock, artifacts.packet.data(),
-                     artifacts.packet.size(), 0,
-                     reinterpret_cast<sockaddr*>(&artifacts.dest),
-                     artifacts.dest_len);
-  auto const t_send_ret = esp_timer_get_time();
-  if (timing != nullptr) {
-    auto const es = t_send_ret - t_encode0;
-    timing->encode_send_us =
-        es < 0 ? 0 : static_cast<std::uint32_t>(es);
-    timing->sendto_begin_us = NonNegativeUs(t_sendto_begin);
-    timing->sendto_return_us = NonNegativeUs(t_send_ret);
-    timing->sendto_call_us = NonNegativeUs(t_send_ret - t_sendto_begin);
-  }
-
-  if (sent != static_cast<ssize_t>(artifacts.packet.size())) {
-    DisarmFastTxDone();
-    (void)esp_wifi_set_tx_done_cb(nullptr);
-    CloseHotSendArtifacts(&artifacts);
-    return HotSendStatus::kSendFailed;
-  }
-
-  bool const need_success = FastTxDoneRequiresSuccess(wait_mode);
-  bool const can_observe = cb_rc == ESP_OK;
-  constexpr std::int64_t kObserveUs = 5000;
-  std::int64_t const kMaxUs =
-      static_cast<std::int64_t>(cfg.tx_done_timeout_ms) * 1000;
-  bool condition_met = false;
-  std::uint32_t total_at_success = 0;
-
-  auto condition_ready = [&]() -> bool {
-    if (need_success) {
-      return g_fast_tx_done_success.load(std::memory_order_acquire);
-    }
-    return g_fast_tx_done_seen.load(std::memory_order_acquire);
-  };
-
-  g_tx_done_wait_task = xTaskGetCurrentTaskHandle();
-  if (condition_ready()) {
-    condition_met = true;
-  } else if (can_observe) {
-    auto const wait_start = esp_timer_get_time();
-    while ((esp_timer_get_time() - wait_start) < kMaxUs) {
-      if (condition_ready()) {
-        condition_met = true;
-        break;
-      }
-      uint32_t notified = 0;
-      auto const remaining_us = kMaxUs - (esp_timer_get_time() - wait_start);
-      TickType_t const ticks =
-          pdMS_TO_TICKS(remaining_us > 1000 ? remaining_us / 1000 : 1);
-      if (xTaskNotifyWait(0, ULONG_MAX, &notified, ticks) == pdTRUE) {
-        if (condition_ready()) {
-          condition_met = true;
-          break;
-        }
-      }
-    }
-  }
-  g_tx_done_wait_task = nullptr;
-
-  if (condition_met && wait_mode == FastTxDoneWaitMode::kFirstSuccess) {
-    total_at_success = g_tx_diag.total.load(std::memory_order_relaxed);
-    auto const t_obs0 = esp_timer_get_time();
-    while ((esp_timer_get_time() - t_obs0) < kObserveUs) {
-      uint32_t notified = 0;
-      (void)xTaskNotifyWait(0, ULONG_MAX, &notified, pdMS_TO_TICKS(1));
-    }
-  }
-
-  auto const t_cb_done = esp_timer_get_time();
-  DisarmFastTxDone();
-  (void)esp_wifi_set_tx_done_cb(nullptr);
-  CloseHotSendArtifacts(&artifacts);
-
-  bool const tx_done_confirmed = condition_met;
-  if (timing != nullptr) {
-    FillTxDoneTiming(timing, t_send_ret, condition_met, total_at_success,
-                     wait_mode);
-    timing->tx_done_wait_us = NonNegativeUs(t_cb_done - t_send_ret);
-  }
-
-  if (need_success && !tx_done_confirmed) {
-    return HotSendStatus::kSentTxUnconfirmed;
-  }
-  return HotSendStatus::kSent;
-}
-
 HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
                                              FastSendResult* timing,
                                              FastPathConfig const& cfg) {
@@ -1791,6 +1657,140 @@ HotSendStatus PrepareHotSendArtifacts(ae::DataBuffer const& payload,
     return HotSendStatus::kSendFailed;
   }
   artifacts->ready = true;
+  return HotSendStatus::kSent;
+}
+
+HotSendStatus SendHotArtifactsWithLateTxDone(HotSendArtifacts& artifacts,
+                                             FastPathConfig const& cfg,
+                                             FastSendResult* timing) {
+  if (!artifacts.ready || artifacts.sock < 0) {
+    return HotSendStatus::kSendFailed;
+  }
+
+  auto const wait_mode = cfg.tx_done_wait;
+  auto const t_encode0 = esp_timer_get_time();
+
+  if (timing != nullptr) {
+    timing->mac_retry_called = 0;
+    timing->mac_retry_set_rc = -1;
+    timing->mac_short_retry = cfg.mac_short_retry;
+    timing->mac_long_retry = cfg.mac_long_retry;
+    timing->retry_cfg_us = 0;
+  }
+  if (cfg.set_mac_retry_limit) {
+    auto const t_rc0 = esp_timer_get_time();
+    esp_err_t const rc = esp_wifi_internal_set_retry_counter(
+        cfg.mac_short_retry, cfg.mac_long_retry);
+    auto const t_rc1 = esp_timer_get_time();
+    if (timing != nullptr) {
+      timing->mac_retry_called = 1;
+      timing->mac_retry_set_rc = static_cast<std::int16_t>(rc);
+      auto const d = t_rc1 - t_rc0;
+      timing->retry_cfg_us = d < 0 ? 0 : static_cast<std::uint32_t>(d);
+    }
+  }
+
+  ResetFastTxDone();
+  g_tx_wait_mode.store(static_cast<int>(wait_mode), std::memory_order_relaxed);
+
+  auto const t_cb_reg0 = esp_timer_get_time();
+  esp_err_t const cb_rc = esp_wifi_set_tx_done_cb(&FastTxDoneCb);
+  auto const t_cb_reg1 = esp_timer_get_time();
+  if (timing != nullptr) {
+    timing->encode_us = 0;
+    timing->socket_create_us = 0;
+    timing->callback_register_us = NonNegativeUs(t_cb_reg1 - t_cb_reg0);
+    timing->tx_cb_register_rc = static_cast<std::int16_t>(cb_rc);
+    timing->tx_cb_register_failed = cb_rc == ESP_OK ? 0 : 1;
+  }
+
+  (void)ArmFastTxDone();
+  auto const t_sendto_begin = esp_timer_get_time();
+  MarkFastTxDoneSendtoBegin(t_sendto_begin);
+  auto sent = sendto(artifacts.sock, artifacts.packet.data(),
+                     artifacts.packet.size(), 0,
+                     reinterpret_cast<sockaddr*>(&artifacts.dest),
+                     artifacts.dest_len);
+  auto const t_send_ret = esp_timer_get_time();
+  if (timing != nullptr) {
+    auto const es = t_send_ret - t_encode0;
+    timing->encode_send_us =
+        es < 0 ? 0 : static_cast<std::uint32_t>(es);
+    timing->sendto_begin_us = NonNegativeUs(t_sendto_begin);
+    timing->sendto_return_us = NonNegativeUs(t_send_ret);
+    timing->sendto_call_us = NonNegativeUs(t_send_ret - t_sendto_begin);
+  }
+
+  if (sent != static_cast<ssize_t>(artifacts.packet.size())) {
+    DisarmFastTxDone();
+    (void)esp_wifi_set_tx_done_cb(nullptr);
+    CloseHotSendArtifacts(&artifacts);
+    return HotSendStatus::kSendFailed;
+  }
+
+  bool const need_success = FastTxDoneRequiresSuccess(wait_mode);
+  bool const can_observe = cb_rc == ESP_OK;
+  constexpr std::int64_t kObserveUs = 5000;
+  std::int64_t const kMaxUs =
+      static_cast<std::int64_t>(cfg.tx_done_timeout_ms) * 1000;
+  bool condition_met = false;
+  std::uint32_t total_at_success = 0;
+
+  auto condition_ready = [&]() -> bool {
+    if (need_success) {
+      return g_fast_tx_done_success.load(std::memory_order_acquire);
+    }
+    return g_fast_tx_done_seen.load(std::memory_order_acquire);
+  };
+
+  g_tx_done_wait_task = xTaskGetCurrentTaskHandle();
+  if (condition_ready()) {
+    condition_met = true;
+  } else if (can_observe) {
+    auto const wait_start = esp_timer_get_time();
+    while ((esp_timer_get_time() - wait_start) < kMaxUs) {
+      if (condition_ready()) {
+        condition_met = true;
+        break;
+      }
+      uint32_t notified = 0;
+      auto const remaining_us = kMaxUs - (esp_timer_get_time() - wait_start);
+      TickType_t const ticks =
+          pdMS_TO_TICKS(remaining_us > 1000 ? remaining_us / 1000 : 1);
+      if (xTaskNotifyWait(0, ULONG_MAX, &notified, ticks) == pdTRUE) {
+        if (condition_ready()) {
+          condition_met = true;
+          break;
+        }
+      }
+    }
+  }
+  g_tx_done_wait_task = nullptr;
+
+  if (condition_met && wait_mode == FastTxDoneWaitMode::kFirstSuccess) {
+    total_at_success = g_tx_diag.total.load(std::memory_order_relaxed);
+    auto const t_obs0 = esp_timer_get_time();
+    while ((esp_timer_get_time() - t_obs0) < kObserveUs) {
+      uint32_t notified = 0;
+      (void)xTaskNotifyWait(0, ULONG_MAX, &notified, pdMS_TO_TICKS(1));
+    }
+  }
+
+  auto const t_cb_done = esp_timer_get_time();
+  DisarmFastTxDone();
+  (void)esp_wifi_set_tx_done_cb(nullptr);
+  CloseHotSendArtifacts(&artifacts);
+
+  bool const tx_done_confirmed = condition_met;
+  if (timing != nullptr) {
+    FillTxDoneTiming(timing, t_send_ret, condition_met, total_at_success,
+                     wait_mode);
+    timing->tx_done_wait_us = NonNegativeUs(t_cb_done - t_send_ret);
+  }
+
+  if (need_success && !tx_done_confirmed) {
+    return HotSendStatus::kSentTxUnconfirmed;
+  }
   return HotSendStatus::kSent;
 }
 

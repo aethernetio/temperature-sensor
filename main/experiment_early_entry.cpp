@@ -15,7 +15,8 @@
      defined(AE_EXP_PREPARED_TX_DONE_DIAG) || \
      defined(AE_EXP_PREPARED_MAC_RETRY_DIAG) || \
      defined(AE_EXP_PREPARED_BOOT_WIFI_OPT) || \
-     defined(AE_EXP_PREPARED_BOOT_WIFI_VAL100))
+     defined(AE_EXP_PREPARED_BOOT_WIFI_VAL100) || \
+     defined(AE_EXP_PREPARED_POWER_FACTOR))
 
 #  include <esp_sleep.h>
 #  include <esp_system.h>

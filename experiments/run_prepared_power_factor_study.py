@@ -31,7 +31,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / "build-esp32c6-power-factor"
+BUILD = ROOT / "build-esp32c6-pf-fresh"
 RAW_DIR = ROOT / "experiments" / "power_modes_raw"
 RESULTS = ROOT / "experiments" / "power_factor_results"
 CHECKPOINT = ROOT / "experiments" / "power_factor_checkpoint.json"
@@ -184,6 +184,7 @@ def force_sdk_measured(variant_id: int) -> None:
         ("CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y", "# CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG is not set"),
         ("# CONFIG_ESP_CONSOLE_NONE is not set", "CONFIG_ESP_CONSOLE_NONE=y"),
         ("CONFIG_ESP_CONSOLE_UART_DEFAULT=y", "# CONFIG_ESP_CONSOLE_UART_DEFAULT is not set"),
+        ("CONFIG_ESP_BROWNOUT_DET=y", "# CONFIG_ESP_BROWNOUT_DET is not set"),
     ]
     for a, b in reps:
         text = text.replace(a, b)
@@ -192,6 +193,7 @@ def force_sdk_measured(variant_id: int) -> None:
         "CONFIG_RTC_CLK_CAL_CYCLES=1024",
         "CONFIG_LOG_DEFAULT_LEVEL_NONE=y",
         "CONFIG_ESP_CONSOLE_NONE=y",
+        "# CONFIG_ESP_BROWNOUT_DET is not set",
     ):
         if token not in text:
             text += f"\n{token}\n"
@@ -254,7 +256,7 @@ def cmake_configure_power(ap: str, variant_id: int) -> None:
     force_sdk_measured(variant_id)
     extra = {
         "AE_EXP_PREPARED_POWER_FACTOR": "1",
-        "BENCH_CLIENT_ID": f"power_factor_v{variant_id}",
+        "BENCH_CLIENT_ID": "reliability_full_v1",
     }
     args = [
         str(camp.CMAKE),
@@ -286,6 +288,7 @@ def cmake_configure_power(ap: str, variant_id: int) -> None:
         f"-DAE_POWER_BENCH_VARIANT={variant_id}",
         f"-DAETHER_PREPARED_HOT_SLEEP_SECONDS={K_HOT_SLEEP_MS // 1000}",
         f"-DAETHER_PREPARED_HOT_SLEEP_MS={K_HOT_SLEEP_MS}",
+        f"-DAETHER_PREPARED_NONCE_RESERVE={K_HOT_ATTEMPTS + 10}",
     ]
     args.extend(clear_power_exp_flags(extra))
     for k, v in extra.items():
@@ -303,14 +306,27 @@ def cmake_configure_power(ap: str, variant_id: int) -> None:
 
 
 def build_firmware(ap: str, variant_id: int) -> None:
-    want = f"{ap}:v{variant_id}"
+    want = f"{ap}:v{variant_id}:r{K_HOT_ATTEMPTS + 10}:reliability_full_v1"
     have = CONFIGURED_MARK.read_text(encoding="utf-8").strip() if CONFIGURED_MARK.exists() else ""
+    bin_path = BUILD / "temperature_sensor.bin"
+    src_paths = [
+        ROOT / "main" / "prepared_power_factor_bench.cpp",
+        ROOT / "main" / "prepared_send" / "prepared_send.cpp",
+    ]
+    bin_fresh = bin_path.exists() and all(
+        p.exists() and bin_path.stat().st_mtime >= p.stat().st_mtime for p in src_paths
+    )
     if have != want:
         cmake_configure_power(ap, variant_id)
         CONFIGURED_MARK.write_text(want, encoding="utf-8")
+    elif bin_fresh:
+        log(f"cmake up to date for {want}")
     else:
         log(f"cmake up to date for {want}")
         force_sdk_measured(variant_id)
+    if bin_fresh and have == want:
+        log("build skipped (firmware up to date)")
+        return
     camp.ninja_build()
 
 
@@ -339,32 +355,48 @@ def start_ppk_hold() -> subprocess.Popen | None:
 
 def parse_rx_progress(text: str) -> dict:
     bench_arm = "BENCH_ARM" in text
-    hot_data = [
+    bench_seq = [
+        int(m.group(1))
+        for m in re.finditer(r"BENCH_DATA .* seq=(\d+)", text)
+    ]
+    # Legacy product-probe HOT path (not used by power-factor bench firmware).
+    hot_seq = [
         int(m.group(1))
         for m in re.finditer(
             rf"HOT_DATA .* sleep={K_HOT_SLEEP_MS} .* seq=(\d+)", text
         )
     ]
-    if not hot_data:
-        hot_data = [int(m.group(1)) for m in re.finditer(r"HOT_DATA .* seq=(\d+)", text)]
-    hot_unique = len(set(hot_data))
+    if not hot_seq:
+        hot_seq = [int(m.group(1)) for m in re.finditer(r"HOT_DATA .* seq=(\d+)", text)]
+    all_seq = bench_seq if bench_seq else hot_seq
+    unique = len(set(all_seq))
     summaries = list(
         re.finditer(
-            r"HOT_SUMMARY .* hot_sent=(\d+) hot_fail=(\d+)", text
+            r"BENCH_SUMMARY .* hot_attempts=(\d+)", text
         )
+    )
+    hot_summaries = list(
+        re.finditer(r"HOT_SUMMARY .* hot_sent=(\d+) hot_fail=(\d+)", text)
     )
     summary = None
     if summaries:
         m = summaries[-1]
+        summary = {"hot_attempts": int(m.group(1)), "hot_sent": int(m.group(1))}
+    elif hot_summaries:
+        m = hot_summaries[-1]
         summary = {"hot_sent": int(m.group(1)), "hot_fail": int(m.group(2))}
-    bench_done = bool(
-        re.search(rf"BENCH_DONE .* hot_sent={K_HOT_ATTEMPTS}\b", text)
-        or re.search(rf"HOT_SUMMARY .* hot_sent={K_HOT_ATTEMPTS}\b", text)
-    )
+    bench_done = False
+    if summary is not None:
+        sent = summary.get("hot_attempts", summary.get("hot_sent", 0))
+        if sent >= K_HOT_ATTEMPTS:
+            bench_done = True
+    if unique >= K_HOT_ATTEMPTS:
+        bench_done = True
     return {
         "bench_arm": bench_arm,
-        "hot_unique": hot_unique,
-        "hot_data_lines": len(hot_data),
+        "bench_unique": unique,
+        "hot_unique": unique,
+        "hot_data_lines": len(all_seq),
         "summary": summary,
         "bench_done": bench_done,
     }
