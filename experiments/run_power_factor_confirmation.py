@@ -456,8 +456,8 @@ def select_combos(results: dict) -> list[tuple[str, str, int]]:
         ("CFM02R_B2_DISC_PM_OFF", 11, "DISC"),
         ("CFM03_B3_WIFI_PS_MIN", 12, "PS"),
         ("CFM04_B7_CPU80", 16, "CPU"),
+        # Only chirkov IO vs chirkov baseline. Never compare aethernetio IO to chirkov A0.
         ("CFM06_IO_TEARDOWN_CHIRKOV", 206, "IO"),
-        ("CFM11_IO_TEARDOWN_AETHERNETIO", 206, "IO"),
     ]
     for cfm, vid, tag in checks:
         cur = r.get(cfm)
