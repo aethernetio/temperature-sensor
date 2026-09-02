@@ -213,6 +213,27 @@ def analyze_csv(csv_path: Path) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
+def ninja_build_isolated(build: Path) -> None:
+    """Parallel ninja for isolated confirmation builds (camp defaults to -j1)."""
+    import os
+    import subprocess
+
+    jobs = max(2, (os.cpu_count() or 4) - 1)
+    log(f"ninja -j{jobs} in {build}")
+    r = subprocess.run(
+        [str(pf.camp.NINJA), "-C", str(build), "-j", str(jobs)],
+        cwd=str(ROOT),
+        env=pf.camp.env(),
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        err = CONFIRM_ROOT / RUN_ID / "ninja_fail.txt"
+        err.parent.mkdir(parents=True, exist_ok=True)
+        err.write_text((r.stdout or "") + "\n" + (r.stderr or ""), encoding="utf-8")
+        raise RuntimeError(f"ninja failed rc={r.returncode} log={err}")
+
+
 def run_one(cfm_id: str, ap: str, variant_id: int) -> dict:
     log(f"==== {cfm_id} ap={ap} variant={variant_id} ({pf.variant_name(variant_id)}) ====")
     build = isolate_build(cfm_id, ap, variant_id)
@@ -226,7 +247,7 @@ def run_one(cfm_id: str, ap: str, variant_id: int) -> dict:
     # build_firmware uses CONFIGURED_MARK / BUILD already set.
     pf.cmake_configure_power(ap, variant_id)
     pf.CONFIGURED_MARK.write_text(f"{ap}:v{variant_id}:confirm", encoding="utf-8")
-    pf.camp.ninja_build()
+    ninja_build_isolated(build)
     proof = save_build_proof(cfm_id, ap, variant_id, build)
 
     # Reuse run_variant_once but with our csv/rx paths — call internals carefully.
