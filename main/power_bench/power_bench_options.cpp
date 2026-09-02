@@ -299,6 +299,85 @@ PowerBenchOptions BuildVariant(std::uint16_t variant_id, char const* ap_ssid) {
         o.phy_partial_every_wake = true;
         return o;
       }
+    // Confirmation-study combinations (DirectDeepSleep = IO_TEARDOWN semantics).
+    case 300:
+      {
+        auto o = BaselineA0(300);
+        o.teardown = TeardownPolicy::kDirectDeepSleep;
+        o.skip_validate_deep_sleep = true;
+        return o;
+      }
+    case 301:
+      {
+        auto o = BaselineA0(301);
+        o.teardown = TeardownPolicy::kDirectDeepSleep;
+        o.connected_ps = ConnectedPsMode::kMinModem;
+        o.phase_ps = PhasePsMode::kM1;
+        return o;
+      }
+    case 302:
+      {
+        auto o = BaselineA0(302);
+        o.teardown = TeardownPolicy::kDirectDeepSleep;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        return o;
+      }
+    case 303:
+      {
+        auto o = BaselineA0(303);
+        o.teardown = TeardownPolicy::kDirectDeepSleep;
+        o.disconnected_pm = false;
+        return o;
+      }
+    case 310:
+      {
+        auto o = BaselineA0(310);
+        o.teardown = TeardownPolicy::kDirectDeepSleep;
+        o.skip_validate_deep_sleep = true;
+        o.connected_ps = ConnectedPsMode::kMinModem;
+        o.phase_ps = PhasePsMode::kM1;
+        return o;
+      }
+    case 311:
+      {
+        auto o = BaselineA0(311);
+        o.teardown = TeardownPolicy::kDirectDeepSleep;
+        o.skip_validate_deep_sleep = true;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        return o;
+      }
+    case 312:
+      {
+        auto o = BaselineA0(312);
+        o.teardown = TeardownPolicy::kDirectDeepSleep;
+        o.skip_validate_deep_sleep = true;
+        o.connected_ps = ConnectedPsMode::kMinModem;
+        o.phase_ps = PhasePsMode::kM1;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        return o;
+      }
+    case 313:
+      {
+        auto o = BaselineA0(313);
+        o.teardown = TeardownPolicy::kDirectDeepSleep;
+        o.skip_validate_deep_sleep = true;
+        o.disconnected_pm = false;
+        o.connected_ps = ConnectedPsMode::kMinModem;
+        o.phase_ps = PhasePsMode::kM1;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        return o;
+      }
+    case 314:
+      {
+        // Same as 313 without DirectDeepSleep — full teardown + all other wins.
+        auto o = BaselineA0(314);
+        o.skip_validate_deep_sleep = true;
+        o.disconnected_pm = false;
+        o.connected_ps = ConnectedPsMode::kMinModem;
+        o.phase_ps = PhasePsMode::kM1;
+        o.cpu_mhz = CpuFreqMhz::k80;
+        return o;
+      }
     default:
       return BaselineA0(variant_id);
   }

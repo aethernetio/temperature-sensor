@@ -134,6 +134,15 @@ def variant_name(variant_id: int) -> str:
         206: "IO_TEARDOWN",
         207: "IO_PMF_OFF",
         208: "IO_PHY",
+        300: "CFM_IO_TEARDOWN_SKIP_VALIDATE",
+        301: "CFM_IO_TEARDOWN_WIFI_PS_MIN",
+        302: "CFM_IO_TEARDOWN_CPU80",
+        303: "CFM_IO_TEARDOWN_DISC_PM_OFF",
+        310: "CFM_IO_TEARDOWN_SKIP_PS_MIN",
+        311: "CFM_IO_TEARDOWN_SKIP_CPU80",
+        312: "CFM_IO_TEARDOWN_SKIP_PS_MIN_CPU80",
+        313: "CFM_IO_TEARDOWN_ALL_CONFIRMED",
+        314: "CFM_FULL_TEARDOWN_ALL_CONFIRMED",
     }
     return names.get(variant_id, f"V{variant_id}")
 
@@ -169,8 +178,47 @@ def iter_tasks(aps: list[str]) -> list[tuple[str, int]]:
     return out
 
 
+# Variants that must enable bootloader deep-sleep image skip-validate.
+# Prior campaign only *appended* this for variant 10 and never cleared it, so
+# later builds in the shared dir inherited SKIP_VALIDATE (contamination).
+SKIP_VALIDATE_VARIANTS = frozenset(
+    {
+        10,
+        300,
+        310,
+        311,
+        312,
+        313,
+        314,
+    }
+)
+
+# Variants that must disable CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE.
+# Runtime PowerBenchOptions.disconnected_pm is not wired to an API; the real
+# factor is this Kconfig bit.
+DISC_PM_OFF_VARIANTS = frozenset({11, 201, 303, 313, 314})
+
+
+def _set_kconfig_bool(text: str, symbol: str, enabled: bool) -> str:
+    """Force a boolean Kconfig symbol on or off; drop conflicting lines."""
+    on = f"{symbol}=y"
+    off = f"# {symbol} is not set"
+    lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == on or stripped == off or stripped.startswith(f"{symbol}="):
+            continue
+        lines.append(line)
+    lines.append(on if enabled else off)
+    return "\n".join(lines) + "\n"
+
+
 def force_sdk_measured(variant_id: int) -> None:
-    """Silent measured-run sdkconfig: external RTC, no console/log noise."""
+    """Silent measured-run sdkconfig: external RTC, no console/log noise.
+
+    Sticky Kconfig factors (SKIP_VALIDATE, DISCONNECTED_PM) are set *and*
+    cleared every call so a shared or reused build dir cannot leak state.
+    """
     sdk = BUILD / "sdkconfig"
     if not sdk.exists():
         camp.seed_usb_console_sdkconfig()
@@ -199,9 +247,20 @@ def force_sdk_measured(variant_id: int) -> None:
     ):
         if token not in text:
             text += f"\n{token}\n"
-    if variant_id == 10:
-        if "CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP=y" not in text:
-            text += "\nCONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP=y\n"
+
+    # Never use ALWAYS / power-on skip in this study.
+    text = _set_kconfig_bool(text, "CONFIG_BOOTLOADER_SKIP_VALIDATE_ALWAYS", False)
+    text = _set_kconfig_bool(text, "CONFIG_BOOTLOADER_SKIP_VALIDATE_ON_POWER_ON", False)
+    text = _set_kconfig_bool(
+        text,
+        "CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+        variant_id in SKIP_VALIDATE_VARIANTS,
+    )
+    text = _set_kconfig_bool(
+        text,
+        "CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE",
+        variant_id not in DISC_PM_OFF_VARIANTS,
+    )
     sdk.write_text(text, encoding="utf-8")
 
 
