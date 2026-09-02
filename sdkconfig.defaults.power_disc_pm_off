@@ -1,0 +1,3 @@
+# Power-factor confirmation: disable Wi-Fi power-save while disconnected.
+# Applied only when AE_POWER_BENCH_DISC_PM_OFF=1 is passed to CMake.
+# CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE is not set

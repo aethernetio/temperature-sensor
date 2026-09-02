@@ -213,11 +213,14 @@ def analyze_csv(csv_path: Path) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
-def ninja_build_isolated(build: Path) -> None:
+def ninja_build_isolated(build: Path, variant_id: int) -> None:
     """Parallel ninja for isolated confirmation builds (camp defaults to -j1)."""
     import os
     import subprocess
 
+    pf.BUILD = build
+    pf.camp.BUILD = build
+    pf.assert_sdk_matches_variant(variant_id)
     jobs = max(2, (os.cpu_count() or 4) - 1)
     log(f"ninja -j{jobs} in {build}")
     r = subprocess.run(
@@ -232,23 +235,62 @@ def ninja_build_isolated(build: Path) -> None:
         err.parent.mkdir(parents=True, exist_ok=True)
         err.write_text((r.stdout or "") + "\n" + (r.stderr or ""), encoding="utf-8")
         raise RuntimeError(f"ninja failed rc={r.returncode} log={err}")
+    # Confgen may resurrect defaults during the build — re-lock and rebuild once.
+    try:
+        pf.assert_sdk_matches_variant(variant_id)
+    except RuntimeError as exc:
+        log(f"post-ninja sdk drift ({exc}); re-lock and rebuild")
+        pf.force_sdk_measured(variant_id)
+        r2 = subprocess.run(
+            [str(pf.camp.NINJA), "-C", str(build), "-j", str(jobs)],
+            cwd=str(ROOT),
+            env=pf.camp.env(),
+            capture_output=True,
+            text=True,
+        )
+        if r2.returncode != 0:
+            raise RuntimeError(f"ninja rebuild failed rc={r2.returncode}") from exc
+        pf.assert_sdk_matches_variant(variant_id)
 
 
 def run_one(cfm_id: str, ap: str, variant_id: int) -> dict:
-    log(f"==== {cfm_id} ap={ap} variant={variant_id} ({pf.variant_name(variant_id)}) ====")
-    build = isolate_build(cfm_id, ap, variant_id)
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    retryable = {"PPK_CAPTURE_FAILED", "PPK_HOLD_FAILED", "NO_ARM", "TIMEOUT"}
+    last: dict = {}
+    for attempt in range(1, pf.MAX_PPK_ATTEMPTS + 1):
+        last = _run_one_attempt(cfm_id, ap, variant_id, attempt=attempt)
+        if last.get("status") not in retryable:
+            return last
+        log(f"retry {cfm_id} after {last.get('status')} attempt={attempt}")
+        pf.camp.ppk_power_off()
+        time.sleep(2.0)
+    return last
+
+
+def _run_one_attempt(cfm_id: str, ap: str, variant_id: int, *, attempt: int = 1) -> dict:
+    log(
+        f"==== {cfm_id} ap={ap} variant={variant_id} "
+        f"({pf.variant_name(variant_id)}) attempt={attempt} ===="
+    )
+    # Rebuild only on first attempt; retries reuse firmware after power-cycle.
+    build = pf.BUILD
+    if attempt == 1 or not (Path(str(build)) / "temperature_sensor.bin").exists():
+        build = isolate_build(cfm_id, ap, variant_id)
+        RAW_DIR.mkdir(parents=True, exist_ok=True)
+        pf.RAW_DIR = RAW_DIR
+        pf.cmake_configure_power(ap, variant_id)
+        pf.CONFIGURED_MARK.write_text(f"{ap}:v{variant_id}:confirm", encoding="utf-8")
+        ninja_build_isolated(build, variant_id)
+        save_build_proof(cfm_id, ap, variant_id, build)
+    else:
+        build = ROOT / "build-power-confirm" / RUN_ID / cfm_id / ap
+        pf.BUILD = build
+        pf.camp.BUILD = build
+
     raw_csv = RAW_DIR / f"{cfm_id}_{ap}.csv"
     rx_log = CONFIRM_ROOT / RUN_ID / cfm_id / "rx.log"
     rx_log.parent.mkdir(parents=True, exist_ok=True)
-
-    # Point pf module at isolated paths for this run.
-    pf.RAW_DIR = RAW_DIR
-    # build_firmware uses CONFIGURED_MARK / BUILD already set.
-    pf.cmake_configure_power(ap, variant_id)
-    pf.CONFIGURED_MARK.write_text(f"{ap}:v{variant_id}:confirm", encoding="utf-8")
-    ninja_build_isolated(build)
-    proof = save_build_proof(cfm_id, ap, variant_id, build)
+    proof_path = CONFIRM_ROOT / RUN_ID / cfm_id / "variant.json"
+    proof = json.loads(proof_path.read_text(encoding="utf-8")) if proof_path.exists() else {}
 
     # Reuse run_variant_once but with our csv/rx paths — call internals carefully.
     # Temporarily monkeypatch result paths by wrapping a local copy of flash/measure.
@@ -263,7 +305,7 @@ def run_one(cfm_id: str, ap: str, variant_id: int) -> dict:
 
     prod.start_receiver(rx_log)
     camp.ppk_power_off()
-    time.sleep(2.0)
+    time.sleep(5.0)
     hold = pf.start_ppk_hold()
     if hold is None:
         return {

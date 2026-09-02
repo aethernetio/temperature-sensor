@@ -203,10 +203,16 @@ def _set_kconfig_bool(text: str, symbol: str, enabled: bool) -> str:
     """Force a boolean Kconfig symbol on or off; drop conflicting lines."""
     on = f"{symbol}=y"
     off = f"# {symbol} is not set"
+    off_n = f"{symbol}=n"
     lines = []
     for line in text.splitlines():
-        stripped = line.strip()
-        if stripped == on or stripped == off or stripped.startswith(f"{symbol}="):
+        stripped = line.strip().rstrip("\r")
+        if (
+            stripped == on
+            or stripped == off
+            or stripped == off_n
+            or stripped.startswith(f"{symbol}=")
+        ):
             continue
         lines.append(line)
     lines.append(on if enabled else off)
@@ -262,6 +268,70 @@ def force_sdk_measured(variant_id: int) -> None:
         variant_id not in DISC_PM_OFF_VARIANTS,
     )
     sdk.write_text(text, encoding="utf-8")
+    # Keep generated headers honest when confgen fights unset defaults.
+    _sync_sdkconfig_headers(variant_id)
+
+
+def _sync_sdkconfig_headers(variant_id: int) -> None:
+    """Patch sdkconfig.h mirrors so firmware matches forced Kconfig."""
+    want_skip = variant_id in SKIP_VALIDATE_VARIANTS
+    want_disc = variant_id not in DISC_PM_OFF_VARIANTS
+    for hdr in (
+        BUILD / "config" / "sdkconfig.h",
+        BUILD / "bootloader" / "config" / "sdkconfig.h",
+    ):
+        if not hdr.exists():
+            continue
+        text = hdr.read_text(encoding="utf-8", errors="replace")
+        text = _patch_sdkconfig_h_bool(
+            text, "CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP", want_skip
+        )
+        text = _patch_sdkconfig_h_bool(
+            text, "CONFIG_BOOTLOADER_SKIP_VALIDATE_ON_POWER_ON", False
+        )
+        text = _patch_sdkconfig_h_bool(
+            text, "CONFIG_BOOTLOADER_SKIP_VALIDATE_ALWAYS", False
+        )
+        text = _patch_sdkconfig_h_bool(
+            text, "CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE", want_disc
+        )
+        hdr.write_text(text, encoding="utf-8")
+
+
+def _patch_sdkconfig_h_bool(text: str, symbol: str, enabled: bool) -> str:
+    import re
+
+    define = f"#define {symbol} 1"
+    undef = f"/* #undef {symbol} */"
+    text = re.sub(rf"^#define {re.escape(symbol)}.*$", "", text, flags=re.M)
+    text = re.sub(rf"^/\* #undef {re.escape(symbol)} \*/\s*$", "", text, flags=re.M)
+    text = text.rstrip() + "\n" + (define if enabled else undef) + "\n"
+    return text
+
+
+def assert_sdk_matches_variant(variant_id: int) -> None:
+    """Raise if effective sdkconfig(/h) does not match the intended factor."""
+    force_sdk_measured(variant_id)
+    sdk = read_text(BUILD / "sdkconfig")
+    want_skip = variant_id in SKIP_VALIDATE_VARIANTS
+    want_disc = variant_id not in DISC_PM_OFF_VARIANTS
+    have_skip = "CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP=y" in sdk
+    have_disc = "CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE=y" in sdk
+    if have_skip != want_skip or have_disc != want_disc:
+        raise RuntimeError(
+            f"sdkconfig mismatch variant={variant_id}: "
+            f"skip={have_skip} want={want_skip} disc={have_disc} want={want_disc}"
+        )
+    hdr = BUILD / "config" / "sdkconfig.h"
+    if hdr.exists():
+        ht = read_text(hdr)
+        h_skip = "#define CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP 1" in ht
+        h_disc = "#define CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE 1" in ht
+        if h_skip != want_skip or h_disc != want_disc:
+            raise RuntimeError(
+                f"sdkconfig.h mismatch variant={variant_id}: "
+                f"skip={h_skip} want={want_skip} disc={h_disc} want={want_disc}"
+            )
 
 
 def clear_power_exp_flags(extra: dict[str, str]) -> list[str]:

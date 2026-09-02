@@ -1,0 +1,5 @@
+# Power-factor confirmation: skip image validation on deep-sleep wake.
+# Applied only when AE_POWER_BENCH_SKIP_VALIDATE=1 is passed to CMake.
+CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP=y
+# CONFIG_BOOTLOADER_SKIP_VALIDATE_ON_POWER_ON is not set
+# CONFIG_BOOTLOADER_SKIP_VALIDATE_ALWAYS is not set
