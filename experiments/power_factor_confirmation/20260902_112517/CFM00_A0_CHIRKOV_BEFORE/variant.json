@@ -1,0 +1,15 @@
+{
+  "cfm_id": "CFM00_A0_CHIRKOV_BEFORE",
+  "ap": "chirkov",
+  "variant_id": 0,
+  "variant_name": "A0_CLEAN",
+  "changed_factors": [
+    "(baseline A0 infrastructure)"
+  ],
+  "skip_validate": false,
+  "disconnected_pm_enable": true,
+  "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+  "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM00_A0_CHIRKOV_BEFORE\\chirkov",
+  "firmware_sha256": "c2490771a4e1318701232321ccdaf780e881478de27d10d090fb008315124678",
+  "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+}

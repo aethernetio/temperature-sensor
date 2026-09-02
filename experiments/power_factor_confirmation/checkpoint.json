@@ -1,0 +1,633 @@
+{
+  "run_id": "20260902_112517",
+  "task_index": 999,
+  "results": {
+    "CFM00_A0_CHIRKOV_BEFORE": {
+      "cfm_id": "CFM00_A0_CHIRKOV_BEFORE",
+      "ap": "chirkov",
+      "variant_id": 0,
+      "variant_name": "A0_CLEAN",
+      "changed_factors": [
+        "(baseline A0 infrastructure)"
+      ],
+      "status": "OK",
+      "elapsed_s": 336,
+      "rx_unique": 99,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM00_A0_CHIRKOV_BEFORE_chirkov.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 175.9793760635225,
+        "energy_median_mJ": 152.38121814849396,
+        "energy_p90_mJ": 182.4004168365383,
+        "wake_mean_ms": 727.8968061224485,
+        "wake_median_ms": 659.8060000000103,
+        "wake_p90_ms": 748.7886999999944,
+        "first20_wake_median_ms": 654.3854999999965,
+        "last20_wake_median_ms": 641.8485000000373
+      },
+      "proof": {
+        "cfm_id": "CFM00_A0_CHIRKOV_BEFORE",
+        "ap": "chirkov",
+        "variant_id": 0,
+        "variant_name": "A0_CLEAN",
+        "changed_factors": [
+          "(baseline A0 infrastructure)"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM00_A0_CHIRKOV_BEFORE\\chirkov",
+        "firmware_sha256": "c2490771a4e1318701232321ccdaf780e881478de27d10d090fb008315124678",
+        "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+      }
+    },
+    "CFM01_B1_SKIP_VALIDATE": {
+      "cfm_id": "CFM01_B1_SKIP_VALIDATE",
+      "ap": "chirkov",
+      "variant_id": 10,
+      "variant_name": "B1_SKIP_VALIDATE_DEEP_SLEEP",
+      "changed_factors": [
+        "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP"
+      ],
+      "status": "OK",
+      "elapsed_s": 312,
+      "rx_unique": 94,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM01_B1_SKIP_VALIDATE_chirkov.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 122.9731411016583,
+        "energy_median_mJ": 105.53656227965038,
+        "energy_p90_mJ": 129.95932045149982,
+        "wake_mean_ms": 420.712755102042,
+        "wake_median_ms": 360.7875000000007,
+        "wake_p90_ms": 438.5522000000065,
+        "first20_wake_median_ms": 358.1804999999996,
+        "last20_wake_median_ms": 353.9015000000063
+      },
+      "proof": {
+        "cfm_id": "CFM01_B1_SKIP_VALIDATE",
+        "ap": "chirkov",
+        "variant_id": 10,
+        "variant_name": "B1_SKIP_VALIDATE_DEEP_SLEEP",
+        "changed_factors": [
+          "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP"
+        ],
+        "skip_validate": true,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM01_B1_SKIP_VALIDATE\\chirkov",
+        "firmware_sha256": "eb2af36f5cca8f8ab5e783dfeefd7332dfc2e9440c8a4eab2bfbca47e0a1c835",
+        "sdkconfig_sha256": "b584afee1aa215d6b347623cbe1136ce985a0d61897accc642912735ee27c4d9"
+      }
+    },
+    "CFM02_B2_DISC_PM_OFF": {
+      "cfm_id": "CFM02_B2_DISC_PM_OFF",
+      "ap": "chirkov",
+      "variant_id": 11,
+      "variant_name": "B2_DISC_PM_OFF",
+      "changed_factors": [
+        "STA_DISCONNECTED_PM=OFF"
+      ],
+      "status": "NO_ARM",
+      "elapsed_s": 61,
+      "rx_unique": 8,
+      "rx_max_seq": 8,
+      "PASS_RX": false,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM02_B2_DISC_PM_OFF_chirkov.csv",
+      "energy": {
+        "ok": false,
+        "error": "missing_or_tiny_csv"
+      },
+      "proof": {
+        "cfm_id": "CFM02_B2_DISC_PM_OFF",
+        "ap": "chirkov",
+        "variant_id": 11,
+        "variant_name": "B2_DISC_PM_OFF",
+        "changed_factors": [
+          "STA_DISCONNECTED_PM=OFF"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": false,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM02_B2_DISC_PM_OFF\\chirkov",
+        "firmware_sha256": "806d35fc6f1aa10e6d888860fc40694ad41e71ead20eb4dc536fe835ac6eee97",
+        "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+      }
+    },
+    "CFM03_B3_WIFI_PS_MIN": {
+      "cfm_id": "CFM03_B3_WIFI_PS_MIN",
+      "ap": "chirkov",
+      "variant_id": 12,
+      "variant_name": "B3_WIFI_PS_MIN",
+      "changed_factors": [
+        "WIFI_PS_MIN"
+      ],
+      "status": "OK",
+      "elapsed_s": 354,
+      "rx_unique": 100,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM03_B3_WIFI_PS_MIN_chirkov.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 228.98011353939356,
+        "energy_median_mJ": 149.42654037985915,
+        "energy_p90_mJ": 175.5483664051832,
+        "wake_mean_ms": 886.0078877551024,
+        "wake_median_ms": 639.3525000000011,
+        "wake_p90_ms": 701.8201000000005,
+        "first20_wake_median_ms": 657.3484999999977,
+        "last20_wake_median_ms": 624.4770000000415
+      },
+      "proof": {
+        "cfm_id": "CFM03_B3_WIFI_PS_MIN",
+        "ap": "chirkov",
+        "variant_id": 12,
+        "variant_name": "B3_WIFI_PS_MIN",
+        "changed_factors": [
+          "WIFI_PS_MIN"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM03_B3_WIFI_PS_MIN\\chirkov",
+        "firmware_sha256": "9bec9a3cd6b4b27950e02a717fed91ab9d0d6a5f2e7d5a55ae7cf38976f9c18b",
+        "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+      }
+    },
+    "CFM04_B7_CPU80": {
+      "cfm_id": "CFM04_B7_CPU80",
+      "ap": "chirkov",
+      "variant_id": 16,
+      "variant_name": "B7_CPU80",
+      "changed_factors": [
+        "CPU80"
+      ],
+      "status": "OK",
+      "elapsed_s": 335,
+      "rx_unique": 99,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM04_B7_CPU80_chirkov.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 149.5046141284385,
+        "energy_median_mJ": 147.27399403414125,
+        "energy_p90_mJ": 158.326139756718,
+        "wake_mean_ms": 661.1026428571417,
+        "wake_median_ms": 655.374499999997,
+        "wake_p90_ms": 687.8549000000028,
+        "first20_wake_median_ms": 660.7750000000046,
+        "last20_wake_median_ms": 650.4944999999793
+      },
+      "proof": {
+        "cfm_id": "CFM04_B7_CPU80",
+        "ap": "chirkov",
+        "variant_id": 16,
+        "variant_name": "B7_CPU80",
+        "changed_factors": [
+          "CPU80"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM04_B7_CPU80\\chirkov",
+        "firmware_sha256": "01daf4a2200a0cd2bb0ca1c84ece4e3e9a9297a911af94b27bfc455cbef9cf54",
+        "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+      }
+    },
+    "CFM05_A0_CHIRKOV_AFTER": {
+      "cfm_id": "CFM05_A0_CHIRKOV_AFTER",
+      "ap": "chirkov",
+      "variant_id": 0,
+      "variant_name": "A0_CLEAN",
+      "changed_factors": [
+        "(baseline A0 infrastructure)"
+      ],
+      "status": "OK",
+      "elapsed_s": 328,
+      "rx_unique": 100,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM05_A0_CHIRKOV_AFTER_chirkov.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 150.0732761613143,
+        "energy_median_mJ": 147.81123350140967,
+        "energy_p90_mJ": 162.51515987379327,
+        "wake_mean_ms": 647.1818061224478,
+        "wake_median_ms": 644.7340000000032,
+        "wake_p90_ms": 680.712299999982,
+        "first20_wake_median_ms": 639.1055000000065,
+        "last20_wake_median_ms": 644.8819999999955
+      },
+      "proof": {
+        "cfm_id": "CFM05_A0_CHIRKOV_AFTER",
+        "ap": "chirkov",
+        "variant_id": 0,
+        "variant_name": "A0_CLEAN",
+        "changed_factors": [
+          "(baseline A0 infrastructure)"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM05_A0_CHIRKOV_AFTER\\chirkov",
+        "firmware_sha256": "da6045dd6d978d5e41af18b2384385a6f8d7bc7b97eb5d1ec9c643a37a198bd2",
+        "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+      }
+    },
+    "CFM06_IO_TEARDOWN_CHIRKOV": {
+      "cfm_id": "CFM06_IO_TEARDOWN_CHIRKOV",
+      "ap": "chirkov",
+      "variant_id": 206,
+      "variant_name": "IO_TEARDOWN",
+      "changed_factors": [
+        "IO_TEARDOWN=DirectDeepSleep(skip wifi stop/deinit)"
+      ],
+      "status": "OK",
+      "elapsed_s": 441,
+      "rx_unique": 96,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM06_IO_TEARDOWN_CHIRKOV_chirkov.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 501.6256164055945,
+        "energy_median_mJ": 504.0757704398753,
+        "energy_p90_mJ": 518.0738129880312,
+        "wake_mean_ms": 1747.7333877551007,
+        "wake_median_ms": 1764.0275000000045,
+        "wake_p90_ms": 1796.4555000000046,
+        "first20_wake_median_ms": 1771.354500000001,
+        "last20_wake_median_ms": 1778.6914999999794
+      },
+      "proof": {
+        "cfm_id": "CFM06_IO_TEARDOWN_CHIRKOV",
+        "ap": "chirkov",
+        "variant_id": 206,
+        "variant_name": "IO_TEARDOWN",
+        "changed_factors": [
+          "IO_TEARDOWN=DirectDeepSleep(skip wifi stop/deinit)"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "DirectDeepSleep: CleanupHotPathWifiRuntime returns immediately; no handler unregister, no esp_wifi_stop/deinit, no netif destroy, no event-group delete; deep-sleep armed by bench after TX-done.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM06_IO_TEARDOWN_CHIRKOV\\chirkov",
+        "firmware_sha256": "80f6bba512cce0738611211ce91d2be23ff95ec84ec6c4d8caf02a3320d741df",
+        "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+      }
+    },
+    "CFM10_A0_AETHERNETIO_BEFORE": {
+      "cfm_id": "CFM10_A0_AETHERNETIO_BEFORE",
+      "ap": "aethernetio",
+      "variant_id": 200,
+      "variant_name": "IO_A0",
+      "changed_factors": [
+        "(baseline A0 infrastructure)"
+      ],
+      "status": "NO_ARM",
+      "elapsed_s": 61,
+      "rx_unique": 8,
+      "rx_max_seq": 8,
+      "PASS_RX": false,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM10_A0_AETHERNETIO_BEFORE_aethernetio.csv",
+      "energy": {
+        "ok": false,
+        "error": "missing_or_tiny_csv"
+      },
+      "proof": {
+        "cfm_id": "CFM10_A0_AETHERNETIO_BEFORE",
+        "ap": "aethernetio",
+        "variant_id": 200,
+        "variant_name": "IO_A0",
+        "changed_factors": [
+          "(baseline A0 infrastructure)"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM10_A0_AETHERNETIO_BEFORE\\aethernetio",
+        "firmware_sha256": "2d0a4c468ff31d17de09278afbf0121cca72b586f67d40c2cb2b73e80e580ba3",
+        "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+      }
+    },
+    "CFM11_IO_TEARDOWN_AETHERNETIO": {
+      "cfm_id": "CFM11_IO_TEARDOWN_AETHERNETIO",
+      "ap": "aethernetio",
+      "variant_id": 206,
+      "variant_name": "IO_TEARDOWN",
+      "changed_factors": [
+        "IO_TEARDOWN=DirectDeepSleep(skip wifi stop/deinit)"
+      ],
+      "status": "OK",
+      "elapsed_s": 322,
+      "rx_unique": 100,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM11_IO_TEARDOWN_AETHERNETIO_aethernetio.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 115.43576640101581,
+        "energy_median_mJ": 113.98845567775051,
+        "energy_p90_mJ": 123.36848436883022,
+        "wake_mean_ms": 566.3638469387763,
+        "wake_median_ms": 562.738000000003,
+        "wake_p90_ms": 578.7074000000075,
+        "first20_wake_median_ms": 562.1850000000065,
+        "last20_wake_median_ms": 562.1684999999985
+      },
+      "proof": {
+        "cfm_id": "CFM11_IO_TEARDOWN_AETHERNETIO",
+        "ap": "aethernetio",
+        "variant_id": 206,
+        "variant_name": "IO_TEARDOWN",
+        "changed_factors": [
+          "IO_TEARDOWN=DirectDeepSleep(skip wifi stop/deinit)"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "DirectDeepSleep: CleanupHotPathWifiRuntime returns immediately; no handler unregister, no esp_wifi_stop/deinit, no netif destroy, no event-group delete; deep-sleep armed by bench after TX-done.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM11_IO_TEARDOWN_AETHERNETIO\\aethernetio",
+        "firmware_sha256": "da9486ece4c4f436e0917069addf007c7d300247f779b3261c0f940ec582e3f5",
+        "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+      }
+    },
+    "CFM12_A0_AETHERNETIO_AFTER": {
+      "cfm_id": "CFM12_A0_AETHERNETIO_AFTER",
+      "ap": "aethernetio",
+      "variant_id": 200,
+      "variant_name": "IO_A0",
+      "changed_factors": [
+        "(baseline A0 infrastructure)"
+      ],
+      "status": "OK",
+      "elapsed_s": 335,
+      "rx_unique": 98,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM12_A0_AETHERNETIO_AFTER_aethernetio.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 97,
+        "energy_mean_mJ": 159.56667172330395,
+        "energy_median_mJ": 153.32681776254802,
+        "energy_p90_mJ": 167.55471906596,
+        "wake_mean_ms": 695.8701237113395,
+        "wake_median_ms": 660.544999999999,
+        "wake_p90_ms": 712.4529999999978,
+        "first20_wake_median_ms": 665.2689999999986,
+        "last20_wake_median_ms": 660.0634999999926
+      },
+      "proof": {
+        "cfm_id": "CFM12_A0_AETHERNETIO_AFTER",
+        "ap": "aethernetio",
+        "variant_id": 200,
+        "variant_name": "IO_A0",
+        "changed_factors": [
+          "(baseline A0 infrastructure)"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM12_A0_AETHERNETIO_AFTER\\aethernetio",
+        "firmware_sha256": "7e90cfc31dc18a598d5a2adee32ce18685bad29a21128a15b75a1141caf0c6b1",
+        "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+      }
+    },
+    "CFM10R_A0_AETHERNETIO_BEFORE": {
+      "cfm_id": "CFM10R_A0_AETHERNETIO_BEFORE",
+      "ap": "aethernetio",
+      "variant_id": 200,
+      "variant_name": "IO_A0",
+      "changed_factors": [
+        "(baseline A0 infrastructure)"
+      ],
+      "status": "OK",
+      "elapsed_s": 342,
+      "rx_unique": 100,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM10R_A0_AETHERNETIO_BEFORE_aethernetio.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 168.18577847230355,
+        "energy_median_mJ": 153.54534391456028,
+        "energy_p90_mJ": 178.13833721307546,
+        "wake_mean_ms": 698.4036122448961,
+        "wake_median_ms": 664.8005000000126,
+        "wake_p90_ms": 743.243499999987,
+        "first20_wake_median_ms": 665.3355000000012,
+        "last20_wake_median_ms": 688.114000000013
+      },
+      "proof": {
+        "cfm_id": "CFM10R_A0_AETHERNETIO_BEFORE",
+        "ap": "aethernetio",
+        "variant_id": 200,
+        "variant_name": "IO_A0",
+        "changed_factors": [
+          "(baseline A0 infrastructure)"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM10R_A0_AETHERNETIO_BEFORE\\aethernetio",
+        "firmware_sha256": "532bbdf36e0875508ab98bc1065cd3c4fc75f5bf29c92f396b957694039dd07b",
+        "sdkconfig_sha256": "191323ed3b53063432c7087b608abbe8d51ada164970cc6dfce83504ae01f840"
+      }
+    },
+    "CFM02R_B2_DISC_PM_OFF": {
+      "cfm_id": "CFM02R_B2_DISC_PM_OFF",
+      "ap": "chirkov",
+      "variant_id": 11,
+      "variant_name": "B2_DISC_PM_OFF",
+      "changed_factors": [
+        "STA_DISCONNECTED_PM=OFF"
+      ],
+      "status": "OK",
+      "elapsed_s": 358,
+      "rx_unique": 98,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM02R_B2_DISC_PM_OFF_chirkov.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 248.10785326980124,
+        "energy_median_mJ": 155.3734885229399,
+        "energy_p90_mJ": 190.67126374643928,
+        "wake_mean_ms": 947.5652755102017,
+        "wake_median_ms": 664.7535000000033,
+        "wake_p90_ms": 742.3107000000044,
+        "first20_wake_median_ms": 665.0174999999977,
+        "last20_wake_median_ms": 664.9209999999925
+      },
+      "proof": {
+        "cfm_id": "CFM02R_B2_DISC_PM_OFF",
+        "ap": "chirkov",
+        "variant_id": 11,
+        "variant_name": "B2_DISC_PM_OFF",
+        "changed_factors": [
+          "STA_DISCONNECTED_PM=OFF"
+        ],
+        "skip_validate": false,
+        "disconnected_pm_enable": false,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM02R_B2_DISC_PM_OFF\\chirkov",
+        "firmware_sha256": "a609d9ef35ed4093024cb99e31ca01a8f5a45244319b30b74a4c730c41e33e2b",
+        "sdkconfig_sha256": "e2057d20f93111961e2aa94b587c65458ed807f6b87b2503e694e54805b67110"
+      }
+    },
+    "CFM40_SKIP_CPU80": {
+      "cfm_id": "CFM40_SKIP_CPU80",
+      "ap": "chirkov",
+      "variant_id": 315,
+      "variant_name": "CFM_SKIP_CPU80",
+      "changed_factors": [
+        "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+        "SKIP_VALIDATE",
+        "CPU80"
+      ],
+      "status": "OK",
+      "elapsed_s": 313,
+      "rx_unique": 98,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM40_SKIP_CPU80_chirkov.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 113.93566411055346,
+        "energy_median_mJ": 102.88227598315189,
+        "energy_p90_mJ": 123.53185125626868,
+        "wake_mean_ms": 409.6942551020412,
+        "wake_median_ms": 372.9955000000018,
+        "wake_p90_ms": 427.09140000001184,
+        "first20_wake_median_ms": 397.9500000000016,
+        "last20_wake_median_ms": 365.4965000000061
+      },
+      "proof": {
+        "cfm_id": "CFM40_SKIP_CPU80",
+        "ap": "chirkov",
+        "variant_id": 315,
+        "variant_name": "CFM_SKIP_CPU80",
+        "changed_factors": [
+          "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+          "SKIP_VALIDATE",
+          "CPU80"
+        ],
+        "skip_validate": true,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM40_SKIP_CPU80\\chirkov",
+        "firmware_sha256": "2dd9be931efdaa812091a21c9032c494eaa875016b3bbb8ca12306b330f60ca6",
+        "sdkconfig_sha256": "c8f1a5805b61c4f3cac27ddaba15098a6220ae46d49b35488b911342d58d53d5"
+      }
+    },
+    "CFM40_SKIP_CPU80_REPEAT": {
+      "cfm_id": "CFM40_SKIP_CPU80_REPEAT",
+      "ap": "chirkov",
+      "variant_id": 315,
+      "variant_name": "CFM_SKIP_CPU80",
+      "changed_factors": [
+        "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+        "SKIP_VALIDATE",
+        "CPU80"
+      ],
+      "status": "OK",
+      "elapsed_s": 330,
+      "rx_unique": 91,
+      "rx_max_seq": 97,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM40_SKIP_CPU80_REPEAT_chirkov.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 118.66640097064665,
+        "energy_median_mJ": 101.01379397337044,
+        "energy_p90_mJ": 124.72052147661967,
+        "wake_mean_ms": 425.617846938774,
+        "wake_median_ms": 363.3534999999988,
+        "wake_p90_ms": 447.8522999999853,
+        "first20_wake_median_ms": 362.6164999999979,
+        "last20_wake_median_ms": 399.07199999997545
+      },
+      "proof": {
+        "cfm_id": "CFM40_SKIP_CPU80_REPEAT",
+        "ap": "chirkov",
+        "variant_id": 315,
+        "variant_name": "CFM_SKIP_CPU80",
+        "changed_factors": [
+          "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+          "SKIP_VALIDATE",
+          "CPU80"
+        ],
+        "skip_validate": true,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM40_SKIP_CPU80_REPEAT\\chirkov",
+        "firmware_sha256": "5fd29242d3314c79513ebb2f118a4d20e2bec4152028c9233ecc0a54ebb13b73",
+        "sdkconfig_sha256": "c8f1a5805b61c4f3cac27ddaba15098a6220ae46d49b35488b911342d58d53d5"
+      }
+    },
+    "CFM40_SKIP_CPU80_AETHERNETIO": {
+      "cfm_id": "CFM40_SKIP_CPU80_AETHERNETIO",
+      "ap": "aethernetio",
+      "variant_id": 315,
+      "variant_name": "CFM_SKIP_CPU80",
+      "changed_factors": [
+        "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+        "SKIP_VALIDATE",
+        "CPU80"
+      ],
+      "status": "OK",
+      "elapsed_s": 333,
+      "rx_unique": 100,
+      "rx_max_seq": 100,
+      "PASS_RX": true,
+      "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM40_SKIP_CPU80_AETHERNETIO_aethernetio.csv",
+      "energy": {
+        "ok": true,
+        "n_valid": 98,
+        "energy_mean_mJ": 130.8332339852344,
+        "energy_median_mJ": 126.10753214241798,
+        "energy_p90_mJ": 153.8869266670278,
+        "wake_mean_ms": 473.651948979593,
+        "wake_median_ms": 460.48950000000843,
+        "wake_p90_ms": 545.5600000000039,
+        "first20_wake_median_ms": 476.1604999999989,
+        "last20_wake_median_ms": 463.6250000000075
+      },
+      "proof": {
+        "cfm_id": "CFM40_SKIP_CPU80_AETHERNETIO",
+        "ap": "aethernetio",
+        "variant_id": 315,
+        "variant_name": "CFM_SKIP_CPU80",
+        "changed_factors": [
+          "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+          "SKIP_VALIDATE",
+          "CPU80"
+        ],
+        "skip_validate": true,
+        "disconnected_pm_enable": true,
+        "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+        "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM40_SKIP_CPU80_AETHERNETIO\\aethernetio",
+        "firmware_sha256": "e6c388787c5fe0654e8c459f1e84672e742f9eb8e16a56f8d9285f3a796f222c",
+        "sdkconfig_sha256": "c8f1a5805b61c4f3cac27ddaba15098a6220ae46d49b35488b911342d58d53d5"
+      }
+    }
+  },
+  "phase": "done"
+}

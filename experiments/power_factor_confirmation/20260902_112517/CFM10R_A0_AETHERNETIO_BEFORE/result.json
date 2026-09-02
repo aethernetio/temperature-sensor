@@ -1,0 +1,42 @@
+{
+  "cfm_id": "CFM10R_A0_AETHERNETIO_BEFORE",
+  "ap": "aethernetio",
+  "variant_id": 200,
+  "variant_name": "IO_A0",
+  "changed_factors": [
+    "(baseline A0 infrastructure)"
+  ],
+  "status": "OK",
+  "elapsed_s": 342,
+  "rx_unique": 100,
+  "rx_max_seq": 100,
+  "PASS_RX": true,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM10R_A0_AETHERNETIO_BEFORE_aethernetio.csv",
+  "energy": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 168.18577847230355,
+    "energy_median_mJ": 153.54534391456028,
+    "energy_p90_mJ": 178.13833721307546,
+    "wake_mean_ms": 698.4036122448961,
+    "wake_median_ms": 664.8005000000126,
+    "wake_p90_ms": 743.243499999987,
+    "first20_wake_median_ms": 665.3355000000012,
+    "last20_wake_median_ms": 688.114000000013
+  },
+  "proof": {
+    "cfm_id": "CFM10R_A0_AETHERNETIO_BEFORE",
+    "ap": "aethernetio",
+    "variant_id": 200,
+    "variant_name": "IO_A0",
+    "changed_factors": [
+      "(baseline A0 infrastructure)"
+    ],
+    "skip_validate": false,
+    "disconnected_pm_enable": true,
+    "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+    "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM10R_A0_AETHERNETIO_BEFORE\\aethernetio",
+    "firmware_sha256": "532bbdf36e0875508ab98bc1065cd3c4fc75f5bf29c92f396b957694039dd07b",
+    "sdkconfig_sha256": "191323ed3b53063432c7087b608abbe8d51ada164970cc6dfce83504ae01f840"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "cfm_id": "CFM04_B7_CPU80",
+  "ap": "chirkov",
+  "variant_id": 16,
+  "variant_name": "B7_CPU80",
+  "changed_factors": [
+    "CPU80"
+  ],
+  "status": "OK",
+  "elapsed_s": 335,
+  "rx_unique": 99,
+  "rx_max_seq": 100,
+  "PASS_RX": true,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM04_B7_CPU80_chirkov.csv",
+  "energy": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 149.5046141284385,
+    "energy_median_mJ": 147.27399403414125,
+    "energy_p90_mJ": 158.326139756718,
+    "wake_mean_ms": 661.1026428571417,
+    "wake_median_ms": 655.374499999997,
+    "wake_p90_ms": 687.8549000000028,
+    "first20_wake_median_ms": 660.7750000000046,
+    "last20_wake_median_ms": 650.4944999999793
+  },
+  "proof": {
+    "cfm_id": "CFM04_B7_CPU80",
+    "ap": "chirkov",
+    "variant_id": 16,
+    "variant_name": "B7_CPU80",
+    "changed_factors": [
+      "CPU80"
+    ],
+    "skip_validate": false,
+    "disconnected_pm_enable": true,
+    "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+    "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM04_B7_CPU80\\chirkov",
+    "firmware_sha256": "01daf4a2200a0cd2bb0ca1c84ece4e3e9a9297a911af94b27bfc455cbef9cf54",
+    "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+  }
+}

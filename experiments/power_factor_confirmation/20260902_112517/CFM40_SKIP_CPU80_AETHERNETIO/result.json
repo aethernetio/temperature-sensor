@@ -1,0 +1,46 @@
+{
+  "cfm_id": "CFM40_SKIP_CPU80_AETHERNETIO",
+  "ap": "aethernetio",
+  "variant_id": 315,
+  "variant_name": "CFM_SKIP_CPU80",
+  "changed_factors": [
+    "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+    "SKIP_VALIDATE",
+    "CPU80"
+  ],
+  "status": "OK",
+  "elapsed_s": 333,
+  "rx_unique": 100,
+  "rx_max_seq": 100,
+  "PASS_RX": true,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM40_SKIP_CPU80_AETHERNETIO_aethernetio.csv",
+  "energy": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 130.8332339852344,
+    "energy_median_mJ": 126.10753214241798,
+    "energy_p90_mJ": 153.8869266670278,
+    "wake_mean_ms": 473.651948979593,
+    "wake_median_ms": 460.48950000000843,
+    "wake_p90_ms": 545.5600000000039,
+    "first20_wake_median_ms": 476.1604999999989,
+    "last20_wake_median_ms": 463.6250000000075
+  },
+  "proof": {
+    "cfm_id": "CFM40_SKIP_CPU80_AETHERNETIO",
+    "ap": "aethernetio",
+    "variant_id": 315,
+    "variant_name": "CFM_SKIP_CPU80",
+    "changed_factors": [
+      "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+      "SKIP_VALIDATE",
+      "CPU80"
+    ],
+    "skip_validate": true,
+    "disconnected_pm_enable": true,
+    "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+    "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM40_SKIP_CPU80_AETHERNETIO\\aethernetio",
+    "firmware_sha256": "e6c388787c5fe0654e8c459f1e84672e742f9eb8e16a56f8d9285f3a796f222c",
+    "sdkconfig_sha256": "c8f1a5805b61c4f3cac27ddaba15098a6220ae46d49b35488b911342d58d53d5"
+  }
+}

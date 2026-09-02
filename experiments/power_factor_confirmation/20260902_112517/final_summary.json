@@ -1,0 +1,56 @@
+{
+  "BUILD_CONTAMINATION_FOUND": true,
+  "best_settings": "SKIP_VALIDATE_IN_DEEP_SLEEP + CPU80, full teardown",
+  "chirkov_baseline_mean_median": [
+    163.02632611241842,
+    150.09622582495183
+  ],
+  "aethernetio_baseline_mean_median": [
+    163.87622509780374,
+    153.43608083855415
+  ],
+  "best_chirkov_repeat": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 118.66640097064665,
+    "energy_median_mJ": 101.01379397337044,
+    "energy_p90_mJ": 124.72052147661967,
+    "wake_mean_ms": 425.617846938774,
+    "wake_median_ms": 363.3534999999988,
+    "wake_p90_ms": 447.8522999999853,
+    "first20_wake_median_ms": 362.6164999999979,
+    "last20_wake_median_ms": 399.07199999997545
+  },
+  "best_aethernetio": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 130.8332339852344,
+    "energy_median_mJ": 126.10753214241798,
+    "energy_p90_mJ": 153.8869266670278,
+    "wake_mean_ms": 473.651948979593,
+    "wake_median_ms": 460.48950000000843,
+    "wake_p90_ms": 545.5600000000039,
+    "first20_wake_median_ms": 476.1604999999989,
+    "last20_wake_median_ms": 463.6250000000075
+  },
+  "battery": {
+    "mean_energy_mJ": 118.66640097064665,
+    "voltage_V": 3.0,
+    "cr2_mAh_nominal": 800,
+    "sleep_uA": 8,
+    "1min": {
+      "i_avg_mA": 0.6672577831702592,
+      "days": 49.9557055370127,
+      "months": 1.6432797874017335,
+      "years": 0.13677126772624967,
+      "charge_mC": 39.55546699021555
+    },
+    "10min": {
+      "i_avg_mA": 0.0739257783170259,
+      "days": 450.9027039307655,
+      "months": 14.832325787196234,
+      "years": 1.234504322876839,
+      "charge_mC": 39.55546699021555
+    }
+  }
+}

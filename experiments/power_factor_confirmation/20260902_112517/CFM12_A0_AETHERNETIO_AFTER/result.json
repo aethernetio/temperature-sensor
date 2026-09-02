@@ -1,0 +1,42 @@
+{
+  "cfm_id": "CFM12_A0_AETHERNETIO_AFTER",
+  "ap": "aethernetio",
+  "variant_id": 200,
+  "variant_name": "IO_A0",
+  "changed_factors": [
+    "(baseline A0 infrastructure)"
+  ],
+  "status": "OK",
+  "elapsed_s": 335,
+  "rx_unique": 98,
+  "rx_max_seq": 100,
+  "PASS_RX": true,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM12_A0_AETHERNETIO_AFTER_aethernetio.csv",
+  "energy": {
+    "ok": true,
+    "n_valid": 97,
+    "energy_mean_mJ": 159.56667172330395,
+    "energy_median_mJ": 153.32681776254802,
+    "energy_p90_mJ": 167.55471906596,
+    "wake_mean_ms": 695.8701237113395,
+    "wake_median_ms": 660.544999999999,
+    "wake_p90_ms": 712.4529999999978,
+    "first20_wake_median_ms": 665.2689999999986,
+    "last20_wake_median_ms": 660.0634999999926
+  },
+  "proof": {
+    "cfm_id": "CFM12_A0_AETHERNETIO_AFTER",
+    "ap": "aethernetio",
+    "variant_id": 200,
+    "variant_name": "IO_A0",
+    "changed_factors": [
+      "(baseline A0 infrastructure)"
+    ],
+    "skip_validate": false,
+    "disconnected_pm_enable": true,
+    "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+    "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM12_A0_AETHERNETIO_AFTER\\aethernetio",
+    "firmware_sha256": "7e90cfc31dc18a598d5a2adee32ce18685bad29a21128a15b75a1141caf0c6b1",
+    "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+  }
+}

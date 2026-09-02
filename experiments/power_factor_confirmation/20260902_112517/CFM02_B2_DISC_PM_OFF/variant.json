@@ -1,0 +1,15 @@
+{
+  "cfm_id": "CFM02_B2_DISC_PM_OFF",
+  "ap": "chirkov",
+  "variant_id": 11,
+  "variant_name": "B2_DISC_PM_OFF",
+  "changed_factors": [
+    "STA_DISCONNECTED_PM=OFF"
+  ],
+  "skip_validate": false,
+  "disconnected_pm_enable": false,
+  "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+  "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM02_B2_DISC_PM_OFF\\chirkov",
+  "firmware_sha256": "806d35fc6f1aa10e6d888860fc40694ad41e71ead20eb4dc536fe835ac6eee97",
+  "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+}

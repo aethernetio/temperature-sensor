@@ -1,0 +1,42 @@
+{
+  "cfm_id": "CFM01_B1_SKIP_VALIDATE",
+  "ap": "chirkov",
+  "variant_id": 10,
+  "variant_name": "B1_SKIP_VALIDATE_DEEP_SLEEP",
+  "changed_factors": [
+    "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP"
+  ],
+  "status": "OK",
+  "elapsed_s": 312,
+  "rx_unique": 94,
+  "rx_max_seq": 100,
+  "PASS_RX": true,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM01_B1_SKIP_VALIDATE_chirkov.csv",
+  "energy": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 122.9731411016583,
+    "energy_median_mJ": 105.53656227965038,
+    "energy_p90_mJ": 129.95932045149982,
+    "wake_mean_ms": 420.712755102042,
+    "wake_median_ms": 360.7875000000007,
+    "wake_p90_ms": 438.5522000000065,
+    "first20_wake_median_ms": 358.1804999999996,
+    "last20_wake_median_ms": 353.9015000000063
+  },
+  "proof": {
+    "cfm_id": "CFM01_B1_SKIP_VALIDATE",
+    "ap": "chirkov",
+    "variant_id": 10,
+    "variant_name": "B1_SKIP_VALIDATE_DEEP_SLEEP",
+    "changed_factors": [
+      "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP"
+    ],
+    "skip_validate": true,
+    "disconnected_pm_enable": true,
+    "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+    "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM01_B1_SKIP_VALIDATE\\chirkov",
+    "firmware_sha256": "eb2af36f5cca8f8ab5e783dfeefd7332dfc2e9440c8a4eab2bfbca47e0a1c835",
+    "sdkconfig_sha256": "b584afee1aa215d6b347623cbe1136ce985a0d61897accc642912735ee27c4d9"
+  }
+}

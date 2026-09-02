@@ -1,0 +1,42 @@
+{
+  "cfm_id": "CFM11_IO_TEARDOWN_AETHERNETIO",
+  "ap": "aethernetio",
+  "variant_id": 206,
+  "variant_name": "IO_TEARDOWN",
+  "changed_factors": [
+    "IO_TEARDOWN=DirectDeepSleep(skip wifi stop/deinit)"
+  ],
+  "status": "OK",
+  "elapsed_s": 322,
+  "rx_unique": 100,
+  "rx_max_seq": 100,
+  "PASS_RX": true,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM11_IO_TEARDOWN_AETHERNETIO_aethernetio.csv",
+  "energy": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 115.43576640101581,
+    "energy_median_mJ": 113.98845567775051,
+    "energy_p90_mJ": 123.36848436883022,
+    "wake_mean_ms": 566.3638469387763,
+    "wake_median_ms": 562.738000000003,
+    "wake_p90_ms": 578.7074000000075,
+    "first20_wake_median_ms": 562.1850000000065,
+    "last20_wake_median_ms": 562.1684999999985
+  },
+  "proof": {
+    "cfm_id": "CFM11_IO_TEARDOWN_AETHERNETIO",
+    "ap": "aethernetio",
+    "variant_id": 206,
+    "variant_name": "IO_TEARDOWN",
+    "changed_factors": [
+      "IO_TEARDOWN=DirectDeepSleep(skip wifi stop/deinit)"
+    ],
+    "skip_validate": false,
+    "disconnected_pm_enable": true,
+    "teardown_semantics": "DirectDeepSleep: CleanupHotPathWifiRuntime returns immediately; no handler unregister, no esp_wifi_stop/deinit, no netif destroy, no event-group delete; deep-sleep armed by bench after TX-done.",
+    "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM11_IO_TEARDOWN_AETHERNETIO\\aethernetio",
+    "firmware_sha256": "da9486ece4c4f436e0917069addf007c7d300247f779b3261c0f940ec582e3f5",
+    "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+  }
+}

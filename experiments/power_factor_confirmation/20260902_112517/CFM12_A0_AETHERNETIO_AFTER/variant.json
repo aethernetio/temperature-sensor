@@ -1,0 +1,15 @@
+{
+  "cfm_id": "CFM12_A0_AETHERNETIO_AFTER",
+  "ap": "aethernetio",
+  "variant_id": 200,
+  "variant_name": "IO_A0",
+  "changed_factors": [
+    "(baseline A0 infrastructure)"
+  ],
+  "skip_validate": false,
+  "disconnected_pm_enable": true,
+  "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+  "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM12_A0_AETHERNETIO_AFTER\\aethernetio",
+  "firmware_sha256": "7e90cfc31dc18a598d5a2adee32ce18685bad29a21128a15b75a1141caf0c6b1",
+  "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+}

@@ -1,0 +1,15 @@
+{
+  "cfm_id": "CFM11_IO_TEARDOWN_AETHERNETIO",
+  "ap": "aethernetio",
+  "variant_id": 206,
+  "variant_name": "IO_TEARDOWN",
+  "changed_factors": [
+    "IO_TEARDOWN=DirectDeepSleep(skip wifi stop/deinit)"
+  ],
+  "skip_validate": false,
+  "disconnected_pm_enable": true,
+  "teardown_semantics": "DirectDeepSleep: CleanupHotPathWifiRuntime returns immediately; no handler unregister, no esp_wifi_stop/deinit, no netif destroy, no event-group delete; deep-sleep armed by bench after TX-done.",
+  "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM11_IO_TEARDOWN_AETHERNETIO\\aethernetio",
+  "firmware_sha256": "da9486ece4c4f436e0917069addf007c7d300247f779b3261c0f940ec582e3f5",
+  "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+}

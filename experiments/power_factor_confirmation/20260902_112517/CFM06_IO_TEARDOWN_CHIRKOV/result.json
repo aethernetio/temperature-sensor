@@ -1,0 +1,42 @@
+{
+  "cfm_id": "CFM06_IO_TEARDOWN_CHIRKOV",
+  "ap": "chirkov",
+  "variant_id": 206,
+  "variant_name": "IO_TEARDOWN",
+  "changed_factors": [
+    "IO_TEARDOWN=DirectDeepSleep(skip wifi stop/deinit)"
+  ],
+  "status": "OK",
+  "elapsed_s": 441,
+  "rx_unique": 96,
+  "rx_max_seq": 100,
+  "PASS_RX": true,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM06_IO_TEARDOWN_CHIRKOV_chirkov.csv",
+  "energy": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 501.6256164055945,
+    "energy_median_mJ": 504.0757704398753,
+    "energy_p90_mJ": 518.0738129880312,
+    "wake_mean_ms": 1747.7333877551007,
+    "wake_median_ms": 1764.0275000000045,
+    "wake_p90_ms": 1796.4555000000046,
+    "first20_wake_median_ms": 1771.354500000001,
+    "last20_wake_median_ms": 1778.6914999999794
+  },
+  "proof": {
+    "cfm_id": "CFM06_IO_TEARDOWN_CHIRKOV",
+    "ap": "chirkov",
+    "variant_id": 206,
+    "variant_name": "IO_TEARDOWN",
+    "changed_factors": [
+      "IO_TEARDOWN=DirectDeepSleep(skip wifi stop/deinit)"
+    ],
+    "skip_validate": false,
+    "disconnected_pm_enable": true,
+    "teardown_semantics": "DirectDeepSleep: CleanupHotPathWifiRuntime returns immediately; no handler unregister, no esp_wifi_stop/deinit, no netif destroy, no event-group delete; deep-sleep armed by bench after TX-done.",
+    "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM06_IO_TEARDOWN_CHIRKOV\\chirkov",
+    "firmware_sha256": "80f6bba512cce0738611211ce91d2be23ff95ec84ec6c4d8caf02a3320d741df",
+    "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+  }
+}

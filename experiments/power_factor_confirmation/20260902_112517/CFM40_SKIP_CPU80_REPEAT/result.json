@@ -1,0 +1,46 @@
+{
+  "cfm_id": "CFM40_SKIP_CPU80_REPEAT",
+  "ap": "chirkov",
+  "variant_id": 315,
+  "variant_name": "CFM_SKIP_CPU80",
+  "changed_factors": [
+    "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+    "SKIP_VALIDATE",
+    "CPU80"
+  ],
+  "status": "OK",
+  "elapsed_s": 330,
+  "rx_unique": 91,
+  "rx_max_seq": 97,
+  "PASS_RX": true,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM40_SKIP_CPU80_REPEAT_chirkov.csv",
+  "energy": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 118.66640097064665,
+    "energy_median_mJ": 101.01379397337044,
+    "energy_p90_mJ": 124.72052147661967,
+    "wake_mean_ms": 425.617846938774,
+    "wake_median_ms": 363.3534999999988,
+    "wake_p90_ms": 447.8522999999853,
+    "first20_wake_median_ms": 362.6164999999979,
+    "last20_wake_median_ms": 399.07199999997545
+  },
+  "proof": {
+    "cfm_id": "CFM40_SKIP_CPU80_REPEAT",
+    "ap": "chirkov",
+    "variant_id": 315,
+    "variant_name": "CFM_SKIP_CPU80",
+    "changed_factors": [
+      "BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP",
+      "SKIP_VALIDATE",
+      "CPU80"
+    ],
+    "skip_validate": true,
+    "disconnected_pm_enable": true,
+    "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+    "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM40_SKIP_CPU80_REPEAT\\chirkov",
+    "firmware_sha256": "5fd29242d3314c79513ebb2f118a4d20e2bec4152028c9233ecc0a54ebb13b73",
+    "sdkconfig_sha256": "c8f1a5805b61c4f3cac27ddaba15098a6220ae46d49b35488b911342d58d53d5"
+  }
+}

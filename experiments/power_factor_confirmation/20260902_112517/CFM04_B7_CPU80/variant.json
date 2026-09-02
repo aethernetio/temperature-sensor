@@ -1,0 +1,15 @@
+{
+  "cfm_id": "CFM04_B7_CPU80",
+  "ap": "chirkov",
+  "variant_id": 16,
+  "variant_name": "B7_CPU80",
+  "changed_factors": [
+    "CPU80"
+  ],
+  "skip_validate": false,
+  "disconnected_pm_enable": true,
+  "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+  "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM04_B7_CPU80\\chirkov",
+  "firmware_sha256": "01daf4a2200a0cd2bb0ca1c84ece4e3e9a9297a911af94b27bfc455cbef9cf54",
+  "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+}

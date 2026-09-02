@@ -1,0 +1,42 @@
+{
+  "cfm_id": "CFM00_A0_CHIRKOV_BEFORE",
+  "ap": "chirkov",
+  "variant_id": 0,
+  "variant_name": "A0_CLEAN",
+  "changed_factors": [
+    "(baseline A0 infrastructure)"
+  ],
+  "status": "OK",
+  "elapsed_s": 336,
+  "rx_unique": 99,
+  "rx_max_seq": 100,
+  "PASS_RX": true,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM00_A0_CHIRKOV_BEFORE_chirkov.csv",
+  "energy": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 175.9793760635225,
+    "energy_median_mJ": 152.38121814849396,
+    "energy_p90_mJ": 182.4004168365383,
+    "wake_mean_ms": 727.8968061224485,
+    "wake_median_ms": 659.8060000000103,
+    "wake_p90_ms": 748.7886999999944,
+    "first20_wake_median_ms": 654.3854999999965,
+    "last20_wake_median_ms": 641.8485000000373
+  },
+  "proof": {
+    "cfm_id": "CFM00_A0_CHIRKOV_BEFORE",
+    "ap": "chirkov",
+    "variant_id": 0,
+    "variant_name": "A0_CLEAN",
+    "changed_factors": [
+      "(baseline A0 infrastructure)"
+    ],
+    "skip_validate": false,
+    "disconnected_pm_enable": true,
+    "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+    "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM00_A0_CHIRKOV_BEFORE\\chirkov",
+    "firmware_sha256": "c2490771a4e1318701232321ccdaf780e881478de27d10d090fb008315124678",
+    "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "cfm_id": "CFM03_B3_WIFI_PS_MIN",
+  "ap": "chirkov",
+  "variant_id": 12,
+  "variant_name": "B3_WIFI_PS_MIN",
+  "changed_factors": [
+    "WIFI_PS_MIN"
+  ],
+  "status": "OK",
+  "elapsed_s": 354,
+  "rx_unique": 100,
+  "rx_max_seq": 100,
+  "PASS_RX": true,
+  "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\confirmation\\CFM03_B3_WIFI_PS_MIN_chirkov.csv",
+  "energy": {
+    "ok": true,
+    "n_valid": 98,
+    "energy_mean_mJ": 228.98011353939356,
+    "energy_median_mJ": 149.42654037985915,
+    "energy_p90_mJ": 175.5483664051832,
+    "wake_mean_ms": 886.0078877551024,
+    "wake_median_ms": 639.3525000000011,
+    "wake_p90_ms": 701.8201000000005,
+    "first20_wake_median_ms": 657.3484999999977,
+    "last20_wake_median_ms": 624.4770000000415
+  },
+  "proof": {
+    "cfm_id": "CFM03_B3_WIFI_PS_MIN",
+    "ap": "chirkov",
+    "variant_id": 12,
+    "variant_name": "B3_WIFI_PS_MIN",
+    "changed_factors": [
+      "WIFI_PS_MIN"
+    ],
+    "skip_validate": false,
+    "disconnected_pm_enable": true,
+    "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+    "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM03_B3_WIFI_PS_MIN\\chirkov",
+    "firmware_sha256": "9bec9a3cd6b4b27950e02a717fed91ab9d0d6a5f2e7d5a55ae7cf38976f9c18b",
+    "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+  }
+}

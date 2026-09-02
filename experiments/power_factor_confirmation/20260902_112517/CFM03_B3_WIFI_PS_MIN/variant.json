@@ -1,0 +1,15 @@
+{
+  "cfm_id": "CFM03_B3_WIFI_PS_MIN",
+  "ap": "chirkov",
+  "variant_id": 12,
+  "variant_name": "B3_WIFI_PS_MIN",
+  "changed_factors": [
+    "WIFI_PS_MIN"
+  ],
+  "skip_validate": false,
+  "disconnected_pm_enable": true,
+  "teardown_semantics": "Full teardown (stop+deinit+netif+handlers) unless StopOnly.",
+  "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM03_B3_WIFI_PS_MIN\\chirkov",
+  "firmware_sha256": "9bec9a3cd6b4b27950e02a717fed91ab9d0d6a5f2e7d5a55ae7cf38976f9c18b",
+  "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+}

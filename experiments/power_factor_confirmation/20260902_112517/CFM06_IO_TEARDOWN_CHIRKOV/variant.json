@@ -1,0 +1,15 @@
+{
+  "cfm_id": "CFM06_IO_TEARDOWN_CHIRKOV",
+  "ap": "chirkov",
+  "variant_id": 206,
+  "variant_name": "IO_TEARDOWN",
+  "changed_factors": [
+    "IO_TEARDOWN=DirectDeepSleep(skip wifi stop/deinit)"
+  ],
+  "skip_validate": false,
+  "disconnected_pm_enable": true,
+  "teardown_semantics": "DirectDeepSleep: CleanupHotPathWifiRuntime returns immediately; no handler unregister, no esp_wifi_stop/deinit, no netif destroy, no event-group delete; deep-sleep armed by bench after TX-done.",
+  "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-power-confirm\\20260902_112517\\CFM06_IO_TEARDOWN_CHIRKOV\\chirkov",
+  "firmware_sha256": "80f6bba512cce0738611211ce91d2be23ff95ec84ec6c4d8caf02a3320d741df",
+  "sdkconfig_sha256": "c8d820c9549f646189f42aeb80118fc6fa3fe397fa5fb2612a804cceb015b657"
+}
