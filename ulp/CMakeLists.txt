@@ -51,14 +51,6 @@ ulp_add_build_binary_targets(${ULP_APP_NAME})
 
 target_include_directories(${ULP_APP_NAME} PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../main")
 
-include(../cmake/CPM.cmake)
-CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
-
-# not link but only setup include directory for aether/config_consts.h
-target_include_directories(${ULP_APP_NAME} PUBLIC "${aether-client-cpp_SOURCE_DIR}")
-
-target_compile_definitions(${ULP_APP_NAME} PRIVATE "ULP_MODE=1")
-
 # Calculate where the build folder of the main project is located
 # ExternalProject is usually built inside build/ulp_main-prefix/src/ulp_main-build
 # We need to go up to the root of the build folder

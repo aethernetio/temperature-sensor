@@ -19,9 +19,12 @@
 #include <cstdlib>
 #include <iostream>
 
+
 #include "aether/all.h"
+#include "aether/env.h"
 #include "sensors/sensors.h"
 #include "sleeping/sleeping.h"
+
 
 using namespace std::chrono_literals;
 
@@ -40,7 +43,7 @@ static constexpr auto kServiceUid =
 #ifdef SERVICE_UID
     ae::Uid::FromString(SERVICE_UID);
 #else
-    ae::Uid::FromString("e839f1a9-e0ec-4ff6-b85c-d49efaabf24f");
+    ae::Uid::FromString("752fa297-ec98-47d9-8def-a3ef80ecca42");
 #endif
 
 #ifdef ESP_PLATFORM
@@ -88,7 +91,7 @@ void SleepReady();
 // Go to sleep method
 void GoToSleep(ae::TimePoint time_point);
 
-static ae::RcPtr<ae::AetherApp> aether_app;
+static std::unique_ptr<ae::AetherApp> aether_app;
 static ae::Client::ptr client;
 static std::unique_ptr<ae::P2pStream> message_stream;
 
@@ -130,7 +133,7 @@ void loop() {
   } else {
     // cleanup resources
     message_stream.reset();
-    aether_app.Reset();
+    aether_app.reset();
   }
 }
 
@@ -193,6 +196,7 @@ void UpdateSensors() {
   std::int16_t temperature = {};
   std::uint32_t humidity = {};
   std::uint32_t co2 = {};
+
   ReadSensors(&temperature, &humidity, nullptr, &co2, nullptr);
   std::cout << ae::Format(" >>> Temperature: [{}], Humidity: [{}], CO2: [{}]\n",
                           temperature, humidity, co2);
@@ -206,28 +210,9 @@ void MessageReceived(ae::DataBuffer const& buffer) {
 }
 
 void SendValue(std::int16_t temperature) {
-  // The stream is not initialized yet
-  if (!message_stream) {
-    return;
-  }
-
-  struct Header {
-    std::uint8_t const root_code = 0x3;
-    std::uint8_t const size = sizeof(std::uint8_t) + sizeof(std::int16_t);
-    std::uint8_t const dev_code = 0x10;
-    AE_REFLECT_MEMBERS(root_code, size, dev_code)
-  };
-  static constexpr auto header = Header{};
-
-  auto message = ae::DataBuffer{};
-  message.reserve(sizeof(header) + 2);
-  {
-    auto writer = ae::VectorWriter<>{message};
-    auto stream = ae::omstream{writer};
-    // write message header and temperature value
-    // temperature in range -100.0 to 100.0 x100 (-10000 to 10000)
-    stream << header << temperature;
-  }
+  temperature = (temperature/100 + 30) * 3;
+  auto payload = { 0x03, 0x03, 0x0A, (temperature) & 0xFF, (temperature >> 8) & 0xFF };
+  auto message = ae::DataBuffer{std::begin(payload), std::end(payload)};
 
   message_stream->Write(std::move(message)).status_event().Subscribe([](auto) {
     // with any result ready to sleep

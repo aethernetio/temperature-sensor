@@ -132,6 +132,9 @@ void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
 
   if (!initialized) {
     initialized = Init();
+    if (!initialized) {
+        return;
+    }
   }
 
   ret = send_command_16bit(STCC4_CMD_MEASURE_SINGLE_SHOT, STCC4_SLAVE_ADDR);

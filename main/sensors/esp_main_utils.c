@@ -49,17 +49,17 @@ esp_err_t i2c_init(i2c_master_bus_handle_t *bus_handle, i2c_port_t i2c_handle_po
   return ESP_OK;
 }
 
-esp_err_t i2c_write(i2c_master_bus_handle_t *bus_handle, i2c_master_dev_handle_t i2c_handle_port, uint8_t address, uint8_t const* data,
+esp_err_t i2c_write(i2c_master_dev_handle_t i2c_handle_port, uint8_t address, uint8_t const* data,
                     uint8_t len, int32_t ms_dur) {
   return i2c_master_transmit(i2c_handle_port, data, len, ms_dur);
 }
 
-esp_err_t i2c_read(i2c_master_bus_handle_t *bus_handle, i2c_master_dev_handle_t i2c_handle_port, uint8_t address, uint8_t* data, uint8_t len,
+esp_err_t i2c_read(i2c_master_dev_handle_t i2c_handle_port, uint8_t address, uint8_t* data, uint8_t len,
                    int32_t ms_dur) {
   return i2c_master_receive(i2c_handle_port, data, len, ms_dur);
 }
 
-esp_err_t i2c_write_read(i2c_master_bus_handle_t *bus_handle, i2c_master_dev_handle_t i2c_handle_port, uint8_t address,
+esp_err_t i2c_write_read(i2c_master_dev_handle_t i2c_handle_port, uint8_t address,
                          uint8_t const* write_data, uint8_t write_len,
                          uint8_t* read_data, uint8_t read_len, int32_t ms_dur) {
   return i2c_master_transmit_receive(i2c_handle_port, write_data, write_len,

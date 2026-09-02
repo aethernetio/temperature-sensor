@@ -20,38 +20,42 @@
 #if ESP_PLATFORM
 #  include "sdkconfig.h"
 #endif
-#include "aether/config_consts.h"
 
-#define AE_CRYPTO_ASYNC AE_HYDRO_CRYPTO_PK
-#define AE_CRYPTO_SYNC AE_HYDRO_CRYPTO_SK
-#define AE_SIGNATURE AE_HYDRO_SIGNATURE
-#define AE_KDF AE_HYDRO_KDF
+#if !defined IS_ULP_COCPU
+#  include "aether/config_consts.h"
 
-#if AE_DISTILLATION || AE_FILTRATION
-#  define AE_SUPPORT_REGISTRATION 1
-#  define AE_SUPPORT_CLOUD_DNS 1
-#else
-#  define AE_SUPPORT_REGISTRATION 0
-#  define AE_SUPPORT_CLOUD_DNS 0
-#endif
+#  define AE_CRYPTO_ASYNC AE_HYDRO_CRYPTO_PK
+#  define AE_CRYPTO_SYNC AE_HYDRO_CRYPTO_SK
+#  define AE_SIGNATURE AE_HYDRO_SIGNATURE
+#  define AE_KDF AE_HYDRO_KDF
 
-#define AE_SUPPORT_SPIFS_FS 1
+#  if AE_DISTILLATION || AE_FILTRATION
+#    define AE_SUPPORT_REGISTRATION 1
+#    define AE_SUPPORT_CLOUD_DNS 1
+#  else
+#    define AE_SUPPORT_REGISTRATION 0
+#    define AE_SUPPORT_CLOUD_DNS 0
+#  endif
+
+#  define AE_SUPPORT_SPIFS_FS 1
 
 // telemetry
-#define AE_TELE_ENABLED 1
-#define AE_TELE_LOG_CONSOLE 1
+#  define AE_TELE_ENABLED 1
+#  define AE_TELE_LOG_CONSOLE 1
 
-#define AE_STATISTICS_MAX_SIZE 1024
+#  define AE_STATISTICS_MAX_SIZE 1024
 
-#define AE_TELE_DEBUG_MODULES AE_ALL
+#  define AE_TELE_DEBUG_MODULES AE_ALL
+#endif
 
 #if defined ESP_PLATFORM
 // Select the board to build example for
 #  define BOARD_AETHER_ESP32_C6 0
-#  define BOARD_FIRE_BEETLE2_С6 1
-#  define BOARD_NANO_ESP32_C6 2
-#  define BOARD_WROVER_ESP32 3
-#  define BOARD_M5STACK_ATOM_LITE 4
+#  define BOARD_NANO_ESP32_C6 1
+#  define BOARD_M5STACK_ATOM_LITE 2
+// For future extension
+// #  define BOARD_FIRE_BEETLE2_С6 3
+// #  define BOARD_WROVER_ESP32 4
 
 #  ifndef BOARD
 #    define BOARD BOARD_AETHER_ESP32_C6
