@@ -31,6 +31,7 @@
 #endif
 
 #if defined(ESP_PLATFORM)
+#  include <cstdio>
 #  include <esp_sleep.h>
 #  include <esp_err.h>
 #  include <esp_event.h>
@@ -1670,6 +1671,21 @@ void CloseHotSendArtifacts(HotSendArtifacts* artifacts) {
   artifacts->sock = -1;
 }
 
+#if defined(AE_EXP_ENCODE_OVERLAP_DIAG) && AE_EXP_ENCODE_OVERLAP_DIAG
+#  define AE_OVERLAP_DIAG(...)          \
+    do {                                \
+      std::printf(__VA_ARGS__);         \
+      std::fflush(stdout);              \
+    } while (0)
+#else
+#  define AE_OVERLAP_DIAG(...) \
+    do {                       \
+    } while (0)
+#endif
+
+// Encode only. Socket/destination bind must wait until network-ready unless
+// AE_EXP_ENCODE_OVERLAP_LEGACY_EARLY_SOCKET keeps the broken early-bind path
+// for reproduction.
 HotSendStatus PrepareHotSendArtifacts(ae::DataBuffer const& payload,
                                       HotSendArtifacts* artifacts) {
   if (artifacts == nullptr) {
@@ -1683,28 +1699,69 @@ HotSendStatus PrepareHotSendArtifacts(ae::DataBuffer const& payload,
     return HotSendStatus::kNonceExhausted;
   }
 
+  AE_OVERLAP_DIAG("OVLP encode_begin\n");
   auto encode_result = ae::prepared_packet::EncodePacket(
       g_prepared_send_message_block, payload, artifacts->packet);
   if (!encode_result) {
     ClearPreparedSendBlock();
+    AE_OVERLAP_DIAG("OVLP encode_fail\n");
     return HotSendStatus::kEncodeFailed;
   }
+  AE_OVERLAP_DIAG("OVLP encode_end size=%u\n",
+                  static_cast<unsigned>(artifacts->packet.size()));
 
+#if defined(AE_EXP_ENCODE_OVERLAP_LEGACY_EARLY_SOCKET) && \
+    AE_EXP_ENCODE_OVERLAP_LEGACY_EARLY_SOCKET
+  // Legacy broken path: bind UDP before Wi-Fi/netif ready (H1 repro).
   auto const resolved_block = g_prepared_send_message_block.Resolve();
   auto endpoint = resolved_block->endpoint;
   if (!FillUdpDestination(endpoint,
                           reinterpret_cast<sockaddr*>(&artifacts->dest),
                           &artifacts->dest_len)) {
+    AE_OVERLAP_DIAG("OVLP early_dest_fail\n");
     return HotSendStatus::kSendFailed;
   }
-
   artifacts->sock = socket(
       endpoint.address.Index() == ae::AddrVersion::kIpV6 ? AF_INET6 : AF_INET,
       SOCK_DGRAM, IPPROTO_IP);
   if (artifacts->sock < 0) {
+    AE_OVERLAP_DIAG("OVLP early_sock_fail\n");
     return HotSendStatus::kSendFailed;
   }
+  AE_OVERLAP_DIAG("OVLP early_sock fd=%d\n", artifacts->sock);
+#endif
+
   artifacts->ready = true;
+  return HotSendStatus::kSent;
+}
+
+HotSendStatus BindHotSendSocketAfterNetworkReady(HotSendArtifacts* artifacts) {
+  if (artifacts == nullptr || !artifacts->ready || artifacts->packet.empty()) {
+    return HotSendStatus::kSendFailed;
+  }
+  if (artifacts->sock >= 0) {
+    // Already bound (legacy early-socket path).
+    return HotSendStatus::kSent;
+  }
+  if (!g_prepared_send_message_block.is_valid()) {
+    return HotSendStatus::kNoPreparedBlock;
+  }
+  auto const resolved_block = g_prepared_send_message_block.Resolve();
+  auto endpoint = resolved_block->endpoint;
+  if (!FillUdpDestination(endpoint,
+                          reinterpret_cast<sockaddr*>(&artifacts->dest),
+                          &artifacts->dest_len)) {
+    AE_OVERLAP_DIAG("OVLP late_dest_fail\n");
+    return HotSendStatus::kSendFailed;
+  }
+  artifacts->sock = socket(
+      endpoint.address.Index() == ae::AddrVersion::kIpV6 ? AF_INET6 : AF_INET,
+      SOCK_DGRAM, IPPROTO_IP);
+  if (artifacts->sock < 0) {
+    AE_OVERLAP_DIAG("OVLP late_sock_fail\n");
+    return HotSendStatus::kSendFailed;
+  }
+  AE_OVERLAP_DIAG("OVLP late_sock fd=%d\n", artifacts->sock);
   return HotSendStatus::kSent;
 }
 
@@ -2248,6 +2305,7 @@ FastSendResult SendPreparedOnceWithFastPath(
   std::int64_t t_ready = t0;
 
   if (cfg.encode_during_association) {
+    AE_OVERLAP_DIAG("OVLP wifi_start encode_overlap=1\n");
     if (!StartFastWifi(cfg, wifi_cache, false)) {
       CleanupHotPathWifiRuntime(cfg.teardown_policy);
       out.status = HotSendStatus::kWifiFailed;
@@ -2257,6 +2315,7 @@ FastSendResult SendPreparedOnceWithFastPath(
       out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
       out.connect_us = out.cycle_us;
       out.fail_stage = 1;
+      AE_OVERLAP_DIAG("OVLP wifi_start_fail\n");
       return out;
     }
     auto const assoc_deadline =
@@ -2269,15 +2328,19 @@ FastSendResult SendPreparedOnceWithFastPath(
         break;
       }
       if ((bits & kWifiReadyBit) != 0) {
+        AE_OVERLAP_DIAG("OVLP wifi_ready_bit\n");
         wifi_ready = FinishFastWifiAssociation(cfg, cache);
         t_ready = esp_timer_get_time();
+        AE_OVERLAP_DIAG("OVLP wifi_ready=%d arp=%u\n", wifi_ready ? 1 : 0,
+                        static_cast<unsigned>(g_last_used_static_arp));
         break;
       }
       if (!encoded) {
         auto const prep = PrepareHotSendArtifacts(payload, &artifacts);
         if (prep == HotSendStatus::kEncodeFailed ||
             prep == HotSendStatus::kNonceExhausted ||
-            prep == HotSendStatus::kNoPreparedBlock) {
+            prep == HotSendStatus::kNoPreparedBlock ||
+            prep == HotSendStatus::kSendFailed) {
           CleanupHotPathWifiRuntime(cfg.teardown_policy);
           out.status = prep;
           out.fail_stage = prep == HotSendStatus::kWifiFailed ? 1 : 2;
@@ -2299,6 +2362,7 @@ FastSendResult SendPreparedOnceWithFastPath(
       auto const elapsed = esp_timer_get_time() - t0;
       out.cycle_us = elapsed < 0 ? 0 : static_cast<std::uint32_t>(elapsed);
       out.connect_us = out.cycle_us;
+      AE_OVERLAP_DIAG("OVLP wifi_assoc_fail\n");
       return out;
     }
   } else if (!StartFastWifi(cfg, wifi_cache)) {
@@ -2362,8 +2426,20 @@ FastSendResult SendPreparedOnceWithFastPath(
   auto const t_post0 = esp_timer_get_time();
   if (cfg.post_mode != FastPostMode::kFixedDelay) {
     if (cfg.encode_during_association && artifacts.ready) {
-      encode_status =
-          SendHotArtifactsWithLateTxDone(artifacts, cfg, &out);
+      auto const bind_st = BindHotSendSocketAfterNetworkReady(&artifacts);
+      if (bind_st != HotSendStatus::kSent) {
+        CloseHotSendArtifacts(&artifacts);
+        encode_status = bind_st;
+      } else {
+        AE_OVERLAP_DIAG("OVLP send_begin sock=%d size=%u\n", artifacts.sock,
+                        static_cast<unsigned>(artifacts.packet.size()));
+        encode_status =
+            SendHotArtifactsWithLateTxDone(artifacts, cfg, &out);
+        AE_OVERLAP_DIAG(
+            "OVLP send_done st=%d sendto=%u txdone=%u\n",
+            static_cast<int>(encode_status), out.sendto_ok,
+            out.tx_done_confirmed);
+      }
     } else {
       encode_status =
           EncodeAndUdpSendWithLateTxDone(payload, &out, cfg);

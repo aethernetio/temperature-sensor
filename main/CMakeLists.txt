@@ -271,6 +271,9 @@ set(AE_EXP_ADAPTIVE_WIFI_PROBE_C "" CACHE STRING "Adaptive Wi-Fi probe Phase C p
 set(AE_EXP_PRODUCT_ADAPTIVE_PROBE "" CACHE STRING "Product adaptive Wi-Fi probe, self-selecting (set to 1)")
 set(AE_EXP_PREPARED_POWER_FACTOR "" CACHE STRING "Prepared-send power factor study (set to 1)")
 set(AE_EXP_PREPARED_FINAL_1MIN_100 "" CACHE STRING "Final 1-min 100-HOT energy run (set to 1)")
+set(AE_EXP_ENCODE_DURING_ASSOCIATION "" CACHE STRING "Force encode_during_association on power bench (set to 1)")
+set(AE_EXP_ENCODE_OVERLAP_DIAG "" CACHE STRING "Encode-overlap root-cause USB diagnostics (set to 1)")
+set(AE_EXP_ENCODE_OVERLAP_LEGACY_EARLY_SOCKET "" CACHE STRING "Reproduce broken early UDP socket bind (set to 1)")
 set(AE_POWER_BENCH_VARIANT "" CACHE STRING "Power bench variant id baked into firmware")
 set(AE_POWER_BENCH_ARM_MS "" CACHE STRING "Power bench BENCH_ARM wait before HOT100 (ms)")
 # The measured stages always deep sleep; these only size the run.
@@ -347,6 +350,9 @@ ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_C)
 ae_exp_define_if_set(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
 ae_exp_define_if_set(AE_EXP_PREPARED_POWER_FACTOR)
 ae_exp_define_if_set(AE_EXP_PREPARED_FINAL_1MIN_100)
+ae_exp_define_if_set(AE_EXP_ENCODE_DURING_ASSOCIATION)
+ae_exp_define_if_set(AE_EXP_ENCODE_OVERLAP_DIAG)
+ae_exp_define_if_set(AE_EXP_ENCODE_OVERLAP_LEGACY_EARLY_SOCKET)
 ae_exp_define_if_set(AE_POWER_BENCH_VARIANT)
 ae_exp_define_if_set(AE_POWER_BENCH_ARM_MS)
 ae_exp_define_if_set(AETHER_POWER_BENCH_HOT_ATTEMPTS)
@@ -433,8 +439,9 @@ ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
    AE_EXP_PREPARED_MAC_RETRY_DIAG STREQUAL "1" OR
    AE_EXP_PREPARED_BOOT_WIFI_OPT STREQUAL "1" OR
    AE_EXP_PREPARED_BOOT_WIFI_VAL100 STREQUAL "1" OR
-   AE_EXP_PREPARED_POWER_FACTOR STREQUAL "1" OR
    AE_EXP_PREPARED_FINAL_1MIN_100 STREQUAL "1" OR
+   (AE_EXP_PREPARED_POWER_FACTOR STREQUAL "1" AND
+    NOT AE_EXP_ENCODE_OVERLAP_DIAG STREQUAL "1") OR
    AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1" OR
    (AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1" AND
     NOT AE_EXP_BISECT_CONSOLE STREQUAL "1"))

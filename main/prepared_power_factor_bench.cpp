@@ -398,6 +398,15 @@ void RunHotOnce() {
   if (result.status == prepared_send::HotSendStatus::kSentTxUnconfirmed) {
     ++g_rtc.tx_unconfirmed;
   }
+#if defined(AE_EXP_ENCODE_OVERLAP_DIAG) && AE_EXP_ENCODE_OVERLAP_DIAG
+  std::printf(
+      "OVLP_HOT seq=%u st=%d sendto=%u txdone=%u wifi_fail=%u\n",
+      static_cast<unsigned>(g_rtc.seq), static_cast<int>(result.status),
+      static_cast<unsigned>(result.sendto_ok),
+      static_cast<unsigned>(result.tx_done_confirmed),
+      static_cast<unsigned>((flags & 4u) != 0));
+  std::fflush(stdout);
+#endif
   (void)flags;
   StoreRtc();
 }
@@ -413,7 +422,9 @@ void PrepareOnBoot() {
   g_early = GetExperimentEarlyEntrySnapshot();
   g_bench = power_bench::BuildVariant(
       static_cast<std::uint16_t>(AE_POWER_BENCH_VARIANT), WIFI_SSID);
-#if defined(AE_EXP_PREPARED_FINAL_1MIN_100)
+#if defined(AE_EXP_PREPARED_FINAL_1MIN_100) || \
+    defined(AE_EXP_ENCODE_DURING_ASSOCIATION) || \
+    defined(AE_EXP_ENCODE_OVERLAP_DIAG)
   g_bench.encode_during_association = true;
 #endif
   (void)power_bench::ApplyRuntimeOptions(g_bench);
