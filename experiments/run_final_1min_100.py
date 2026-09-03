@@ -257,17 +257,33 @@ def parse_rx_log(text: str) -> dict:
 
 def wait_run_done(rx_log: Path, ppk_proc: subprocess.Popen) -> dict:
     t0 = time.time()
-    last_seq100 = None
+    arm_at = None
+    seq100_at = None
+    # FULL + first 60 s sleep + 99 intervals + last HOT + final sleep settle.
+    cadence_s = (K_HOT_ATTEMPTS * (K_HOT_SLEEP_MS / 1000.0)) + 180.0
     while time.time() - t0 < RUN_TIMEOUT_S:
+        if ppk_proc.poll() is not None:
+            log("PPK integrate exited early")
+            text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.exists() else ""
+            return parse_rx_log(text)
         text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.exists() else ""
         rx = parse_rx_log(text)
+        if rx["full_success"] and arm_at is None:
+            arm_at = time.time()
+            log("BENCH_ARM seen; timing cadence window")
         if rx["max_seq"] >= K_HOT_ATTEMPTS:
-            if last_seq100 is None:
-                last_seq100 = time.time()
+            if seq100_at is None:
+                seq100_at = time.time()
                 log(f"seq100 seen unique={rx['rx_unique']}")
-            elif time.time() - last_seq100 >= IDLE_AFTER_SEQ100_S:
+            elif time.time() - seq100_at >= IDLE_AFTER_SEQ100_S:
                 log("idle after seq100 — run complete")
                 return rx
+        if arm_at is not None and (time.time() - arm_at) >= cadence_s:
+            log(
+                f"cadence window done unique={rx['rx_unique']}/"
+                f"{K_HOT_ATTEMPTS} elapsed_since_arm={time.time() - arm_at:.0f}s"
+            )
+            return rx
         time.sleep(POLL_S)
     raise RuntimeError("run timeout")
 
@@ -387,11 +403,20 @@ def write_report(rows: list[dict]) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ap", choices=APS_ORDER, help="Run single AP only")
+    ap.add_argument(
+        "--merge-json",
+        type=Path,
+        default=None,
+        help="Existing final_1min_100.json to merge prior AP rows",
+    )
     args = ap.parse_args()
     aps = [args.ap] if args.ap else APS_ORDER
 
-    rx_proc = None
     rows: list[dict] = []
+    if args.merge_json and args.merge_json.exists():
+        prev = json.loads(args.merge_json.read_text(encoding="utf-8-sig"))
+        rows.extend(prev.get("runs", []))
+        log(f"merged {len(rows)} prior rows from {args.merge_json}")
     rx_log = ROOT / "experiments" / "final_1min_100_rx.log"
     try:
         prod.kill_probe_receiver()
