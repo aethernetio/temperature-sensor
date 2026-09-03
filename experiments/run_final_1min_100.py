@@ -72,46 +72,96 @@ def build_dir(ap: str) -> Path:
 def cmake_configure(ap: str) -> None:
     bdir = build_dir(ap)
     bdir.mkdir(parents=True, exist_ok=True)
+    pf.BUILD = bdir
+    pf.CONFIGURED_MARK = bdir / "configured.txt"
     pf.camp.BUILD = bdir
     wifi = pf.camp.APS[ap]
+    if bdir.exists() and not (bdir / "CMakeCache.txt").exists():
+        import shutil
+
+        shutil.rmtree(bdir, ignore_errors=True)
+        bdir.mkdir(parents=True, exist_ok=True)
+    pf.camp.seed_usb_console_sdkconfig()
+    pf.force_sdk_measured(VARIANT_ID)
     extra = {
         "AE_EXP_PREPARED_POWER_FACTOR": "",
         "AE_EXP_PREPARED_FINAL_1MIN_100": "1",
-        "AE_POWER_BENCH_VARIANT": str(VARIANT_ID),
-        "AE_POWER_BENCH_ARM_MS": str(K_ARM_MS),
-        "AETHER_POWER_BENCH_HOT_ATTEMPTS": str(K_HOT_ATTEMPTS),
-        "AETHER_POWER_BENCH_HOT_SLEEP_MS": str(K_HOT_SLEEP_MS),
         "BENCH_CLIENT_ID": "reliability_full_v1",
+        "AE_POWER_BENCH_ARM_MS": str(K_ARM_MS),
     }
-    flags = pf.clear_power_exp_flags(extra)
     args = [
-        "cmake",
-        "-G",
-        "Ninja",
+        str(pf.camp.CMAKE),
         "-S",
         str(ROOT),
         "-B",
         str(bdir),
+        "-G",
+        "Ninja",
+        "-DCMAKE_SUPPRESS_REGENERATION=ON",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        f"-DCMAKE_TOOLCHAIN_FILE={pf.camp.TOOLCHAIN.as_posix()}",
+        "-DIDF_TARGET=esp32c6",
+        f"-DCPM_aether-client-cpp_SOURCE={pf.camp.AETHER}",
+        f"-DUSER_CONFIG={(ROOT / 'main' / 'user_config.h').as_posix()}",
+        f"-DFS_INIT={pf.camp.FS_INIT.as_posix()}",
+        f"-DSDKCONFIG={bdir.as_posix()}/sdkconfig",
+        "-DAE_DISTILLATION=ON",
+        "-DAE_FILTRATION=ON",
+        "-DAE_EXP_SKIP_DTOR_SAVE=1",
+        "-DAE_EXP_SILENT=1",
+        "-DCMAKE_BUILD_TYPE=Release",
         f"-DWIFI_SSID={wifi['ssid']}",
         f"-DWIFI_PASSWORD={wifi['password']}",
-        *flags,
-        "-DAE_EXP_PREPARED_FINAL_1MIN_100=1",
+        f"-DSERVICE_UID={pf.camp.SERVICE_UID}",
+        f"-DPython3_EXECUTABLE={pf.camp.PY.as_posix()}",
+        f"-DCMAKE_MAKE_PROGRAM={pf.camp.NINJA.as_posix()}",
+        f"-DCMAKE_C_COMPILER={(pf.camp.RISCV_BIN / 'riscv32-esp-elf-gcc.exe').as_posix()}",
+        f"-DCMAKE_CXX_COMPILER={(pf.camp.RISCV_BIN / 'riscv32-esp-elf-g++.exe').as_posix()}",
+        f"-DCMAKE_OBJCOPY={(pf.camp.RISCV_BIN / 'riscv32-esp-elf-objcopy.exe').as_posix()}",
         f"-DAE_POWER_BENCH_VARIANT={VARIANT_ID}",
         f"-DAE_POWER_BENCH_ARM_MS={K_ARM_MS}",
         f"-DAETHER_POWER_BENCH_HOT_ATTEMPTS={K_HOT_ATTEMPTS}",
         f"-DAETHER_POWER_BENCH_HOT_SLEEP_MS={K_HOT_SLEEP_MS}",
-        "-DBENCH_CLIENT_ID=reliability_full_v1",
+        f"-DAETHER_PREPARED_HOT_SLEEP_SECONDS={K_HOT_SLEEP_MS // 1000}",
+        f"-DAETHER_PREPARED_HOT_SLEEP_MS={K_HOT_SLEEP_MS}",
+        f"-DAETHER_PREPARED_NONCE_RESERVE={K_HOT_ATTEMPTS + 10}",
     ]
+    args.extend(pf.clear_power_exp_flags(extra))
+    for k, v in extra.items():
+        args.append(f"-D{k}={v}")
     log(f"cmake {ap} -> {bdir}")
+    pf.camp.clean_ninja_logs()
     r = subprocess.run(args, cwd=ROOT, env=pf.camp.env(), capture_output=True, text=True)
     if r.returncode != 0:
-        raise RuntimeError(f"cmake failed: {(r.stdout or '') + (r.stderr or '')}")
+        err = bdir / "cmake.err"
+        err.write_text((r.stdout or "") + "\n" + (r.stderr or ""), encoding="utf-8")
+        raise RuntimeError(f"cmake failed: {err}")
     pf.force_sdk_measured(VARIANT_ID)
-    pf.camp.BUILD = bdir
 
 
 def build_firmware(ap: str) -> None:
-    cmake_configure(ap)
+    bdir = build_dir(ap)
+    pf.BUILD = bdir
+    pf.CONFIGURED_MARK = bdir / "configured.txt"
+    pf.camp.BUILD = bdir
+    want = f"{ap}:final100:v{VARIANT_ID}:r{K_HOT_ATTEMPTS + 10}"
+    have = pf.CONFIGURED_MARK.read_text(encoding="utf-8").strip() if pf.CONFIGURED_MARK.exists() else ""
+    bin_path = bdir / "temperature_sensor.bin"
+    src_paths = [
+        ROOT / "main" / "prepared_power_factor_bench.cpp",
+        ROOT / "main" / "prepared_send" / "prepared_send.cpp",
+    ]
+    bin_fresh = bin_path.exists() and all(
+        p.exists() and bin_path.stat().st_mtime >= p.stat().st_mtime for p in src_paths
+    )
+    if have != want:
+        cmake_configure(ap)
+        pf.CONFIGURED_MARK.write_text(want, encoding="utf-8")
+    elif not bin_fresh:
+        pf.force_sdk_measured(VARIANT_ID)
+    if bin_fresh and have == want:
+        log("build skipped (firmware up to date)")
+        return
     pf.camp.ninja_build()
 
 
