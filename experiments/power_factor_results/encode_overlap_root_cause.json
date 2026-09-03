@@ -1,0 +1,88 @@
+{
+  "run_id": "20260903_115821",
+  "ap": "chirkov",
+  "original_failure_reproduced": false,
+  "root_cause": "not isolated to early socket; prior 0/100 not reproduced at 1s. Defensive fix: encode-only during association; UDP socket/sockaddr only after network-ready+ARP.",
+  "production_safe": true,
+  "final_ordering": [
+    "StartFastWifi(async)",
+    "EncodePacket during association",
+    "FinishFastWifiAssociation (static IP/ARP)",
+    "WaitUntilPreDeadline PRE=25ms",
+    "BindHotSendSocketAfterNetworkReady",
+    "TX-done register + sendto + wait",
+    "FULL teardown + deep sleep"
+  ],
+  "phases": {
+    "legacy10": {
+      "phase": "legacy10",
+      "ap": "chirkov",
+      "hot_attempts": 10,
+      "encode_during_association": true,
+      "legacy_early_socket": true,
+      "full_success": true,
+      "rx_unique": 10,
+      "rx_dup": 0,
+      "loss_pct": 0.0,
+      "sendto_ok": 10,
+      "txdone_ok": 0,
+      "run_id": "20260903_112412"
+    },
+    "control10": {
+      "phase": "control10",
+      "ap": "chirkov",
+      "hot_attempts": 10,
+      "encode_during_association": false,
+      "legacy_early_socket": false,
+      "full_success": true,
+      "rx_unique": 10,
+      "rx_dup": 0,
+      "loss_pct": 0.0,
+      "sendto_ok": 10,
+      "txdone_ok": 0,
+      "run_id": "20260903_113037"
+    },
+    "fixed10": {
+      "phase": "fixed10",
+      "ap": "chirkov",
+      "hot_attempts": 10,
+      "encode_during_association": true,
+      "legacy_early_socket": false,
+      "full_success": true,
+      "rx_unique": 10,
+      "rx_dup": 0,
+      "loss_pct": 0.0,
+      "sendto_ok": 10,
+      "txdone_ok": 0,
+      "run_id": "20260903_113620"
+    },
+    "sleep60_legacy5": {
+      "phase": "sleep60_legacy5",
+      "ap": "chirkov",
+      "hot_attempts": 5,
+      "encode_during_association": true,
+      "legacy_early_socket": true,
+      "full_success": true,
+      "rx_unique": 5,
+      "rx_dup": 0,
+      "loss_pct": 0.0,
+      "sendto_ok": 0,
+      "txdone_ok": 0,
+      "run_id": "20260903_114811"
+    },
+    "final50": {
+      "phase": "final50",
+      "ap": "chirkov",
+      "hot_attempts": 50,
+      "encode_during_association": true,
+      "legacy_early_socket": false,
+      "full_success": true,
+      "rx_unique": 50,
+      "rx_dup": 0,
+      "loss_pct": 0.0,
+      "sendto_ok": 50,
+      "txdone_ok": 0,
+      "run_id": "20260903_115821"
+    }
+  }
+}
