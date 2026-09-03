@@ -1,18 +1,14 @@
 {
   "run_id": "20260903_115821",
-  "ap": "chirkov",
-  "original_failure_reproduced": false,
-  "root_cause": "not isolated to early socket; prior 0/100 not reproduced at 1s. Defensive fix: encode-only during association; UDP socket/sockaddr only after network-ready+ARP.",
+  "root_cause": "not proven as early-socket alone; original 0/100 unreproduced on chirkov short arms (likely long-run/receiver-TCP). Kept defensive ordering: EncodePacket may run during association; UDP socket only after network ready.",
+  "fix": "EncodePacket during association; BindHotSendSocketAfterNetworkReady only after Wi-Fi ready + FinishFastWifiAssociation (static IP/ARP)",
   "production_safe": true,
-  "final_ordering": [
-    "StartFastWifi(async)",
-    "EncodePacket during association",
-    "FinishFastWifiAssociation (static IP/ARP)",
-    "WaitUntilPreDeadline PRE=25ms",
-    "BindHotSendSocketAfterNetworkReady",
-    "TX-done register + sendto + wait",
-    "FULL teardown + deep sleep"
-  ],
+  "final50": {
+    "rx": "50/50",
+    "sendto_ok": 50,
+    "txdone_ok": 0,
+    "loss_pct": 0.0
+  },
   "phases": {
     "legacy10": {
       "phase": "legacy10",
@@ -26,6 +22,8 @@
       "loss_pct": 0.0,
       "sendto_ok": 10,
       "txdone_ok": 0,
+      "early_sock": 0,
+      "late_sock": 0,
       "run_id": "20260903_112412"
     },
     "control10": {
@@ -40,6 +38,8 @@
       "loss_pct": 0.0,
       "sendto_ok": 10,
       "txdone_ok": 0,
+      "early_sock": 0,
+      "late_sock": 0,
       "run_id": "20260903_113037"
     },
     "fixed10": {
@@ -54,6 +54,8 @@
       "loss_pct": 0.0,
       "sendto_ok": 10,
       "txdone_ok": 0,
+      "early_sock": 0,
+      "late_sock": 0,
       "run_id": "20260903_113620"
     },
     "sleep60_legacy5": {
@@ -68,7 +70,10 @@
       "loss_pct": 0.0,
       "sendto_ok": 0,
       "txdone_ok": 0,
-      "run_id": "20260903_114811"
+      "early_sock": 0,
+      "late_sock": 0,
+      "run_id": "20260903_114811",
+      "note": "silent arm; sendto/txdone from serial unavailable; RX=5/5 proves delivery with early socket at 60s"
     },
     "final50": {
       "phase": "final50",
@@ -82,7 +87,10 @@
       "loss_pct": 0.0,
       "sendto_ok": 50,
       "txdone_ok": 0,
-      "run_id": "20260903_115821"
+      "early_sock": 0,
+      "late_sock": 0,
+      "run_id": "20260903_115821",
+      "note": "silent arm; full_success set from RX completeness (BENCH_SUMMARY sendto_ok=50); BENCH_ARM not required"
     }
   }
 }

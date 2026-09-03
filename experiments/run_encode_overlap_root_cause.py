@@ -356,9 +356,31 @@ def write_report(rows: dict[str, dict]) -> None:
     fixed = rows.get("fixed10", rows.get("final50", {}))
     final = rows.get("final50", {})
 
+    # Mark RX-complete arms as successful even when silent (no BENCH_ARM).
+    for _name, _row in rows.items():
+        if (
+            isinstance(_row, dict)
+            and _row.get("rx_unique", 0) >= _row.get("hot_attempts", 1)
+        ):
+            _row["full_success"] = True
+
+    legacy_rx = legacy.get("rx_unique", 1)
+    reproduced = "yes" if legacy_rx == 0 else "no"
     root_cause = (
-        "UDP socket (and destination bind) created during association, "
-        "before netif/IP/ARP readiness; sendto used a stale/invalid early socket"
+        "not proven as early-socket alone; original 0/100 unreproduced on "
+        "chirkov short arms (likely long-run/receiver-TCP). Kept defensive "
+        "ordering: EncodePacket may run during association; UDP socket only "
+        "after network ready."
+    )
+    if legacy_rx == 0:
+        root_cause = (
+            "UDP socket (and destination bind) created during association, "
+            "before netif/IP/ARP readiness; sendto used a stale/invalid early "
+            "socket"
+        )
+    fix = (
+        "EncodePacket during association; BindHotSendSocketAfterNetworkReady "
+        "only after Wi-Fi ready + FinishFastWifiAssociation (static IP/ARP)"
     )
     production_safe = (
         final.get("rx_unique", 0) >= 45 and final.get("hot_attempts", 50) == 50
@@ -368,10 +390,10 @@ def write_report(rows: dict[str, dict]) -> None:
         "# Prepared encode-overlap root cause",
         "",
         f"Run id: `{RUN_ID}`",
-        "AP: chirkov only. Interval: 1 s. No PPK.",
+        "AP: chirkov only. Interval: 1 s (except sleep60_legacy5 at 60 s). No PPK.",
         "",
         "## ORIGINAL FAILURE",
-        f"reproduced={'yes' if legacy.get('rx_unique', 1) == 0 else 'partial/no'}",
+        f"reproduced={reproduced}",
         f"RX={legacy.get('rx_unique', '?')}/{legacy.get('hot_attempts', 10)}",
         f"sendto_ok={legacy.get('sendto_ok', '?')} txdone_ok={legacy.get('txdone_ok', '?')}",
         "",
@@ -405,7 +427,13 @@ def write_report(rows: dict[str, dict]) -> None:
         "| phase | encode_overlap | early_socket | RX | sendto | txdone | loss |",
         "|---|---|---|---:|---:|---:|---:|",
     ]
-    for name in ("legacy10", "control10", "fixed10", "final50"):
+    for name in (
+        "legacy10",
+        "control10",
+        "fixed10",
+        "sleep60_legacy5",
+        "final50",
+    ):
         r = rows.get(name)
         if not r:
             continue
@@ -421,7 +449,17 @@ def write_report(rows: dict[str, dict]) -> None:
             {
                 "run_id": RUN_ID,
                 "root_cause": root_cause,
+                "fix": fix,
                 "production_safe": production_safe,
+                "final50": {
+                    "rx": (
+                        f"{final.get('rx_unique', '?')}/"
+                        f"{final.get('hot_attempts', 50)}"
+                    ),
+                    "sendto_ok": final.get("sendto_ok", 0),
+                    "txdone_ok": final.get("txdone_ok", 0),
+                    "loss_pct": final.get("loss_pct", 0.0),
+                },
                 "phases": rows,
             },
             indent=2,

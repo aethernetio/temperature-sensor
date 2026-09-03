@@ -1,70 +1,54 @@
 # Prepared encode-overlap root cause
 
-AP: **chirkov** only. Interval: **1 s**. No PPK. No aethernetio.
+Run id: `20260903_115821`
+AP: chirkov only. Interval: 1 s (except sleep60_legacy5 at 60 s). No PPK.
 
 ## ORIGINAL FAILURE
+reproduced=no
+RX=10/10 (legacy10 early socket at 1 s did **not** reproduce the historical 0/100)
+sendto_ok=10 txdone_ok=0
 
-reproduced=**no** (at 1 s cadence)
+Hypothesis under test: UDP socket (and destination bind) created during association,
+before netif/IP/ARP readiness, leaving sendto on a stale/invalid early socket.
 
-| probe | encode overlap | early socket | RX | notes |
-|---|---|---|---:|---|
-| legacy10 | yes | yes (broken path) | **10/10** | early UDP bind still delivered |
-| sleep60_legacy5 | yes | yes | **5/5** | 60 s sleep also delivered |
-| prior FINAL_1MIN_100 | yes | yes | **0/100** | ~100 min silent run; receiver TCP flaps |
-
-So the prior **0/100** is **not explained by early socket alone** under short 1 s / 5×60 s probes.
-
-Likely contributors to the original 0/100 (not isolated further here):
-
-- long silent `AE_EXP_PREPARED_FINAL_1MIN_100` run (~100 min)
-- desktop receiver TCP link flaps during that window
-- no local serial on that run (sendto/txdone unknown)
+Result: early-socket-alone was **not** proven. All short legacy/control/fixed arms
+delivered 100% RX. sleep60_legacy5 also delivered 5/5 with early socket at 60 s.
+Original 0/100 is more likely long-run / receiver-TCP related (unproven here).
 
 ## ROOT CAUSE
-
-exact cause=**not isolated to early socket**; original 0/100 not reproduced.
-
-**Defensive fix (production ordering) applied anyway:**
-
-Previous overlap path did `EncodePacket` **and** `socket()` / `FillUdpDestination` during association. Network-dependent bind is deferred until after Wi-Fi/netif ready + static ARP.
+exact cause=not proven as early-socket alone; original 0/100 unreproduced on chirkov short arms (likely long-run/receiver-TCP). Kept defensive ordering: EncodePacket may run during association; UDP socket only after network ready.
 
 ## CONTROL
-
-RX=**10/10** (encode AFTER association, no overlap)
+RX=10/10 (encode AFTER association)
 
 ## FIXED OVERLAP
-
-| phase | RX | sendto_ok | txdone_ok | loss |
-|---|---:|---:|---:|---:|
-| fixed10 (diag) | 10/10 | 10 | 0 | 0% |
-| **final50 (silent)** | **50/50** | **50** | **0** | **0%** |
-
-`txdone_ok=0` while RX succeeds: TX-done callback confirmation is unreliable on this path; datagrams still deliver. Separate from overlap ordering.
+RX=50/50
+sendto_ok=50
+txdone_ok=0
+loss=0.0%
 
 ## FINAL ORDERING
-
 exact operation sequence=
+1. StartFastWifi(async, no wait)
+2. EncodePacket while association in progress (nonce advanced)
+3. wait Wi-Fi ready + FinishFastWifiAssociation (static IP/ARP)
+4. WaitUntilPreDeadline(PRE=25 ms from ready)
+5. BindHotSendSocketAfterNetworkReady (socket + sockaddr)
+6. register TX-done, sendto, wait TX-done
+7. FULL teardown, deep sleep
 
-1. `StartFastWifi(async, wait_ready=false)`
-2. `EncodePacket` while association runs (nonce advances)
-3. wait Wi-Fi ready → `FinishFastWifiAssociation` (static IP / static ARP)
-4. `WaitUntilPreDeadline` (PRE=25 ms from ready; no extra PRE after encode)
-5. `BindHotSendSocketAfterNetworkReady` (`FillUdpDestination` + `socket`)
-6. register TX-done → `sendto` → wait TX-done
-7. FULL teardown → deep sleep
-
-## PRODUCTION_SAFE
-
-**yes** for encode-overlap with late socket bind (final50 = 50/50 on chirkov @ 1 s).
-
-Do **not** treat the prior 0/100 as proof that early socket always fails; keep late bind as the stable contract.
+PRODUCTION_SAFE=yes
 
 ## Phase table
-
 | phase | encode_overlap | early_socket | RX | sendto | txdone | loss |
 |---|---|---|---:|---:|---:|---:|
 | legacy10 | 1 | 1 | 10/10 | 10 | 0 | 0.0% |
 | control10 | 0 | 0 | 10/10 | 10 | 0 | 0.0% |
 | fixed10 | 1 | 0 | 10/10 | 10 | 0 | 0.0% |
-| sleep60_legacy5 | 1 | 1 | 5/5 | — | — | 0.0% |
+| sleep60_legacy5 | 1 | 1 | 5/5 | 0 | 0 | 0.0% |
 | final50 | 1 | 0 | 50/50 | 50 | 0 | 0.0% |
+
+Notes:
+- sleep60_legacy5 was silent (no serial OVLP_HOT lines); sendto/txdone counters from serial are 0, but RX=5/5.
+- final50 was silent; BENCH_SUMMARY reported sendto_ok=50 txdone_ok=0; RX=50/50.
+- Fix retained for production safety despite unreproduced early-socket failure mode.
