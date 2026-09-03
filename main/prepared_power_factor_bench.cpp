@@ -290,11 +290,6 @@ void MaybeStartStreamWork() {
     if (n > 0) {
       WritePayload(buf, n);
     }
-    // Visible even with silent sdkconfig via USB early printf path when present.
-    std::printf("BENCH_ARM expected=%u sleep_us=%lu\n",
-                static_cast<unsigned>(kHotAttempts),
-                static_cast<unsigned long>(kSleepUs));
-    std::fflush(stdout);
     return;
   }
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullSummary)) {
@@ -418,6 +413,9 @@ void PrepareOnBoot() {
   g_early = GetExperimentEarlyEntrySnapshot();
   g_bench = power_bench::BuildVariant(
       static_cast<std::uint16_t>(AE_POWER_BENCH_VARIANT), WIFI_SSID);
+#if defined(AE_EXP_PREPARED_FINAL_1MIN_100)
+  g_bench.encode_during_association = true;
+#endif
   (void)power_bench::ApplyRuntimeOptions(g_bench);
   power_bench::ApplyPhyCalibrationPolicy(g_bench);
   g_cfg = power_bench::MakeApFastPath(WIFI_SSID, g_bench);
@@ -511,9 +509,15 @@ void loop() {
 
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kHot)) {
     if (g_rtc.hot_attempts >= kHotAttempts) {
+#if defined(AE_EXP_PREPARED_FINAL_1MIN_100)
+      g_rtc.phase = static_cast<std::uint8_t>(Phase::kDone);
+      StoreRtc();
+      DeepSleepHot();
+#else
       g_rtc.phase = static_cast<std::uint8_t>(Phase::kFullSummary);
       StoreRtc();
       RestartTo(Phase::kFullSummary);
+#endif
     }
     if (g_rtc.hot_armed == 0) {
       g_rtc.hot_armed = 1;
