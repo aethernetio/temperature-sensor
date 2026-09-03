@@ -1,0 +1,47 @@
+{
+  "run_id": "20260903_092646",
+  "variant_id": 400,
+  "hot_sleep_ms": 60000,
+  "hot_attempts": 100,
+  "ppk_voltage_mv": 3000,
+  "encode_overlap_implemented": "yes",
+  "encode_overlap_production_ready": "no",
+  "runs": [
+    {
+      "ap": "chirkov",
+      "variant_id": 400,
+      "full_success": true,
+      "hot_attempts": 100,
+      "rx_unique": 0,
+      "rx_dup": 0,
+      "loss_pct": 100.0,
+      "elapsed_s": 7640.839,
+      "total_energy_J": 9.826122021,
+      "total_charge_mAh": 0.909826112,
+      "avg_current_mA": 0.428667,
+      "amortized_J_per_message": 0.09826122,
+      "cr2_life_days": 77.7,
+      "cr2_life_months": 2.55,
+      "ppk_checkpoint": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\final_1min_100\\chirkov_20260903_071359_ppk.json",
+      "run_id": "20260903_071359"
+    },
+    {
+      "ap": "aethernetio",
+      "variant_id": 400,
+      "full_success": true,
+      "hot_attempts": 100,
+      "rx_unique": 0,
+      "rx_dup": 0,
+      "loss_pct": 100.0,
+      "elapsed_s": 6232.39,
+      "total_energy_J": 9.579064756,
+      "total_charge_mAh": 0.886950438,
+      "avg_current_mA": 0.512327,
+      "amortized_J_per_message": 0.095790648,
+      "cr2_life_days": 65.1,
+      "cr2_life_months": 2.14,
+      "ppk_checkpoint": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\final_1min_100\\aethernetio_20260903_092646_ppk.json",
+      "run_id": "20260903_092646"
+    }
+  ]
+}
