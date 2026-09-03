@@ -3,3 +3,17 @@ sdkconfig*
 
 !sdkconfig.defaults.*
 
+
+bpb/
+
+build-power-best/
+
+experiments/power_modes_raw/
+
+experiments/power_best_config/*.lock
+
+experiments/power_best_config/*.pid
+
+experiments/power_best_config/*.log
+
+experiments/__pycache__/

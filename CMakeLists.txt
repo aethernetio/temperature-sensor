@@ -137,9 +137,26 @@ elseif(AE_EXP_PREPARED_MESSAGE_E2E STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.bench")
 elseif(AE_EXP_PREPARED_POWER_FACTOR STREQUAL "1")
+  # Must include sdkconfig.defaults: setting SDKCONFIG_DEFAULTS replaces IDF's
+  # implicit defaults file. Omitting it drops ULP (and other product Kconfig)
+  # and leaves ulp_add_project with an empty CMAKE_TOOLCHAIN_FILE.
   list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
+  set(CMAKE_SUPPRESS_REGENERATION ON)
+elseif(AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1")
+  # Product prepared HOT path uses the measured low-power sdkconfig stack.
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
+endif()
+
+# Default product firmware (no AE_EXP_*): same prepared low-power production path.
+if(NOT SDKCONFIG_DEFAULTS)
+  set(SDKCONFIG_DEFAULTS
+      "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+      "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -151,7 +168,7 @@ set(AE_FILTRATION On CACHE BOOL "Set filtration mode by default" FORCE)
 # add user provided config wich will be included as regular .h file
 # Add a user-provided config file, which will be included as a regular .h file
 if(NOT AE_EXP_FULL_AETHER_AETHERNETIO STREQUAL "1")
-  set(USER_CONFIG "user_config.h" CACHE PATH "" FORCE)
+  set(USER_CONFIG "${CMAKE_CURRENT_LIST_DIR}/main/user_config.h" CACHE FILEPATH "" FORCE)
 endif()
 # ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
 include_directories(${CMAKE_CURRENT_LIST_DIR}/main)

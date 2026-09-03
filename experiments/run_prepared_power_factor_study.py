@@ -315,6 +315,13 @@ def force_sdk_measured(variant_id: int) -> None:
         "CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE",
         variant_id not in DISC_PM_OFF_VARIANTS,
     )
+    # Product firmware always builds ULP. Without these, a missing donor
+    # sdkconfig + SDKCONFIG_DEFAULTS overlay leaves ULP off and ninja fails
+    # configuring ulp_main (empty CMAKE_TOOLCHAIN_FILE).
+    text = _set_kconfig_bool(text, "CONFIG_ULP_COPROC_ENABLED", True)
+    text = _set_kconfig_bool(text, "CONFIG_ULP_COPROC_TYPE_LP_CORE", True)
+    if "CONFIG_ULP_COPROC_RESERVE_MEM=" not in text:
+        text += "CONFIG_ULP_COPROC_RESERVE_MEM=13312" + chr(10)
     sdk.write_text(text, encoding="utf-8")
     # Keep generated headers honest when confgen fights unset defaults.
     _sync_sdkconfig_headers(variant_id)
@@ -433,6 +440,17 @@ def cmake_configure_power(
 
             log("wiping host-msys build dir")
             shutil.rmtree(BUILD, ignore_errors=True)
+        else:
+            cc = ""
+            for line in text.splitlines():
+                if line.startswith("CMAKE_C_COMPILER:"):
+                    cc = line.split("=", 1)[-1].strip()
+                    break
+            if cc and not Path(cc).is_file():
+                import shutil
+
+                log(f"wiping build dir with invalid CMAKE_C_COMPILER={cc}")
+                shutil.rmtree(BUILD, ignore_errors=True)
     camp.seed_usb_console_sdkconfig()
     force_sdk_measured(variant_id)
     extra = {
@@ -448,10 +466,12 @@ def cmake_configure_power(
         str(BUILD),
         "-G",
         "Ninja",
+        "-DCMAKE_SUPPRESS_REGENERATION=ON",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         f"-DCMAKE_TOOLCHAIN_FILE={camp.TOOLCHAIN.as_posix()}",
         "-DIDF_TARGET=esp32c6",
         f"-DCPM_aether-client-cpp_SOURCE={camp.AETHER}",
-        f"-DUSER_CONFIG={camp.USER_CONFIG}",
+        f"-DUSER_CONFIG={(ROOT / 'main' / 'user_config.h').as_posix()}",
         f"-DFS_INIT={camp.FS_INIT.as_posix()}",
         f"-DSDKCONFIG={BUILD.as_posix()}/sdkconfig",
         "-DAE_DISTILLATION=ON",
@@ -555,7 +575,7 @@ def parse_rx_progress(text: str) -> dict:
     max_seq = max(all_seq) if all_seq else 0
     summaries = list(
         re.finditer(
-            r"BENCH_SUMMARY .* hot_attempts=(\d+)", text
+            r"BENCH_SUMMARY .*\b(?:hot_)?attempts=(\d+)", text
         )
     )
     hot_summaries = list(
@@ -574,7 +594,8 @@ def parse_rx_progress(text: str) -> dict:
         if sent >= K_HOT_ATTEMPTS:
             bench_done = True
     # Accept max seq as done: one lost packet must not stall PPK forever.
-    if unique >= K_HOT_ATTEMPTS or max_seq >= K_HOT_ATTEMPTS:
+    # Firmware may emit seq 1..N-1 for N attempts (max_seq == N-1).
+    if unique >= K_HOT_ATTEMPTS or max_seq >= K_HOT_ATTEMPTS or max_seq + 1 >= K_HOT_ATTEMPTS:
         bench_done = True
     return {
         "bench_arm": bench_arm,

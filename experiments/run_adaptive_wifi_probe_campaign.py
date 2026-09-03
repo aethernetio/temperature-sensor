@@ -60,6 +60,7 @@ def _path_blocked(path: str) -> bool:
         "windowsapps",
         "/msys64/",
         "/git/mingw64/bin",
+        "/git/usr/bin",
         "/mingw64/libexec/git-core",
     )
     return any(token in lower for token in blocked)
@@ -136,14 +137,19 @@ def env() -> dict:
         CCACHE,
         str(PY.parent),
         str(RISCV_BIN),
+        r"C:\Espressif\tools\esp32ulp-elf\2.38_20240113\esp32ulp-elf\bin",
         str(NINJA.parent),
         str(CMAKE.parent),
         r"C:\Program Files\Git\cmd",
-        r"C:\Program Files\Git\usr\bin",
         r"C:\Program Files\Git\mingw64\libexec\git-core",
     ]
-    tail = [p for p in e.get("Path", "").split(";") if p and not _path_blocked(p)]
-    e["Path"] = ";".join(dict.fromkeys(extra + tail))
+    # os.environ.copy() is a plain dict, so PATH and Path can both exist on
+    # Windows. CreateProcess then often uses the original PATH (no RISC-V).
+    old_path = e.get("PATH") or e.get("Path") or ""
+    for key in [k for k in list(e) if k.lower() == "path"]:
+        e.pop(key, None)
+    tail = [p for p in old_path.split(";") if p and not _path_blocked(p)]
+    e["PATH"] = ";".join(dict.fromkeys(extra + tail))
     e.pop("CCACHE_DISABLE", None)
     return e
 

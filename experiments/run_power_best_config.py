@@ -21,6 +21,8 @@ Does not touch the server. Raw PPK CSVs stay untracked.
 from __future__ import annotations
 
 import argparse
+import atexit
+import ctypes
 import hashlib
 import json
 import os
@@ -42,6 +44,7 @@ BEST_ROOT = ROOT / "experiments" / "power_best_config"
 RAW_DIR = ROOT / "experiments" / "power_modes_raw" / "best_config"
 CHECKPOINT = BEST_ROOT / "checkpoint.json"
 PROGRESS = BEST_ROOT / "progress.log"
+CAMPAIGN_LOCK = BEST_ROOT / "campaign.lock"
 RESULTS_TSV = ROOT / "experiments" / "power_factor_results" / "best_config.tsv"
 REPORT_MD = ROOT / "experiments" / "PREPARED_POWER_BEST_CONFIG.md"
 
@@ -165,10 +168,62 @@ def cpu_mhz(variant_id: int) -> int:
     return mapping.get(variant_id, 160)
 
 
+# Short dir names keep Windows object paths under CMAKE_OBJECT_PATH_MAX and
+# avoid ULP ExternalProject try-compile failures on deep trees.
+_BUILD_ALIAS = {
+    "LONG1000_CHIRKOV": "L1C",
+    "LONG1000_AETHERNETIO": "L1A",
+    "SLEEP60_CHIRKOV": "S60C",
+    "SLEEP60_AETHERNETIO": "S60A",
+    "F_NOSKIP_CPU80_FULL": "F",
+}
+
+
+def _build_root() -> Path:
+    # Prefer short run stem (YYMMDD_HHMM) under bpb/ to shrink paths.
+    short_run = RUN_ID[2:8] + RUN_ID[9:13] if len(RUN_ID) >= 13 else RUN_ID
+    return ROOT / "bpb" / short_run
+
+
+def _build_dir(task_id: str, ap: str) -> Path:
+    alias = _BUILD_ALIAS.get(task_id, task_id[:8])
+    return _build_root() / alias / ap[:1]
+
+
+def reclaim_finished_builds(keep_task: str | None = None) -> None:
+    """Drop isolated IDF trees after a task finishes so later ninja/ar is not ENOSPC."""
+    root = _build_root()
+    if not root.exists():
+        return
+    keep_alias = (
+        _BUILD_ALIAS.get(keep_task, keep_task[:8]) if keep_task else None
+    )
+    for p in root.iterdir():
+        if not p.is_dir():
+            continue
+        if keep_alias and p.name == keep_alias:
+            continue
+        log(f"reclaim build {p.name}")
+        shutil.rmtree(p, ignore_errors=True)
+
+
 def isolate_build(task_id: str, ap: str) -> Path:
-    build = ROOT / "build-power-best" / RUN_ID / task_id / ap
+    reclaim_finished_builds(keep_task=task_id)
+    build = _build_dir(task_id, ap)
+    bin_path = build / "temperature_sensor.bin"
+    configured = build / "_configured.txt"
+    # Reuse a finished firmware tree after a mid-run kill (avoid 20min -j1 rebuild).
+    if bin_path.exists() and configured.exists():
+        log(f"reuse existing build {build}")
+        pf.BUILD = build
+        pf.camp.BUILD = build
+        pf.CONFIGURED_MARK = configured
+        return build
     if build.exists():
         shutil.rmtree(build, ignore_errors=True)
+    if build.exists():
+        time.sleep(0.5)
+        shutil.rmtree(build)
     build.mkdir(parents=True, exist_ok=True)
     pf.BUILD = build
     pf.camp.BUILD = build
@@ -249,39 +304,150 @@ def analyze_csv(csv_path: Path) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
-def ninja_build_isolated(build: Path, variant_id: int) -> None:
-    pf.BUILD = build
-    pf.camp.BUILD = build
-    pf.assert_sdk_matches_variant(variant_id)
-    jobs = max(2, (os.cpu_count() or 4) - 1)
-    log(f"ninja -j{jobs} in {build}")
-    r = subprocess.run(
+def _pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, int(pid))
+    except Exception:
+        return False
+    if handle:
+        ctypes.windll.kernel32.CloseHandle(handle)
+        return True
+    return False
+
+
+def acquire_campaign_lock() -> None:
+    """Refuse to start a second campaign on the same checkpoint/build tree."""
+    BEST_ROOT.mkdir(parents=True, exist_ok=True)
+    my_pid = os.getpid()
+    if CAMPAIGN_LOCK.exists():
+        try:
+            old_pid = int(CAMPAIGN_LOCK.read_text(encoding="utf-8").split()[0])
+        except (ValueError, OSError):
+            old_pid = 0
+        if old_pid and old_pid != my_pid and _pid_alive(old_pid):
+            raise SystemExit(
+                f"campaign already running pid={old_pid}; not starting a second copy"
+            )
+    CAMPAIGN_LOCK.write_text(
+        f"{my_pid}\n{time.strftime('%Y-%m-%d %H:%M:%S')}\n{RUN_ID}\n",
+        encoding="utf-8",
+    )
+    atexit.register(release_campaign_lock)
+
+
+def release_campaign_lock() -> None:
+    try:
+        if not CAMPAIGN_LOCK.exists():
+            return
+        owner = int(CAMPAIGN_LOCK.read_text(encoding="utf-8").split()[0])
+        if owner == os.getpid():
+            CAMPAIGN_LOCK.unlink()
+    except (ValueError, OSError):
+        return
+
+
+def _ninja_needs_reconfigure(log_text: str) -> bool:
+    t = log_text.lower()
+    return (
+        "verifyglobs" in t
+        or "rebuilding 'build.ninja'" in t
+        or "rebuilding `build.ninja`" in t
+        or ("not a file:" in t and "cmakefiles" in t)
+    )
+
+
+def _run_ninja(build: Path, jobs: int) -> subprocess.CompletedProcess:
+    return subprocess.run(
         [str(pf.camp.NINJA), "-C", str(build), "-j", str(jobs)],
         cwd=str(ROOT),
         env=pf.camp.env(),
         capture_output=True,
         text=True,
     )
+
+
+def _cmake_reconfigure_build(build: Path) -> None:
+    """Regenerate ninja/glob files in an existing isolated build dir."""
+    log(f"cmake reconfigure {build}")
+    r = subprocess.run(
+        [str(pf.camp.CMAKE), "-S", str(ROOT), "-B", str(build)],
+        cwd=str(ROOT),
+        env=pf.camp.env(),
+        capture_output=True,
+        text=True,
+    )
     if r.returncode != 0:
-        err = BEST_ROOT / RUN_ID / "ninja_fail.txt"
+        err = BEST_ROOT / RUN_ID / "cmake_reconfigure_fail.txt"
         err.parent.mkdir(parents=True, exist_ok=True)
         err.write_text((r.stdout or "") + "\n" + (r.stderr or ""), encoding="utf-8")
-        raise RuntimeError(f"ninja failed rc={r.returncode} log={err}")
+        raise RuntimeError(f"cmake reconfigure failed rc={r.returncode} log={err}")
+
+
+def ninja_build_isolated(build: Path, variant_id: int) -> None:
+    pf.BUILD = build
+    pf.camp.BUILD = build
+    pf.assert_sdk_matches_variant(variant_id)
+    jobs = 1
+    log(f"ninja -j{jobs} in {build}")
+    r = _run_ninja(build, jobs)
+    if r.returncode != 0:
+        log_text = (r.stdout or "") + "\n" + (r.stderr or "")
+        err = BEST_ROOT / RUN_ID / "ninja_fail.txt"
+        err.parent.mkdir(parents=True, exist_ok=True)
+        err.write_text(log_text, encoding="utf-8")
+        low = log_text.lower()
+        if "no space left" in low:
+            log("ninja ENOSPC; reclaim finished builds and retry")
+            reclaim_finished_builds(keep_task=build.parent.name)
+            r = _run_ninja(build, jobs)
+            if r.returncode != 0:
+                err.write_text((r.stdout or "") + "\n" + (r.stderr or ""), encoding="utf-8")
+                raise RuntimeError(f"ninja failed after ENOSPC reclaim rc={r.returncode} log={err}")
+        elif "sdkconfig.h" in log_text and "No such file" in log_text:
+            log("ninja sdkconfig.h restat race; retry in place")
+            pf.force_sdk_measured(variant_id)
+            r = _run_ninja(build, jobs)
+            if r.returncode != 0:
+                err.write_text((r.stdout or "") + "\n" + (r.stderr or ""), encoding="utf-8")
+                raise RuntimeError(f"ninja failed after sdkconfig.h retry rc={r.returncode} log={err}")
+        else:
+            raise RuntimeError(f"ninja failed rc={r.returncode} log={err}")
     try:
         pf.assert_sdk_matches_variant(variant_id)
     except RuntimeError as exc:
         log(f"post-ninja sdk drift ({exc}); re-lock and rebuild")
         pf.force_sdk_measured(variant_id)
-        r2 = subprocess.run(
-            [str(pf.camp.NINJA), "-C", str(build), "-j", str(jobs)],
-            cwd=str(ROOT),
-            env=pf.camp.env(),
-            capture_output=True,
-            text=True,
-        )
+        r2 = _run_ninja(build, jobs)
         if r2.returncode != 0:
             raise RuntimeError(f"ninja rebuild failed rc={r2.returncode}") from exc
         pf.assert_sdk_matches_variant(variant_id)
+
+
+def assert_hot_attempts_in_firmware(build: Path, want_hot: int) -> None:
+    """Fail flash if prepared_power_factor_bench was not compiled with want_hot."""
+    if want_hot <= 100:
+        return
+    cc = build / "compile_commands.json"
+    if not cc.exists():
+        raise RuntimeError(f"missing compile_commands.json in {build}")
+    entries = json.loads(cc.read_text(encoding="utf-8"))
+    cmd = ""
+    for ent in entries:
+        f = str(ent.get("file", "")).replace("\\", "/")
+        if f.endswith("prepared_power_factor_bench.cpp"):
+            cmd = ent.get("command") or " ".join(ent.get("arguments") or [])
+            break
+    if not cmd:
+        raise RuntimeError("prepared_power_factor_bench.cpp not in compile_commands.json")
+    token = f"AETHER_POWER_BENCH_HOT_ATTEMPTS={want_hot}"
+    if token not in cmd:
+        raise RuntimeError(
+            f"firmware compile missing {token}; command snippet has "
+            f"HOT_ATTEMPTS={'yes' if 'AETHER_POWER_BENCH_HOT_ATTEMPTS=' in cmd else 'no'}"
+        )
+    log(f"compile OK {token}")
 
 
 def cmake_configure_best(
@@ -341,7 +507,13 @@ def run_one(
     attempts = hot_attempts if hot_attempts is not None else pf.K_HOT_ATTEMPTS
     sleep_ms = hot_sleep_ms if hot_sleep_ms is not None else pf.K_HOT_SLEEP_MS
     min_rx = max(1, int(0.9 * attempts))
-    retryable = {"PPK_CAPTURE_FAILED", "PPK_HOLD_FAILED", "NO_ARM", "TIMEOUT"}
+    retryable = {
+        "PPK_CAPTURE_FAILED",
+        "PPK_HOLD_FAILED",
+        "NO_ARM",
+        "TIMEOUT",
+        "NINJA_FAILED",
+    }
     last: dict = {}
     for attempt in range(1, pf.MAX_PPK_ATTEMPTS + 1):
         last = _run_one_attempt(
@@ -383,21 +555,94 @@ def _run_one_attempt(
         build = isolate_build(task_id, ap)
         RAW_DIR.mkdir(parents=True, exist_ok=True)
         pf.RAW_DIR = RAW_DIR
-        cmake_configure_best(
-            ap,
-            variant_id,
-            hot_attempts=hot_attempts,
-            hot_sleep_ms=hot_sleep_ms,
-            min_rx=min_rx,
+        want_mark = f"{ap}:v{variant_id}:best:h{hot_attempts}:s{hot_sleep_ms}"
+        have_mark = (
+            pf.read_text(pf.CONFIGURED_MARK).strip()
+            if pf.CONFIGURED_MARK.exists()
+            else ""
         )
-        pf.CONFIGURED_MARK.write_text(
-            f"{ap}:v{variant_id}:best:h{hot_attempts}:s{hot_sleep_ms}",
-            encoding="utf-8",
-        )
-        ninja_build_isolated(build, variant_id)
-        save_build_proof(task_id, ap, variant_id, build)
+        reused = (build / "temperature_sensor.bin").exists() and have_mark == want_mark
+        if reused:
+            log(f"skip cmake/ninja; reusing {build}")
+        else:
+            try:
+                cmake_configure_best(
+                    ap,
+                    variant_id,
+                    hot_attempts=hot_attempts,
+                    hot_sleep_ms=hot_sleep_ms,
+                    min_rx=min_rx,
+                )
+            except RuntimeError as exc:
+                return {
+                    "task_id": task_id,
+                    "ap": ap,
+                    "variant_id": variant_id,
+                    "status": "NINJA_FAILED",
+                    "error": str(exc),
+                }
+            pf.CONFIGURED_MARK.write_text(want_mark, encoding="utf-8")
+            try:
+                ninja_build_isolated(build, variant_id)
+            except RuntimeError as exc:
+                log(f"ninja failed ({exc}); wipe, cmake, rebuild once")
+                # Force a clean tree on rebuild (disable reuse).
+                if build.exists():
+                    shutil.rmtree(build, ignore_errors=True)
+                build = isolate_build(task_id, ap)
+                try:
+                    cmake_configure_best(
+                        ap,
+                        variant_id,
+                        hot_attempts=hot_attempts,
+                        hot_sleep_ms=hot_sleep_ms,
+                        min_rx=min_rx,
+                    )
+                except RuntimeError as exc_cmake:
+                    return {
+                        "task_id": task_id,
+                        "ap": ap,
+                        "variant_id": variant_id,
+                        "status": "NINJA_FAILED",
+                        "error": str(exc_cmake),
+                    }
+                pf.CONFIGURED_MARK.write_text(want_mark, encoding="utf-8")
+                try:
+                    ninja_build_isolated(build, variant_id)
+                except RuntimeError as exc2:
+                    return {
+                        "task_id": task_id,
+                        "ap": ap,
+                        "variant_id": variant_id,
+                        "status": "NINJA_FAILED",
+                        "error": str(exc2),
+                    }
+            try:
+                assert_hot_attempts_in_firmware(build, hot_attempts)
+            except RuntimeError as exc:
+                return {
+                    "task_id": task_id,
+                    "ap": ap,
+                    "variant_id": variant_id,
+                    "status": "NINJA_FAILED",
+                    "error": str(exc),
+                }
+            save_build_proof(task_id, ap, variant_id, build)
+        if reused:
+            try:
+                assert_hot_attempts_in_firmware(build, hot_attempts)
+            except RuntimeError as exc:
+                return {
+                    "task_id": task_id,
+                    "ap": ap,
+                    "variant_id": variant_id,
+                    "status": "NINJA_FAILED",
+                    "error": str(exc),
+                }
+            if not (BEST_ROOT / RUN_ID / task_id / "variant.json").exists():
+                save_build_proof(task_id, ap, variant_id, build)
     else:
-        build = ROOT / "build-power-best" / RUN_ID / task_id / ap
+        build = _build_dir(task_id, ap)
         pf.BUILD = build
         pf.camp.BUILD = build
 
@@ -423,17 +668,17 @@ def _run_one_attempt(
     prod.start_receiver(rx_log)
     camp.ppk_power_off()
     time.sleep(5.0)
-    hold = None
-    if capture_ppk:
-        hold = pf.start_ppk_hold()
-        if hold is None:
-            return {
-                "task_id": task_id,
-                "ap": ap,
-                "variant_id": variant_id,
-                "status": "PPK_HOLD_FAILED",
-                "proof": proof,
-            }
+    # Always re-power before flash. SLEEP60 uses capture_ppk=False, but DUT power
+    # is still required for Espressif USB-JTAG enumeration and the long run.
+    hold = pf.start_ppk_hold()
+    if hold is None:
+        return {
+            "task_id": task_id,
+            "ap": ap,
+            "variant_id": variant_id,
+            "status": "PPK_HOLD_FAILED",
+            "proof": proof,
+        }
 
     camp.flash(erase=True)
     ppk = None
@@ -483,11 +728,22 @@ def _run_one_attempt(
                 last_progress_key = progress_key
                 last_progress_at = time.time()
             if armed and (
-                rx_progress.get("bench_done")
-                or rx_progress.get("hot_unique", 0) >= hot_attempts
-                or rx_progress.get("hot_max_seq", 0) >= hot_attempts
+                rx_progress.get("hot_unique", 0) >= hot_attempts
+                or rx_progress.get("hot_max_seq", 0) + 1 >= hot_attempts
                 or (
-                    rx_progress.get("hot_unique", 0) >= min_rx
+                    # Only honor bench_done when the firmware actually reached
+                    # the requested attempt count. parse_rx_progress otherwise
+                    # marks done at the module-global K_HOT_ATTEMPTS=100.
+                    rx_progress.get("bench_done")
+                    and max(
+                        int(rx_progress.get("hot_unique", 0) or 0),
+                        int(rx_progress.get("hot_max_seq", 0) or 0),
+                    )
+                    >= int(0.85 * hot_attempts)
+                )
+                or (
+                    hot_attempts <= 100
+                    and rx_progress.get("hot_unique", 0) >= min_rx
                     and (time.time() - last_progress_at) >= pf.HOT_IDLE_DONE_S
                 )
             ):
@@ -544,14 +800,19 @@ def mean_e(result: dict | None) -> float | None:
 
 
 def pick_short_winner(results: dict) -> dict | None:
-    """Prefer cheapest portable STOP policy that PASSes both APs without pathology."""
-    order = [
+    """Among portable non-pathology PASS teardowns, pick lowest combined MEAN energy.
+
+    Preference order (STOP_MINIMAL → SAFE → DISC → FULL) only breaks ties.
+    """
+    candidates = [
         ("STOP_MINIMAL", 402, "P2_STOP_MIN_CHIRKOV", "P2_STOP_MIN_AETHERNETIO"),
         ("STOP_FULL_SAFE", 401, "P1_STOP_SAFE_CHIRKOV", "P1_STOP_SAFE_AETHERNETIO"),
         ("STOP_DISCONNECT", 403, "P3_STOP_DISC_CHIRKOV", "P3_STOP_DISC_AETHERNETIO"),
         ("FULL", 400, "P0_FULL_CHIRKOV", "P0_FULL_AETHERNETIO"),
     ]
-    for name, vid, chir, ae in order:
+    scored: list[tuple[float, int, dict]] = []
+    pref_rank = {name: i for i, (name, *_rest) in enumerate(candidates)}
+    for name, vid, chir, ae in candidates:
         rc = results.get(chir)
         ra = results.get(ae)
         if not rc or not ra:
@@ -562,35 +823,81 @@ def pick_short_winner(results: dict) -> dict | None:
             continue
         if rc.get("pathology") or ra.get("pathology"):
             continue
-        return {
-            "teardown": name,
-            "variant_id": vid,
-            "chirkov_task": chir,
-            "aethernetio_task": ae,
-            "chirkov_mean": mean_e(rc),
-            "aethernetio_mean": mean_e(ra),
-        }
-    return None
+        mc = mean_e(rc)
+        ma = mean_e(ra)
+        if mc is None or ma is None:
+            continue
+        scored.append(
+            (
+                0.5 * (mc + ma),
+                pref_rank[name],
+                {
+                    "teardown": name,
+                    "variant_id": vid,
+                    "chirkov_task": chir,
+                    "aethernetio_task": ae,
+                    "chirkov_mean": mc,
+                    "aethernetio_mean": ma,
+                },
+            )
+        )
+    if not scored:
+        return None
+    scored.sort(key=lambda t: (t[0], t[1]))
+    return scored[0][2]
 
 
 def need_p3(results: dict) -> bool:
-    w = pick_short_winner(results)
-    if w and w.get("teardown") in ("STOP_MINIMAL", "STOP_FULL_SAFE"):
-        return False
+    # Only if no STOP_MINIMAL/SAFE portable candidate passed.
+    for name, _vid, chir, ae in (
+        ("STOP_MINIMAL", 402, "P2_STOP_MIN_CHIRKOV", "P2_STOP_MIN_AETHERNETIO"),
+        ("STOP_FULL_SAFE", 401, "P1_STOP_SAFE_CHIRKOV", "P1_STOP_SAFE_AETHERNETIO"),
+    ):
+        rc = results.get(chir)
+        ra = results.get(ae)
+        if (
+            rc
+            and ra
+            and rc.get("status") == "OK"
+            and ra.get("status") == "OK"
+            and rc.get("PASS_RX")
+            and ra.get("PASS_RX")
+            and not rc.get("pathology")
+            and not ra.get("pathology")
+        ):
+            return False
     return True
 
 
 def need_ablation(results: dict, winner: dict | None) -> bool:
+    """Run ablation when STOP was tested and is not clearly better than FULL."""
+    p0c = results.get("P0_FULL_CHIRKOV")
+    m0 = mean_e(p0c)
+    if m0 is None:
+        return True
+    stop_tasks = (
+        "P1_STOP_SAFE_CHIRKOV",
+        "P2_STOP_MIN_CHIRKOV",
+        "P3_STOP_DISC_CHIRKOV",
+    )
+    any_stop_ok = False
+    stop_beats_full = False
+    for tid in stop_tasks:
+        r = results.get(tid)
+        if not r or r.get("status") != "OK" or not r.get("PASS_RX"):
+            continue
+        any_stop_ok = True
+        m = mean_e(r)
+        if m is not None and m < m0 * 0.97:
+            stop_beats_full = True
+    if not any_stop_ok:
+        return False
+    # STOP exists but does not beat FULL → ablate interactions.
+    if not stop_beats_full:
+        return True
     if not winner:
         return True
-    p0c = results.get("P0_FULL_CHIRKOV")
-    wc = results.get(winner["chirkov_task"])
-    m0 = mean_e(p0c)
-    mw = mean_e(wc)
-    if m0 is None or mw is None:
-        return True
-    # Stop-only not better than FULL control → ablate interactions.
-    return mw > m0 * 0.98
+    return False
 
 
 def write_tsv(results: dict) -> None:
@@ -773,13 +1080,63 @@ def write_report(cp: dict) -> None:
 
 
 def run_tasks(cp: dict, tasks: list[tuple[str, str, int]], **kwargs) -> None:
+    want_hot = int(kwargs.get("hot_attempts") or pf.K_HOT_ATTEMPTS)
     for task_id, ap, vid in tasks:
-        if task_id in cp["results"] and cp["results"][task_id].get("status") == "OK":
-            log(f"skip done {task_id}")
+        prev = cp["results"].get(task_id)
+        if prev and prev.get("status") == "NINJA_FAILED":
+            log(f"skip done {task_id} status=NINJA_FAILED")
             continue
-        cp["results"][task_id] = run_one(task_id, ap, vid, **kwargs)
+        if prev and prev.get("status") == "OK" and prev.get("PASS_RX", False):
+            got = int(prev.get("rx_max_seq") or prev.get("rx_unique") or 0)
+            # Reject "OK" long-runs that clearly stopped at the default 100 HOT.
+            if want_hot > 100 and got < int(0.85 * want_hot):
+                log(
+                    f"redo {task_id}: short firmware run got_seq={got} "
+                    f"want_hot={want_hot}"
+                )
+            else:
+                log(
+                    f"skip done {task_id} status=OK "
+                    f"RX={prev.get('rx_unique')}/{got}"
+                )
+                continue
+        elif prev and prev.get("status") in ("OK", "SHORT_RUN") and not prev.get(
+            "PASS_RX", False
+        ):
+            log(f"redo {task_id}: prior {prev.get('status')} PASS_RX=false")
+        # Keep module K_HOT_ATTEMPTS aligned for parse_rx_progress bench_done.
+        old_att = pf.K_HOT_ATTEMPTS
+        if kwargs.get("hot_attempts") is not None:
+            pf.K_HOT_ATTEMPTS = int(kwargs["hot_attempts"])
+        try:
+            cp["results"][task_id] = run_one(task_id, ap, vid, **kwargs)
+        finally:
+            pf.K_HOT_ATTEMPTS = old_att
+        # Guard: long-run firmware must not stop at legacy 100 attempts.
+        cur = cp["results"][task_id]
+        if (
+            cur.get("status") == "OK"
+            and want_hot > 100
+            and int(cur.get("rx_max_seq") or cur.get("rx_unique") or 0)
+            < int(0.85 * want_hot)
+        ):
+            cur["status"] = "SHORT_RUN"
+            cur["PASS_RX"] = False
+            cur["pathology"] = True
+            log(
+                f"{task_id} SHORT_RUN seq={cur.get('rx_max_seq')} "
+                f"want={want_hot} (HOT_ATTEMPTS override missing in firmware?)"
+            )
         save_cp(cp)
         write_report(cp)
+        if cp["results"][task_id].get("status") == "OK":
+            reclaim_finished_builds()
+        # Isolated IDF trees are ~2.5 GB; drop after measurement so later
+        # variants and LONG1000 PPK CSVs do not fill the disk.
+        build_tree = _build_dir(task_id, "x").parent
+        if build_tree.exists():
+            shutil.rmtree(build_tree, ignore_errors=True)
+            log(f"freed build tree {task_id}")
 
 
 def main() -> int:
@@ -820,6 +1177,8 @@ def main() -> int:
 
     BEST_ROOT.mkdir(parents=True, exist_ok=True)
     RAW_DIR.mkdir(parents=True, exist_ok=True)
+    if not args.dry_run:
+        acquire_campaign_lock()
     log(f"start run_id={RUN_ID} phase={args.phase}")
 
     if args.dry_run:
@@ -832,6 +1191,7 @@ def main() -> int:
         save_cp(cp)
         run_tasks(cp, P0_MATRIX)
 
+    prev_winner = dict(cp.get("winner") or {})
     winner = pick_short_winner(cp["results"])
     if args.phase in ("p3", "all") and (
         args.phase == "p3" or need_p3(cp["results"])
@@ -844,9 +1204,26 @@ def main() -> int:
     if winner:
         winner["cpu_mhz"] = cpu_mhz(winner["variant_id"])
         winner["skip_validate"] = True
-        winner["encode"] = False
+        winner["encode"] = bool(prev_winner.get("encode", False))
+        # Preserve validation flags when resuming a later phase from checkpoint.
+        if "long1000_pass" in prev_winner:
+            winner["long1000_pass"] = prev_winner["long1000_pass"]
+        for key in ("cpu_task", "variant_id", "teardown"):
+            if key in prev_winner and key not in winner:
+                winner[key] = prev_winner[key]
+        if prev_winner.get("variant_id") and args.phase in (
+            "long1000",
+            "sleep60",
+            "report",
+        ):
+            # Prefer the locked checkpoint winner for late-phase resumes.
+            winner["variant_id"] = prev_winner["variant_id"]
+            winner["teardown"] = prev_winner.get("teardown", winner.get("teardown"))
+            winner["cpu_mhz"] = prev_winner.get("cpu_mhz", winner.get("cpu_mhz"))
         cp["winner"] = winner
         save_cp(cp)
+    elif prev_winner:
+        winner = prev_winner
 
     if args.phase in ("ablation", "all") and (
         args.phase == "ablation" or need_ablation(cp["results"], winner)

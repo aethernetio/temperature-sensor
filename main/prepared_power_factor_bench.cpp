@@ -7,6 +7,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <memory>
 
@@ -66,9 +67,19 @@ static constexpr auto kServiceUid =
 
 static constexpr std::uint32_t kRtcMagic = 0x50465731u;  // PFW1
 static constexpr std::uint16_t kRtcVersion = 1;
+#if defined(AETHER_POWER_BENCH_HOT_SLEEP_MS)
+static constexpr std::uint32_t kSleepUs =
+    static_cast<std::uint32_t>(AETHER_POWER_BENCH_HOT_SLEEP_MS) * 1000u;
+#else
 static constexpr std::uint32_t kSleepUs =
     static_cast<std::uint32_t>(ae::power_bench::kHotSleepMs) * 1000u;
+#endif
+#if defined(AETHER_POWER_BENCH_HOT_ATTEMPTS)
+static constexpr std::uint16_t kHotAttempts =
+    static_cast<std::uint16_t>(AETHER_POWER_BENCH_HOT_ATTEMPTS);
+#else
 static constexpr std::uint16_t kHotAttempts = ae::power_bench::kHotAttempts;
+#endif
 
 enum class Phase : std::uint8_t {
   kFullPrepare = 0,
@@ -279,6 +290,11 @@ void MaybeStartStreamWork() {
     if (n > 0) {
       WritePayload(buf, n);
     }
+    // Visible even with silent sdkconfig via USB early printf path when present.
+    std::printf("BENCH_ARM expected=%u sleep_us=%lu\n",
+                static_cast<unsigned>(kHotAttempts),
+                static_cast<unsigned long>(kSleepUs));
+    std::fflush(stdout);
     return;
   }
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullSummary)) {

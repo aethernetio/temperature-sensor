@@ -676,6 +676,7 @@ prepared_send::FastPathConfig MakeFastConfig() {
   cfg.tx_done_wait = prepared_send::FastTxDoneWaitMode::kFirstSuccessNoObserve;
   cfg.post_delay_ms = g_rtc.post_ms;
 #ifndef AETHER_PREPARED_HOT_TEARDOWN_POLICY
+// Portable winner: FULL teardown (deinit before deep sleep).
 #  define AETHER_PREPARED_HOT_TEARDOWN_POLICY 0
 #endif
   // 0=full 1=stop_full_safe 3=stop_minimal 4=stop_disconnect (2=direct forbidden).
@@ -686,7 +687,8 @@ prepared_send::FastPathConfig MakeFastConfig() {
 
 void ApplyPreparedHotCpuIfConfigured() {
 #ifndef AETHER_PREPARED_HOT_CPU_MHZ
-#  define AETHER_PREPARED_HOT_CPU_MHZ 0
+// Portable winner: lock CPU to 80 MHz for HOT wake energy.
+#  define AETHER_PREPARED_HOT_CPU_MHZ 80
 #endif
 #if AETHER_PREPARED_HOT_CPU_MHZ > 0
   esp_pm_config_t pm_cfg{};
