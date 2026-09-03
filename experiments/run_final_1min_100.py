@@ -167,6 +167,8 @@ def build_firmware(ap: str) -> None:
     src_paths = [
         ROOT / "main" / "prepared_power_factor_bench.cpp",
         ROOT / "main" / "prepared_send" / "prepared_send.cpp",
+        ROOT / "main" / "experiment_early_entry.cpp",
+        ROOT / "main" / "experiment_early_entry.h",
     ]
     bin_fresh = bin_path.exists() and all(
         p.exists() and bin_path.stat().st_mtime >= p.stat().st_mtime for p in src_paths

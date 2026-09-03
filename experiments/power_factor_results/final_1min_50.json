@@ -1,0 +1,34 @@
+{
+  "run_id": "20260903_145912",
+  "variant_id": 400,
+  "hot_sleep_ms": 60000,
+  "hot_attempts": 50,
+  "ppk_voltage_mv": 3000,
+  "encode_during_association": true,
+  "late_socket_bind": true,
+  "legacy_early_socket": false,
+  "aethernetio_note": "Paused after chirkov per operator request; partial aethernetio PPK discarded",
+  "runs": [
+    {
+      "ap": "chirkov",
+      "variant_id": 400,
+      "encode_during_association": true,
+      "late_socket_bind": true,
+      "full_success": true,
+      "hot_attempts": 50,
+      "rx_unique": 49,
+      "rx_dup": 0,
+      "loss_pct": 2.0,
+      "elapsed_s": 3180.638,
+      "total_energy_J": 18.234628604,
+      "total_charge_mAh": 1.688391536,
+      "avg_current_mA": 1.911003,
+      "amortized_J_per_message": 0.364692572,
+      "cr2_life_days": 17.4,
+      "cr2_life_months": 0.57,
+      "ppk_checkpoint": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\final_1min_50\\chirkov_20260903_145912_ppk.json",
+      "run_id": "20260903_145912",
+      "pre_ms": 25
+    }
+  ]
+}

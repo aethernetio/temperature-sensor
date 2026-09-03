@@ -520,7 +520,9 @@ void loop() {
 
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kHot)) {
     if (g_rtc.hot_attempts >= kHotAttempts) {
-#if defined(AE_EXP_PREPARED_FINAL_1MIN_100)
+#if defined(AE_EXP_PREPARED_FINAL_1MIN_100) || \
+    defined(AE_EXP_ENCODE_DURING_ASSOCIATION)
+      // Energy finals: skip FullSummary Aether reboot; sleep after last HOT.
       g_rtc.phase = static_cast<std::uint8_t>(Phase::kDone);
       StoreRtc();
       DeepSleepHot();
