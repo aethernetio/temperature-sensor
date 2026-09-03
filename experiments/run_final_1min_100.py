@@ -139,6 +139,23 @@ def cmake_configure(ap: str) -> None:
     pf.force_sdk_measured(VARIANT_ID)
 
 
+def ninja_build_local() -> None:
+    log("ninja build")
+    e = pf.camp.env()
+    e["PATH"] = str(pf.camp.NINJA.parent) + ";" + e.get("PATH", "")
+    r = subprocess.run(
+        [str(pf.camp.NINJA), "-C", str(pf.camp.BUILD)],
+        cwd=ROOT,
+        env=e,
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        err = pf.camp.BUILD / "ninja.err"
+        err.write_text((r.stdout or "") + "\n" + (r.stderr or ""), encoding="utf-8")
+        raise RuntimeError(f"ninja failed: {err}")
+
+
 def build_firmware(ap: str) -> None:
     bdir = build_dir(ap)
     pf.BUILD = bdir
@@ -162,7 +179,7 @@ def build_firmware(ap: str) -> None:
     if bin_fresh and have == want:
         log("build skipped (firmware up to date)")
         return
-    pf.camp.ninja_build()
+    ninja_build_local()
 
 
 def start_receiver_log(rx_log: Path) -> None:
