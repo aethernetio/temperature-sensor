@@ -318,9 +318,13 @@ def run_test_a() -> dict:
     bdir = build_full_test()
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     ckpt = RAW_DIR / f"full10_{RUN_ID}_ppk.json"
-    if RX_LOG.exists():
-        RX_LOG.unlink()
     prod.kill_probe_receiver()
+    time.sleep(0.5)
+    if RX_LOG.exists():
+        try:
+            RX_LOG.unlink()
+        except OSError:
+            RX_LOG.write_text('', encoding='utf-8')
     if not RX_EXE.is_file():
         subprocess.run(["cmake", "--build", str(RX_BUILD), "--parallel"], check=False)
     prod.start_receiver(RX_LOG)
@@ -366,9 +370,13 @@ def run_test_b() -> dict:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     ckpt = RAW_DIR / f"hot10_{RUN_ID}_ppk.json"
     prep_snap = RAW_DIR / f"hot10_{RUN_ID}_prep_snapshot.json"
-    if RX_LOG.exists():
-        RX_LOG.unlink()
     prod.kill_probe_receiver()
+    time.sleep(0.5)
+    if RX_LOG.exists():
+        try:
+            RX_LOG.unlink()
+        except OSError:
+            RX_LOG.write_text('', encoding='utf-8')
     prod.start_receiver(RX_LOG)
 
     prep_energy = {"energy_J": 0.0}

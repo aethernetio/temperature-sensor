@@ -1,0 +1,48 @@
+{
+  "run_id": "20260903_200343",
+  "starting_sha": "8c255a45aca25fdb5600fed6d751bd3870ccf406",
+  "ap": "chirkov",
+  "period_ms": 60000,
+  "attempts": 10,
+  "full": {
+    "mode": "FULL",
+    "attempts": 10,
+    "rx_unique": 10,
+    "loss_pct": 0.0,
+    "total_energy_J": 19.307298423,
+    "total_charge_mAh": 1.787712817,
+    "elapsed_s": 655.162,
+    "avg_energy_J_per_msg": 1.9307298422999999,
+    "avg_current_mA": 9.823168,
+    "ppk_checkpoint": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\full_vs_hot_1min\\full10_20260903_200343_ppk.json"
+  },
+  "hot": {
+    "mode": "HOT",
+    "attempts": 10,
+    "rx_unique": 8,
+    "loss_pct": 20.0,
+    "prep_full_energy_J": 7.719917803,
+    "combined_prep_plus_10hot_J": 10.731493386,
+    "prep_subtracted": true,
+    "hot_10_total_energy_J": 3.011575583,
+    "avg_energy_J_per_msg": 0.3011575583,
+    "avg_current_mA": 0.16730975461111114,
+    "approx_hot_active_minus_sleep_J": 0.2997175583,
+    "sleep_energy_per_min_J": 0.00144,
+    "elapsed_s": 740.159,
+    "ppk_checkpoint": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\full_vs_hot_1min\\hot10_20260903_200343_ppk.json",
+    "prep_snapshot": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\full_vs_hot_1min\\hot10_20260903_200343_prep_snapshot.json",
+    "full_success": true
+  },
+  "comparison": {
+    "full_minus_hot_J": 1.629572284,
+    "hot_vs_full_ratio": 0.15598120032227983,
+    "saving_percent": 84.40187996777202,
+    "cr2_hot_life": {
+      "hours": 4781.6,
+      "days": 199.2,
+      "months": 6.55
+    },
+    "full_refresh_extra_per_100_hot_J": 0.019307298423
+  }
+}

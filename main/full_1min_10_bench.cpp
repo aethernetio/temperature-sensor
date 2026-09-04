@@ -276,6 +276,12 @@ void StartFullBoot() {
 
 void PrepareOnBoot() {
   g_early = GetExperimentEarlyEntrySnapshot();
+  // Match HOT best-config: fixed 80 MHz.
+  esp_pm_config_t pm_cfg{};
+  pm_cfg.max_freq_mhz = 80;
+  pm_cfg.min_freq_mhz = 80;
+  pm_cfg.light_sleep_enable = false;
+  (void)esp_pm_configure(&pm_cfg);
   auto const reset = static_cast<esp_reset_reason_t>(g_early.reset_reason);
   bool const valid = ValidRtc(g_rtc);
   if (!valid || reset == ESP_RST_POWERON ||
