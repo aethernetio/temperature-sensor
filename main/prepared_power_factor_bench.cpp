@@ -65,14 +65,18 @@ static constexpr auto kServiceUid =
     ae::Uid::FromString("5aade50f-00d9-4624-b097-e203cdcf1e38");
 #endif
 
-static constexpr std::uint32_t kRtcMagic = 0x50465731u;  // PFW1
-static constexpr std::uint16_t kRtcVersion = 1;
+static constexpr std::uint32_t kRtcMagic = 0x50465732u;  // PFW2
+static constexpr std::uint16_t kRtcVersion = 2;
 #if defined(AETHER_POWER_BENCH_HOT_SLEEP_MS)
 static constexpr std::uint32_t kSleepUs =
     static_cast<std::uint32_t>(AETHER_POWER_BENCH_HOT_SLEEP_MS) * 1000u;
 #else
 static constexpr std::uint32_t kSleepUs =
     static_cast<std::uint32_t>(ae::power_bench::kHotSleepMs) * 1000u;
+#endif
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+static constexpr std::uint8_t kFlagFullType = 0x80;
+static constexpr std::uint64_t kPeriodUs = static_cast<std::uint64_t>(kSleepUs);
 #endif
 #if defined(AETHER_POWER_BENCH_HOT_ATTEMPTS)
 static constexpr std::uint16_t kHotAttempts =
@@ -87,6 +91,7 @@ enum class Phase : std::uint8_t {
   kHot = 2,
   kFullSummary = 3,
   kDone = 4,
+  kMeasuredFull = 5,
 };
 
 struct RtcState {
@@ -104,6 +109,7 @@ struct RtcState {
   std::uint16_t tx_unconfirmed;
   std::uint16_t bad_wakes;
   std::uint64_t sleep_arm_us;
+  std::uint64_t cycle_start_rtc_us;
   std::uint32_t crc;
 };
 
@@ -196,6 +202,52 @@ ae::DataBuffer ToDataBuffer(std::uint8_t const* data, std::size_t size) {
   for (;;) {
   }
 }
+
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+void MarkCycleStart() {
+  g_rtc.cycle_start_rtc_us = esp_rtc_get_time_us();
+  StoreRtc();
+}
+
+[[noreturn]] void DeepSleepUntilNextPeriod() {
+  auto const now = esp_rtc_get_time_us();
+  std::int64_t sleep_us =
+      static_cast<std::int64_t>(g_rtc.cycle_start_rtc_us + kPeriodUs) -
+      static_cast<std::int64_t>(now);
+  if (sleep_us < 1'000'000) {
+    sleep_us = 1'000'000;
+  }
+  esp_sleep_enable_timer_wakeup(static_cast<std::uint64_t>(sleep_us));
+  g_rtc.sleep_arm_us = now;
+  StoreRtc();
+#  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
+#  endif
+#  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
+#  endif
+  (void)esp_deep_sleep_try_to_start();
+  esp_deep_sleep_start();
+  for (;;) {
+  }
+}
+
+[[noreturn]] void DeepSleepHold() {
+  // Stay asleep after the last measured send so PPK does not see another wake.
+  esp_sleep_enable_timer_wakeup(3600ull * 1000000ull);
+  StoreRtc();
+#  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
+#  endif
+#  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
+#  endif
+  (void)esp_deep_sleep_try_to_start();
+  esp_deep_sleep_start();
+  for (;;) {
+  }
+}
+#endif
 
 void ReleaseApp() {
   g_select_sub.Reset();
@@ -292,6 +344,21 @@ void MaybeStartStreamWork() {
     }
     return;
   }
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+  if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kMeasuredFull)) {
+    probe::BenchData msg{};
+    msg.session = g_rtc.session;
+    msg.variant_id = g_rtc.variant_id;
+    msg.seq = 1;
+    msg.flags = kFlagFullType;
+    std::uint8_t buf[probe::kMaxProbeMessageSize]{};
+    auto const n = probe::Pack(msg, buf, sizeof(buf));
+    if (n > 0) {
+      WritePayload(buf, n);
+    }
+    return;
+  }
+#endif
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullSummary)) {
     probe::BenchSummary sum{};
     sum.session = g_rtc.session;
@@ -333,6 +400,9 @@ void OnClientReady(ae::Client::ptr client_ptr) {
 void StartFullBoot() {
   g_write_armed = false;
   g_write_ok = false;
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+  MarkCycleStart();
+#endif
   ConstructAether();
   g_select_sub = g_app->aether()
                      ->SelectClient(kParentUid, kBenchClientId)
@@ -424,7 +494,8 @@ void PrepareOnBoot() {
       static_cast<std::uint16_t>(AE_POWER_BENCH_VARIANT), WIFI_SSID);
 #if defined(AE_EXP_PREPARED_FINAL_1MIN_100) || \
     defined(AE_EXP_ENCODE_DURING_ASSOCIATION) || \
-    defined(AE_EXP_ENCODE_OVERLAP_DIAG)
+    defined(AE_EXP_ENCODE_OVERLAP_DIAG) || \
+    defined(AE_EXP_CACHED_FULL_HOT_1MIN)
   g_bench.encode_during_association = true;
 #endif
   (void)power_bench::ApplyRuntimeOptions(g_bench);
@@ -447,6 +518,11 @@ void PrepareOnBoot() {
     }
   } else if (reset == ESP_RST_DEEPSLEEP && valid && phase == Phase::kHot) {
     // Continue HOT deep-sleep wakes only.
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+  } else if (reset == ESP_RST_DEEPSLEEP && valid &&
+             phase == Phase::kMeasuredFull) {
+    // Measured cached FULL after warmup ARM.
+#endif
   } else if (valid && phase == Phase::kHot &&
              (reset == ESP_RST_SW || reset == ESP_RST_POWERON)) {
     // RestartTo(kHot) after BENCH_ARM uses esp_restart(); keep HOT RTC state.
@@ -472,6 +548,9 @@ void setup() {
 
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullPrepare) ||
       g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullArm) ||
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+      g_rtc.phase == static_cast<std::uint8_t>(Phase::kMeasuredFull) ||
+#endif
       g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullSummary)) {
     StartFullBoot();
     return;
@@ -500,11 +579,27 @@ void loop() {
           // ReleaseFullAetherWifiForHotPath).
           prepared_send::ReleaseFullAetherWifiForHotPath();
           vTaskDelay(pdMS_TO_TICKS(AE_POWER_BENCH_ARM_MS));
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+          g_rtc.phase = static_cast<std::uint8_t>(Phase::kMeasuredFull);
+          StoreRtc();
+          DeepSleepUntilNextPeriod();
+#else
           g_rtc.phase = static_cast<std::uint8_t>(Phase::kHot);
           g_rtc.seq = 0;
           g_rtc.hot_armed = 1;
           StoreRtc();
           DeepSleepHot();
+#endif
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+        } else if (g_rtc.phase ==
+                   static_cast<std::uint8_t>(Phase::kMeasuredFull)) {
+          prepared_send::ReleaseFullAetherWifiForHotPath();
+          g_rtc.phase = static_cast<std::uint8_t>(Phase::kHot);
+          g_rtc.seq = 0;
+          g_rtc.hot_armed = 1;
+          StoreRtc();
+          DeepSleepUntilNextPeriod();
+#endif
         } else if (g_rtc.phase ==
                    static_cast<std::uint8_t>(Phase::kFullSummary)) {
           prepared_send::ReleaseFullAetherWifiForHotPath();
@@ -520,7 +615,11 @@ void loop() {
 
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kHot)) {
     if (g_rtc.hot_attempts >= kHotAttempts) {
-#if defined(AE_EXP_PREPARED_FINAL_1MIN_100) || \
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+      g_rtc.phase = static_cast<std::uint8_t>(Phase::kDone);
+      StoreRtc();
+      DeepSleepHold();
+#elif defined(AE_EXP_PREPARED_FINAL_1MIN_100) || \
     defined(AE_EXP_ENCODE_DURING_ASSOCIATION)
       // Energy finals: skip FullSummary Aether reboot; sleep after last HOT.
       g_rtc.phase = static_cast<std::uint8_t>(Phase::kDone);
@@ -535,17 +634,37 @@ void loop() {
     if (g_rtc.hot_armed == 0) {
       g_rtc.hot_armed = 1;
       StoreRtc();
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+      DeepSleepUntilNextPeriod();
+#else
       DeepSleepHot();
+#endif
     }
     if (!WokeFromTimerDeepSleep()) {
       if (g_rtc.bad_wakes < 0xffff) {
         ++g_rtc.bad_wakes;
       }
       StoreRtc();
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+      DeepSleepUntilNextPeriod();
+#else
       DeepSleepHot();
+#endif
     }
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+    MarkCycleStart();
+#endif
     RunHotOnce();
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+    if (g_rtc.hot_attempts >= kHotAttempts) {
+      g_rtc.phase = static_cast<std::uint8_t>(Phase::kDone);
+      StoreRtc();
+      DeepSleepHold();
+    }
+    DeepSleepUntilNextPeriod();
+#else
     DeepSleepHot();
+#endif
   }
 }
 

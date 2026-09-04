@@ -22,6 +22,11 @@ PID_FILE = HERE / "ppk2_integrate.pid"
 
 # PPK2 default sample interval when measuring at 100 kHz.
 DEFAULT_DT_US = 10.0
+WAKE_UA = 2500.0
+SLEEP_UA = 150.0
+WAKE_CONFIRM_SAMPLES = 400  # 4 ms @ 100 kHz
+SLEEP_CONFIRM_SAMPLES = 30000  # 300 ms @ 100 kHz
+MAX_SEGMENTS = 64
 
 
 def disable_reset_on_del(ppk: PPK2_API) -> None:
@@ -60,6 +65,49 @@ def integrate_samples(
             state["min_uA"] = uA
         if uA > state["max_uA"]:
             state["max_uA"] = uA
+        update_wake_sleep(uA, dt_us, state)
+
+
+def update_wake_sleep(uA: float, dt_us: float, state: dict) -> None:
+    segs = state["segments"]
+    t_s = state["sample_count"] * dt_us / 1_000_000.0
+    if not state["in_wake"]:
+        if uA >= WAKE_UA:
+            state["wake_run"] += 1
+        else:
+            state["wake_run"] = 0
+        if state["wake_run"] >= WAKE_CONFIRM_SAMPLES:
+            state["in_wake"] = True
+            state["wake_run"] = 0
+            state["sleep_run"] = 0
+            segs.append(
+                {
+                    "kind": "wake",
+                    "t_s": round(t_s, 3),
+                    "energy_J": state["energy_J"],
+                    "charge_uC": state["charge_uC"],
+                }
+            )
+            if len(segs) > MAX_SEGMENTS:
+                del segs[: len(segs) - MAX_SEGMENTS]
+        return
+    if uA <= SLEEP_UA:
+        state["sleep_run"] += 1
+    else:
+        state["sleep_run"] = 0
+    if state["sleep_run"] >= SLEEP_CONFIRM_SAMPLES:
+        state["in_wake"] = False
+        state["sleep_run"] = 0
+        segs.append(
+            {
+                "kind": "sleep",
+                "t_s": round(t_s, 3),
+                "energy_J": state["energy_J"],
+                "charge_uC": state["charge_uC"],
+            }
+        )
+        if len(segs) > MAX_SEGMENTS:
+            del segs[: len(segs) - MAX_SEGMENTS]
 
 
 def snapshot(state: dict, t0: float, voltage_mv: int) -> dict:
@@ -82,6 +130,8 @@ def snapshot(state: dict, t0: float, voltage_mv: int) -> dict:
         "avg_uA": round(avg_uA, 3),
         "min_uA": state["min_uA"] if state["min_uA"] < 1e299 else 0.0,
         "max_uA": state["max_uA"] if state["max_uA"] > -1e299 else 0.0,
+        "segments": list(state.get("segments") or []),
+        "in_wake": bool(state.get("in_wake", False)),
     }
 
 
@@ -134,6 +184,10 @@ def main() -> int:
         "sum_uA": 0.0,
         "min_uA": 1e300,
         "max_uA": -1e300,
+        "in_wake": False,
+        "wake_run": 0,
+        "sleep_run": 0,
+        "segments": [],
     }
     t0 = time.time()
     last_ckpt = t0
