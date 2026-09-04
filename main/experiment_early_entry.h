@@ -29,7 +29,8 @@ struct ExperimentEarlyEntrySnapshot {
      defined(AE_EXP_PREPARED_BOOT_WIFI_OPT) || \
      defined(AE_EXP_PREPARED_BOOT_WIFI_VAL100) || \
      defined(AE_EXP_PREPARED_POWER_FACTOR) || \
-     defined(AE_EXP_PREPARED_FINAL_1MIN_100))
+     defined(AE_EXP_PREPARED_FINAL_1MIN_100) || \
+     defined(AE_EXP_FULL_1MIN_10))
 extern "C" void ExperimentEarlyAppEntry();
 ExperimentEarlyEntrySnapshot const& GetExperimentEarlyEntrySnapshot();
 #else

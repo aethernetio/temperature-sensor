@@ -151,6 +151,12 @@ elseif(AE_EXP_PREPARED_FINAL_1MIN_100 STREQUAL "1")
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
   set(CMAKE_SUPPRESS_REGENERATION ON)
+elseif(AE_EXP_FULL_1MIN_10 STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
+  set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1")
   # Product prepared HOT path uses the measured low-power sdkconfig stack.
   list(APPEND SDKCONFIG_DEFAULTS

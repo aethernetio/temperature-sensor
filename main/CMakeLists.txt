@@ -96,6 +96,11 @@ elseif(AE_EXP_PREPARED_FINAL_1MIN_100)
     "power_bench/power_bench_options.cpp"
     "power_bench/power_bench_runtime.cpp"
   )
+elseif(AE_EXP_FULL_1MIN_10)
+  list(APPEND src_list
+    "full_1min_10_bench.cpp"
+    "experiment_early_entry.cpp"
+  )
 elseif(AE_EXP_PREPARED_TX_DONE_DIAG)
   list(APPEND src_list
     "prepared_tx_done_diag_bench.cpp"
@@ -271,6 +276,7 @@ set(AE_EXP_ADAPTIVE_WIFI_PROBE_C "" CACHE STRING "Adaptive Wi-Fi probe Phase C p
 set(AE_EXP_PRODUCT_ADAPTIVE_PROBE "" CACHE STRING "Product adaptive Wi-Fi probe, self-selecting (set to 1)")
 set(AE_EXP_PREPARED_POWER_FACTOR "" CACHE STRING "Prepared-send power factor study (set to 1)")
 set(AE_EXP_PREPARED_FINAL_1MIN_100 "" CACHE STRING "Final 1-min 100-HOT energy run (set to 1)")
+set(AE_EXP_FULL_1MIN_10 "" CACHE STRING "10 FULL Æther sends at 1-min cadence (set to 1)")
 set(AE_EXP_ENCODE_DURING_ASSOCIATION "" CACHE STRING "Force encode_during_association on power bench (set to 1)")
 set(AE_EXP_ENCODE_OVERLAP_DIAG "" CACHE STRING "Encode-overlap root-cause USB diagnostics (set to 1)")
 set(AE_EXP_ENCODE_OVERLAP_LEGACY_EARLY_SOCKET "" CACHE STRING "Reproduce broken early UDP socket bind (set to 1)")
@@ -350,7 +356,10 @@ ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_C)
 ae_exp_define_if_set(AE_EXP_PRODUCT_ADAPTIVE_PROBE)
 ae_exp_define_if_set(AE_EXP_PREPARED_POWER_FACTOR)
 ae_exp_define_if_set(AE_EXP_PREPARED_FINAL_1MIN_100)
+ae_exp_define_if_set(AE_EXP_FULL_1MIN_10)
 ae_exp_define_if_set(AE_EXP_ENCODE_DURING_ASSOCIATION)
+ae_exp_define_if_set(AE_FULL_1MIN_ATTEMPTS)
+ae_exp_define_if_set(AE_FULL_1MIN_PERIOD_MS)
 ae_exp_define_if_set(AE_EXP_ENCODE_OVERLAP_DIAG)
 ae_exp_define_if_set(AE_EXP_ENCODE_OVERLAP_LEGACY_EARLY_SOCKET)
 ae_exp_define_if_set(AE_POWER_BENCH_VARIANT)
@@ -440,6 +449,7 @@ ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
    AE_EXP_PREPARED_BOOT_WIFI_OPT STREQUAL "1" OR
    AE_EXP_PREPARED_BOOT_WIFI_VAL100 STREQUAL "1" OR
    AE_EXP_PREPARED_FINAL_1MIN_100 STREQUAL "1" OR
+   AE_EXP_FULL_1MIN_10 STREQUAL "1" OR
    (AE_EXP_PREPARED_POWER_FACTOR STREQUAL "1" AND
     NOT AE_EXP_ENCODE_OVERLAP_DIAG STREQUAL "1") OR
    AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1" OR

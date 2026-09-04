@@ -412,6 +412,11 @@ def clear_power_exp_flags(extra: dict[str, str]) -> list[str]:
         "AE_EXP_WIFI_LIFECYCLE",
         "AE_EXP_FULL_CYCLES",
         "AE_EXP_PREPARED_POWER_FACTOR",
+        "AE_EXP_PREPARED_FINAL_1MIN_100",
+        "AE_EXP_FULL_1MIN_10",
+        "AE_EXP_ENCODE_DURING_ASSOCIATION",
+        "AE_EXP_ENCODE_OVERLAP_DIAG",
+        "AE_EXP_ENCODE_OVERLAP_LEGACY_EARLY_SOCKET",
     ]
     out = []
     for f in flags:
