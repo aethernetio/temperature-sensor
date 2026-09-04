@@ -18,7 +18,11 @@ list(APPEND src_list
   "main.cpp"
 )
 
-if(AE_EXP_PREPARED_WIFI_CACHE_5X20)
+if(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
+  list(APPEND src_list
+    "experiment_early_entry.cpp"
+  )
+elseif(AE_EXP_PREPARED_WIFI_CACHE_5X20)
   list(APPEND src_list
     "prepared_wifi_cache_5x20_bench.cpp"
     "prepared_send/prepared_send.cpp"
@@ -154,26 +158,28 @@ else()
   )
 endif()
 
-list(APPEND bme68x_srcs
-  "../third-party/BME68x_SensorAPI/bme68x.c"
-)
+if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
+  list(APPEND bme68x_srcs
+    "../third-party/BME68x_SensorAPI/bme68x.c"
+  )
 
-list(APPEND sleeping_src
-  "sleeping/esp_main_sleep.cpp"
-  "sleeping/thread_sleep.cpp"
-  "sleeping/ulp_sleep.cpp"
-)
+  list(APPEND sleeping_src
+    "sleeping/esp_main_sleep.cpp"
+    "sleeping/thread_sleep.cpp"
+    "sleeping/ulp_sleep.cpp"
+  )
 
-list(APPEND sensors_src
-  "sensors/ulp_utils.c"
-  "sensors/esp_main_utils.c"
-  "sensors/bme688.c"
-  "sensors/shtc3.c"
-  "sensors/stcc4.c"
-  "sensors/sht45.c"
-  "sensors/random_val.c"
-  "sensors/ulp_saved_val.c"
-)
+  list(APPEND sensors_src
+    "sensors/ulp_utils.c"
+    "sensors/esp_main_utils.c"
+    "sensors/bme688.c"
+    "sensors/shtc3.c"
+    "sensors/stcc4.c"
+    "sensors/sht45.c"
+    "sensors/random_val.c"
+    "sensors/ulp_saved_val.c"
+  )
+endif()
 
 set(SERVICE_UID "" CACHE STRING "Service for collecting data UUID")
 
@@ -214,11 +220,13 @@ else()
         idf::esp_pm)
 
     set(TARGET_NAME "${COMPONENT_LIB}")
-    include(../cmake/CPM.cmake)
-    # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
-    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
+    if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
+      include(../cmake/CPM.cmake)
+      # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
+      CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
 
-    target_link_libraries(${TARGET_NAME} PRIVATE aether)
+      target_link_libraries(${TARGET_NAME} PRIVATE aether)
+    endif()
 
     if (NOT "${WIFI_SSID}" STREQUAL "")
       target_compile_definitions(${TARGET_NAME} PRIVATE "WIFI_SSID=\"${WIFI_SSID}\"")
@@ -286,6 +294,7 @@ set(AE_EXP_PREPARED_POWER_FACTOR "" CACHE STRING "Prepared-send power factor stu
 set(AE_EXP_PREPARED_FINAL_1MIN_100 "" CACHE STRING "Final 1-min 100-HOT energy run (set to 1)")
 set(AE_EXP_FULL_1MIN_10 "" CACHE STRING "10 FULL Æther sends at 1-min cadence (set to 1)")
 set(AE_EXP_CACHED_FULL_HOT_1MIN "" CACHE STRING "Warmup FULL then 1 cached FULL + 10 HOT at 1 min (set to 1)")
+set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "" CACHE STRING "Diagnostic: early-entry 10 min deep sleep only (set to 1)")
 set(AE_EXP_ENCODE_DURING_ASSOCIATION "" CACHE STRING "Force encode_during_association on power bench (set to 1)")
 set(AE_EXP_ENCODE_OVERLAP_DIAG "" CACHE STRING "Encode-overlap root-cause USB diagnostics (set to 1)")
 set(AE_EXP_ENCODE_OVERLAP_LEGACY_EARLY_SOCKET "" CACHE STRING "Reproduce broken early UDP socket bind (set to 1)")
@@ -325,7 +334,9 @@ set(AE_EXP_WIFI_FEAT_LEGACY_HANDLERS "" CACHE STRING "Canonical+bisect: non-inst
 
 function(ae_exp_define_if_set flag_name)
   if(NOT "${${flag_name}}" STREQUAL "")
-    target_compile_definitions(aether PUBLIC "${flag_name}=${${flag_name}}")
+    if(TARGET aether)
+      target_compile_definitions(aether PUBLIC "${flag_name}=${${flag_name}}")
+    endif()
     target_compile_definitions(${TARGET_NAME} PRIVATE "${flag_name}=${${flag_name}}")
   endif()
 endfunction()
@@ -367,6 +378,7 @@ ae_exp_define_if_set(AE_EXP_PREPARED_POWER_FACTOR)
 ae_exp_define_if_set(AE_EXP_PREPARED_FINAL_1MIN_100)
 ae_exp_define_if_set(AE_EXP_FULL_1MIN_10)
 ae_exp_define_if_set(AE_EXP_CACHED_FULL_HOT_1MIN)
+ae_exp_define_if_set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
 ae_exp_define_if_set(AE_EXP_ENCODE_DURING_ASSOCIATION)
 ae_exp_define_if_set(AE_FULL_1MIN_ATTEMPTS)
 ae_exp_define_if_set(AE_FULL_1MIN_PERIOD_MS)
@@ -461,12 +473,15 @@ ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
    AE_EXP_PREPARED_FINAL_1MIN_100 STREQUAL "1" OR
    AE_EXP_CACHED_FULL_HOT_1MIN STREQUAL "1" OR
    AE_EXP_FULL_1MIN_10 STREQUAL "1" OR
+   AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1" OR
    (AE_EXP_PREPARED_POWER_FACTOR STREQUAL "1" AND
     NOT AE_EXP_ENCODE_OVERLAP_DIAG STREQUAL "1") OR
    AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1" OR
    (AE_EXP_PREPARED_WIFI_BISECT STREQUAL "1" AND
     NOT AE_EXP_BISECT_CONSOLE STREQUAL "1"))
-  target_compile_definitions(aether PUBLIC "AE_EXP_SILENT=1")
+  if(TARGET aether)
+    target_compile_definitions(aether PUBLIC "AE_EXP_SILENT=1")
+  endif()
   target_compile_definitions(${TARGET_NAME} PRIVATE "AE_EXP_SILENT=1")
 endif()
 if(NOT "${BENCH_CLIENT_ID}" STREQUAL "")

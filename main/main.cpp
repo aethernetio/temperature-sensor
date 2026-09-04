@@ -28,6 +28,11 @@ extern void loop();
 #if defined ESP_PLATFORM
 extern "C" void app_main(void) {
   ExperimentEarlyAppEntry();
+#if defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
+  // Unreachable: ExperimentEarlyAppEntry already called esp_deep_sleep_start.
+  for (;;) {
+  }
+#else
 
   esp_task_wdt_config_t config_wdt = {
       /*.timeout_ms = */ 60000,
@@ -41,6 +46,7 @@ extern "C" void app_main(void) {
 
   setup();
   while (1) loop();
+#endif
 }
 #else
 int main() {

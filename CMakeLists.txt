@@ -67,6 +67,8 @@ set(AE_EXP_CACHED_FULL_HOT_1MIN "" CACHE STRING
     "Warmup FULL then 1 cached FULL + 10 HOT at 1 min (set to 1)")
 set(AE_EXP_FULL_1MIN_10 "" CACHE STRING
     "10 FULL Aether sends at 1-min cadence (set to 1)")
+set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "" CACHE STRING
+    "Diagnostic: app_main early-entry 10 min deep sleep only (set to 1)")
 if(AE_EXP_FULL_AETHER_AETHERNETIO STREQUAL "1")
   # Exclusive minimal defaults — do NOT append silent/fastest/wpa2 overlays.
   set(SDKCONFIG_DEFAULTS
@@ -164,6 +166,12 @@ elseif(AE_EXP_CACHED_FULL_HOT_1MIN STREQUAL "1")
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
   set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AE_EXP_FULL_1MIN_10 STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
+  set(CMAKE_SUPPRESS_REGENERATION ON)
+elseif(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"

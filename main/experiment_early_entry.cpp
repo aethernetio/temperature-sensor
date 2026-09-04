@@ -19,7 +19,8 @@
      defined(AE_EXP_PREPARED_POWER_FACTOR) || \
      defined(AE_EXP_PREPARED_FINAL_1MIN_100) || \
      defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
-     defined(AE_EXP_FULL_1MIN_10))
+     defined(AE_EXP_FULL_1MIN_10) || \
+     defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN))
 
 #  include <esp_sleep.h>
 #  include <esp_system.h>
@@ -32,12 +33,18 @@ ExperimentEarlyEntrySnapshot g_early{};
 }
 
 extern "C" void ExperimentEarlyAppEntry() {
+#if defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
+  // Isolation test: no app init. Plain IDF timer deep sleep, 10 minutes.
+  esp_sleep_enable_timer_wakeup(10ULL * 60ULL * 1000000ULL);
+  esp_deep_sleep_start();
+#else
   g_early.app_entry_esp_timer_us = esp_timer_get_time();
   g_early.app_entry_rtc_us = esp_rtc_get_time_us();
   g_early.reset_reason = static_cast<std::uint8_t>(esp_reset_reason());
   g_early.wakeup_cause =
       static_cast<std::uint8_t>(esp_sleep_get_wakeup_cause());
   g_early.valid = 1;
+#endif
 }
 
 ExperimentEarlyEntrySnapshot const& GetExperimentEarlyEntrySnapshot() {

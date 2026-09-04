@@ -31,7 +31,8 @@ struct ExperimentEarlyEntrySnapshot {
      defined(AE_EXP_PREPARED_POWER_FACTOR) || \
      defined(AE_EXP_PREPARED_FINAL_1MIN_100) || \
      defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
-     defined(AE_EXP_FULL_1MIN_10))
+     defined(AE_EXP_FULL_1MIN_10) || \
+     defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN))
 extern "C" void ExperimentEarlyAppEntry();
 ExperimentEarlyEntrySnapshot const& GetExperimentEarlyEntrySnapshot();
 #else
