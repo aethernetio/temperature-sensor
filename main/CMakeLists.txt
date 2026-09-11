@@ -190,18 +190,9 @@ else()
       file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"\")\n")
     endif()
 
-    # CMake sees BOARD before the C preprocessor expands the symbolic board
-    # constants from user_config.h. Generate the ULP project for every supported
-    # board, accepting both the symbolic values used by CI and numeric values
-    # used by local builds.
-    if("${BOARD}" STREQUAL "BOARD_AETHER_ESP32_C6" OR
-       "${BOARD}" STREQUAL "0" OR
-       "${BOARD}" STREQUAL "BOARD_NANO_ESP32_C6" OR
-       "${BOARD}" STREQUAL "1" OR
-       "${BOARD}" STREQUAL "BOARD_M5STACK_ATOM_LITE" OR
-       "${BOARD}" STREQUAL "2")
-      ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
-    endif()
+    # We call the project addition as usual
+    ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
+    
   else()
     #Other platforms
     message(FATAL_ERROR "Platform ${CM_PLATFORM} is not supported")
