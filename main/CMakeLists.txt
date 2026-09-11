@@ -198,10 +198,10 @@ else()
     # constants from user_config.h. Accept both the public symbolic value used
     # by CI and the corresponding numeric value for local builds.
     if("${BOARD}" STREQUAL "BOARD_AETHER_ESP32_C6" OR
-       "${BOARD}" STREQUAL "0") OR
-      ("${BOARD}" STREQUAL "BOARD_NANO_ESP32_C6" OR
-       "${BOARD}" STREQUAL "1") OR
-      ("${BOARD}" STREQUAL "BOARD_M5STACK_ATOM_LITE" OR
+       "${BOARD}" STREQUAL "0" OR
+      "${BOARD}" STREQUAL "BOARD_NANO_ESP32_C6" OR
+       "${BOARD}" STREQUAL "1" OR
+      "${BOARD}" STREQUAL "BOARD_M5STACK_ATOM_LITE" OR
        "${BOARD}" STREQUAL "2")
       ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../lp_core")
     endif()
