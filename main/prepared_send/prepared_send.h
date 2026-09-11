@@ -36,7 +36,8 @@ enum class HotSendStatus {
 std::string_view ToString(HotSendStatus status);
 
 // Build the same binary temperature payload as SendValue().
-ae::DataBuffer MakeTemperaturePayload(std::string const& temperature);
+// Temperature is in hundredths of a degree Celsius.
+ae::DataBuffer MakeTemperaturePayload(std::int16_t temperature);
 
 // UTF-8 benchmark payload: "FULL:0" / "PREPARED:N" (legacy E2E).
 ae::DataBuffer MakeBenchPayload(std::string_view kind, int sequence);
@@ -215,7 +216,8 @@ FastSendResult SendPreparedOnceWithFastPath(
 struct PreparedWifiRtcCache {
   std::uint32_t magic{0};
   std::uint16_t version{0};
-  std::uint16_t flags{0};  // bit0=ip, bit1=channel, bit2=gw_mac, bit3=bssid_diag
+  std::uint16_t flags{
+      0};  // bit0=ip, bit1=channel, bit2=gw_mac, bit3=bssid_diag
   std::uint8_t channel{0};
   std::uint8_t bssid[6]{};
   std::uint8_t gw_mac[6]{};
@@ -234,7 +236,7 @@ BisectWifiCacheSnapshot SnapshotFromPreparedWifiRtcCache(
     PreparedWifiRtcCache const& cache);
 #endif
 
-HotSendStatus TryHotWakePreparedSend(std::string const& temperature);
+HotSendStatus TryHotWakePreparedSend(std::int16_t temperature);
 
 bool ExportPreparedSendBlock(ae::Client::ptr const& client, ae::Uid destination,
                              std::size_t reserve_message_count);

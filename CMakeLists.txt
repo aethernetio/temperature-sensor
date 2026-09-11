@@ -150,6 +150,7 @@ if(NOT AE_EXP_FULL_AETHER_AETHERNETIO STREQUAL "1")
   set(USER_CONFIG "../main/user_config.h" CACHE PATH "" FORCE)
 endif()
 # ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
+
 include_directories(${CMAKE_CURRENT_LIST_DIR}/main)
 
 if (CM_PLATFORM STREQUAL "ESP32")

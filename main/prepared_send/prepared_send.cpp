@@ -18,7 +18,6 @@
 #include <optional>
 #include <thread>
 
-#include "aether-miscpp/serialization/binary_archive.h"
 #include "aether-miscpp/misc/defer.h"
 
 #include "aether/all.h"
@@ -122,7 +121,8 @@ static RTC_NOINIT_ATTR bool gateway_mac_valid;
 static_assert(sizeof(ae::prepared_packet::PreparedSendMessageBlock) <= 8 * 1024,
               "PreparedSendMessageBlock must fit in ESP32 RTC slow memory");
 #else
-static ae::prepared_packet::PreparedSendMessageBlock g_prepared_send_message_block;
+static ae::prepared_packet::PreparedSendMessageBlock
+    g_prepared_send_message_block;
 #endif
 
 #if defined(ESP_PLATFORM)
@@ -324,8 +324,7 @@ void WifiEventHandler(void*, esp_event_base_t event_base, std::int32_t event_id,
       PS_LOGE("Wi-Fi hot path connect start failed: %s", esp_err_to_name(err));
       xEventGroupSetBits(g_wifi_event_group, kWifiFailBit);
     }
-  } else if (event_base == WIFI_EVENT &&
-             event_id == WIFI_EVENT_STA_CONNECTED) {
+  } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
     CaptureApIntoCache();
     if (!g_wait_got_ip) {
       xEventGroupSetBits(g_wifi_event_group, kWifiReadyBit);
@@ -576,7 +575,8 @@ bool EnsureWifiConnectedForHotPath() {
       return true;
     }
 
-    // Cached BSSID/channel (and/or static IP) failed — invalidate and fall back.
+    // Cached BSSID/channel (and/or static IP) failed — invalidate and fall
+    // back.
     CleanupHotPathWifiRuntime();
     InvalidatePreparedWifiCache();
     g_last_send_cache_flags =
@@ -637,7 +637,7 @@ HotSendStatus EncodeAndUdpSend(ae::DataBuffer const& payload) {
   return HotSendStatus::kSent;
 }
 
-#if defined(ESP_PLATFORM)
+#  if defined(ESP_PLATFORM)
 // Late TX-done diagnostic state (fixed-size; no heap/log in callback).
 struct TxDoneDiag {
   std::atomic<std::uint32_t> total{0};
@@ -650,8 +650,8 @@ struct TxDoneDiag {
   std::atomic<int> first_status{-1};  // -1 none, 0 fail, 1 success
 };
 
-std::atomic<bool> g_fast_tx_done_seen{false};      // any callback
-std::atomic<bool> g_fast_tx_done_success{false};   // first success
+std::atomic<bool> g_fast_tx_done_seen{false};     // any callback
+std::atomic<bool> g_fast_tx_done_success{false};  // first success
 std::atomic<int> g_fast_cb_count{0};
 std::atomic<int> g_tx_wait_mode{0};  // FastTxDoneWaitMode as int
 TxDoneDiag g_tx_diag{};
@@ -713,8 +713,9 @@ static std::uint32_t DeltaOrMissing(std::int64_t abs_us,
   return d > 0xffffffffll ? 0xffffffffu : static_cast<std::uint32_t>(d);
 }
 
-static void FillTxDoneTiming(FastSendResult* timing, std::int64_t sendto_return_us,
-                             bool condition_met, std::uint8_t after_success,
+static void FillTxDoneTiming(FastSendResult* timing,
+                             std::int64_t sendto_return_us, bool condition_met,
+                             std::uint8_t after_success,
                              FastTxDoneWaitMode wait_mode) {
   if (timing == nullptr) {
     return;
@@ -732,12 +733,12 @@ static void FillTxDoneTiming(FastSendResult* timing, std::int64_t sendto_return_
       first_st < 0 ? 0xff : static_cast<std::uint8_t>(first_st);
   timing->first_cb_delta_us = DeltaOrMissing(
       g_tx_diag.first_cb_us.load(std::memory_order_relaxed), sendto_return_us);
-  timing->first_success_delta_us = DeltaOrMissing(
-      g_tx_diag.first_success_us.load(std::memory_order_relaxed),
-      sendto_return_us);
-  timing->first_failed_delta_us = DeltaOrMissing(
-      g_tx_diag.first_failed_us.load(std::memory_order_relaxed),
-      sendto_return_us);
+  timing->first_success_delta_us =
+      DeltaOrMissing(g_tx_diag.first_success_us.load(std::memory_order_relaxed),
+                     sendto_return_us);
+  timing->first_failed_delta_us =
+      DeltaOrMissing(g_tx_diag.first_failed_us.load(std::memory_order_relaxed),
+                     sendto_return_us);
   timing->last_cb_delta_us = DeltaOrMissing(
       g_tx_diag.last_cb_us.load(std::memory_order_relaxed), sendto_return_us);
   timing->callbacks_after_success = after_success;
@@ -794,10 +795,10 @@ HotSendStatus EncodeAndUdpSendTracked(ae::DataBuffer const& payload) {
 // MODE A (kFirstAny): wait first callback regardless of txStatus.
 // MODE B (kFirstSuccess): wait first txStatus==true, then 5 ms observe window.
 // Safety timeout: 100 ms from sendto return. Socket open until unregister.
-#if defined(ESP_PLATFORM)
+#    if defined(ESP_PLATFORM)
 extern "C" esp_err_t esp_wifi_internal_set_retry_counter(uint8_t short_retry,
                                                          uint8_t long_retry);
-#endif
+#    endif
 
 // Prefer: EncodePacket + socket, then optional MAC retry counter, then
 // ResetFastTxDone + tx-done cb + immediate sendto. No Wi-Fi ops between
@@ -869,8 +870,7 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
   auto const t_send_ret = esp_timer_get_time();
   if (timing != nullptr) {
     auto const es = t_send_ret - t_encode0;
-    timing->encode_send_us =
-        es < 0 ? 0 : static_cast<std::uint32_t>(es);
+    timing->encode_send_us = es < 0 ? 0 : static_cast<std::uint32_t>(es);
   }
 
   if (sent != static_cast<ssize_t>(packet.size())) {
@@ -921,14 +921,13 @@ HotSendStatus EncodeAndUdpSendWithLateTxDone(ae::DataBuffer const& payload,
 
   if (timing != nullptr) {
     auto const wait = t_cb_done - t_send_ret;
-    timing->tx_done_wait_us =
-        wait < 0 ? 0 : static_cast<std::uint32_t>(wait);
+    timing->tx_done_wait_us = wait < 0 ? 0 : static_cast<std::uint32_t>(wait);
     FillTxDoneTiming(timing, t_send_ret, condition_met, after_success,
                      wait_mode);
   }
   return HotSendStatus::kSent;
 }
-#endif
+#  endif
 
 #else
 
@@ -968,25 +967,13 @@ std::string_view ToString(HotSendStatus status) {
 
 std::uint8_t LastSendCacheFlags() { return g_last_send_cache_flags; }
 
-struct Header {
-  AE_REFLECT_MEMBERS(root_code, size, dev_code)
-  std::uint8_t const root_code = 0x3;
-  std::uint8_t const size = sizeof(std::uint8_t) + sizeof(std::int16_t);
-  std::uint8_t const dev_code = 0x10;
-};
-
-ae::DataBuffer MakeTemperaturePayload(std::string const& temperature) {
-  static constexpr auto header = Header{};
-
-  auto message = ae::DataBuffer{};
-  message.reserve(sizeof(header) + temperature.size());
-  {
-    auto archive =
-        ae::seri::BinaryArchive{ae::seri::BinaryVectorBuffer<>{message}};
-    archive.Save(header);
-    archive.Save(temperature);
-  }
-  return message;
+ae::DataBuffer MakeTemperaturePayload(std::int16_t temperature) {
+  auto const encoded_temperature =
+      static_cast<std::int16_t>((temperature / 100 + 30) * 3);
+  auto const payload = std::array<std::uint8_t, 5>{
+      0x03, 0x03, 0x0A, static_cast<std::uint8_t>(encoded_temperature & 0xFF),
+      static_cast<std::uint8_t>((encoded_temperature >> 8) & 0xFF)};
+  return ae::DataBuffer{payload.begin(), payload.end()};
 }
 
 bool HasPreparedSendBlock() { return g_prepared_send_message_block.is_valid(); }
@@ -998,9 +985,7 @@ std::uint32_t PreparedMessageLeft() {
   return g_prepared_send_message_block.Resolve()->message_left;
 }
 
-void ClearPreparedSendBlock() {
-  g_prepared_send_message_block.raw.magic = {};
-}
+void ClearPreparedSendBlock() { g_prepared_send_message_block.raw.magic = {}; }
 
 bool ExportPreparedSendBlock(ae::Client::ptr const& client, ae::Uid destination,
                              std::size_t reserve_message_count) {
@@ -1084,7 +1069,8 @@ HotSendStatus SendPreparedOnce(ae::DataBuffer const& payload) {
     return HotSendStatus::kNonceExhausted;
   }
 
-  // Connect BEFORE EncodePacket so a failed Wi-Fi attempt does not burn a nonce.
+  // Connect BEFORE EncodePacket so a failed Wi-Fi attempt does not burn a
+  // nonce.
   if (!EnsureWifiConnectedForHotPath()) {
     return HotSendStatus::kWifiFailed;
   }
@@ -1310,10 +1296,9 @@ bool StartBisectWifi(BisectFactorConfig const& cfg) {
 
   if (need_static_ip) {
     esp_netif_dhcpc_stop(g_wifi_netif);
-    esp_netif_ip_info_t ip_info = {
-        .ip = {.addr = g_bisect_cache.ip},
-        .netmask = {.addr = g_bisect_cache.netmask},
-        .gw = {.addr = g_bisect_cache.gateway}};
+    esp_netif_ip_info_t ip_info = {.ip = {.addr = g_bisect_cache.ip},
+                                   .netmask = {.addr = g_bisect_cache.netmask},
+                                   .gw = {.addr = g_bisect_cache.gateway}};
     esp_netif_set_ip_info(g_wifi_netif, &ip_info);
     rtc_ip_info = ip_info;
     address_is_valid = true;
@@ -1396,8 +1381,7 @@ bool StartBisectWifi(BisectFactorConfig const& cfg) {
       pdMS_TO_TICKS(AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS));
 
   if (cfg.fixed_1m) {
-    (void)esp_wifi_internal_set_fix_rate(WIFI_IF_STA, true,
-                                         WIFI_PHY_RATE_1M_L);
+    (void)esp_wifi_internal_set_fix_rate(WIFI_IF_STA, true, WIFI_PHY_RATE_1M_L);
   }
 
   if ((bits & kWifiReadyBit) == 0) {
@@ -1509,10 +1493,9 @@ bool StartFastWifi(FastPathConfig const& cfg,
 
   if (need_static_ip) {
     esp_netif_dhcpc_stop(g_wifi_netif);
-    esp_netif_ip_info_t ip_info = {
-        .ip = {.addr = cache.ip},
-        .netmask = {.addr = cache.netmask},
-        .gw = {.addr = cache.gateway}};
+    esp_netif_ip_info_t ip_info = {.ip = {.addr = cache.ip},
+                                   .netmask = {.addr = cache.netmask},
+                                   .gw = {.addr = cache.gateway}};
     esp_netif_set_ip_info(g_wifi_netif, &ip_info);
     rtc_ip_info = ip_info;
     address_is_valid = true;
@@ -1694,9 +1677,9 @@ BisectSendResult SendPreparedOnceWithBisectFactor(
   auto const cfg = MakeBisectConfig(variant);
   out.pre_delay_ms = cfg.pre_delay_ms;
   out.factor_bits = BisectFactorBitsOf(cfg);
-  out.requested_channel =
-      (cfg.use_channel && g_bisect_cache.valid_bssid) ? g_bisect_cache.channel
-                                                      : 0;
+  out.requested_channel = (cfg.use_channel && g_bisect_cache.valid_bssid)
+                              ? g_bisect_cache.channel
+                              : 0;
 
   if (!g_prepared_send_message_block.is_valid()) {
     out.status = HotSendStatus::kNoPreparedBlock;
@@ -1825,8 +1808,7 @@ FastSendResult SendPreparedOnceWithFastPath(
   HotSendStatus encode_status = HotSendStatus::kWifiFailed;
   auto const t_post0 = esp_timer_get_time();
   if (cfg.post_mode != FastPostMode::kFixedDelay) {
-    encode_status =
-        EncodeAndUdpSendWithLateTxDone(payload, &out, cfg);
+    encode_status = EncodeAndUdpSendWithLateTxDone(payload, &out, cfg);
     std::uint16_t extra_ms = 0;
     if (cfg.post_mode == FastPostMode::kTxDoneCbPlus10) {
       extra_ms = 10;
@@ -1977,7 +1959,7 @@ bool CapturePreparedWifiRtcCache(PreparedWifiRtcCache* out) {
 #endif
 
 HotSendStatus TryHotWakePreparedSend(
-    [[maybe_unused]] std::string const& temperature) {
+    [[maybe_unused]] std::int16_t temperature) {
 #if defined(ESP_PLATFORM)
   esp_reset_reason_t reset = esp_reset_reason();
 

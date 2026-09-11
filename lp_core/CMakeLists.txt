@@ -65,7 +65,19 @@ target_include_directories(${ULP_APP_NAME} PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../
 include(../cmake/CPM.cmake)
 CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
 
-# not link but only setup include directory for aether/config_consts.h
-target_include_directories(${ULP_APP_NAME} PUBLIC "${aether-client-cpp_SOURCE_DIR}")
+# If the configuration file exists, connect it
+if(EXISTS "${ULP_BOARD_FILE}")
+    include("${ULP_BOARD_FILE}")
+endif()
 
-target_compile_definitions(${ULP_APP_NAME} PRIVATE "ULP_MODE=1")
+# Checking if the BOARD variable value appears after including
+if(NOT "${BOARD}" STREQUAL "")
+    message(STATUS "--------------------------------------------------")
+    message(STATUS "ULP Project SUCCESS! Board loaded from file: ${BOARD}")
+    message(STATUS "--------------------------------------------------")
+    
+    # Checking if the BOARD variable has been included
+    add_compile_definitions(BOARD=${BOARD})
+else()
+    message(WARNING "ULP Project: BOARD is not defined!")
+endif()

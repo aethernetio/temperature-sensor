@@ -17,12 +17,13 @@
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 
 #include "aether/all.h"
 #include "aether/env.h"
+#include "prepared_send/prepared_send.h"
 #include "sensors/sensors.h"
 #include "sleeping/sleeping.h"
-#include "prepared_send/prepared_send.h"
 
 using namespace std::chrono_literals;
 
@@ -41,7 +42,7 @@ static constexpr auto kServiceUid =
 #ifdef SERVICE_UID
     ae::Uid::FromString(SERVICE_UID);
 #else
-    ae::Uid::FromString("73791462-71a0-4014-b1aa-104ba9e62475");
+    ae::Uid::FromString("752fa297-ec98-47d9-8def-a3ef80ecca42");
 #endif
 
 #ifdef ESP_PLATFORM
@@ -83,13 +84,13 @@ void UpdateSensors();
 // Message from aether service received
 void MessageReceived(ae::DataBuffer const& buffer);
 // Send the message value to the aether service
-void SendValue(std::string const& temperature);
+void SendValue(std::int16_t temperature);
 // Make all required work and ready to sleep
 void SleepReady();
 // Go to sleep method
 void GoToSleep(ae::TimePoint time_point);
 
-static std::shared_ptr<ae::AetherApp> aether_app;
+static std::unique_ptr<ae::AetherApp> aether_app;
 static ae::Client::ptr client;
 static std::unique_ptr<ae::P2pStream> message_stream;
 
@@ -107,21 +108,15 @@ static constexpr std::size_t kPreparedNonceReserve =
     32;
 #endif
 
-void ReadHotSensors(std::string* temperature, uint32_t* humidity,
-                    uint32_t* pressure, uint32_t* co2,
-                    uint32_t* gas_resistance) {
-  *temperature = "Prepared 25.67";
-}
-
 void setup() {
-  std::cout << ae::Format("Setup {}") << ae::Now() << std::endl;
+  std::cout << ae::Format("Setup {:%Y-%m-%d %H:%M:%S}\n") << ae::Now();
 
 #if defined(ESP_PLATFORM)
   // Prepared-send hot path: try to send current temperature without creating
   // full AetherApp. Any error falls back to the normal full boot below.
   {
-    std::string hot_temperature = {};
-    ReadHotSensors(&hot_temperature, nullptr, nullptr, nullptr, nullptr);
+    std::int16_t hot_temperature = {};
+    ReadSensors(&hot_temperature, nullptr, nullptr, nullptr, nullptr);
 
     auto hot_status =
         temp_sensor::prepared_send::TryHotWakePreparedSend(hot_temperature);
@@ -185,61 +180,61 @@ void ClientSelected(ae::Result<ae::Client::ptr, int> res) {
   }
 
   client = std::move(res).value();
-  auto client_ptr = client.Load();
-  if (!client_ptr) {
+  auto r = client.WithLoaded([](ae::Ptr<ae::Client> const& c) {
+    std::cout << ae::Format(
+        "\n\n>>>>>>>\n>>>>>>> Client Loaded UID:{} \n>>>>>>> Visit "
+        "https://aethernet.io/smarthub.html?uuid={} \n<<<<<\n\n",
+        c->uid(), kServiceUid);
+
+    // Config connectivity policy, open 5s RX window every 60s.
+    c->connectivity_policy()
+        ->ConfigureRxTimings(ae::RequestPolicy::All{})
+        .ForAllPriorities(ae::RxTimingConf::Every(60s).WithWindow(5s));
+
+    // check current work_mode
+    // it's always TX if we woke up
+    auto work_mode = WorkMode::kTx;
+    auto current_time = ae::Now();
+    static constexpr ae::Duration threshold = 5s;
+    auto cp_status = c->connectivity_policy()->GetStatus();
+    // if it's next_service_time it's also RX
+    if ((current_time + threshold) >= cp_status.next_service_time) {
+      work_mode = work_mode | WorkMode::kRx;
+    }
+    std::cout << ae::Format(">>>> Run in {} work mode\n",
+                            WorkMode::ToText(work_mode));
+
+    if ((work_mode & WorkMode::kRx) != 0) {
+      // open message stream for receive and send
+      message_stream = std::make_unique<ae::P2pStream>(
+          *aether_app, c, kServiceUid,
+          c->message_stream_manager().CreatePort(kServiceUid));
+      message_stream->out_data_event().Subscribe(MessageReceived);
+    } else {
+      // open message stream for send only
+      message_stream = std::make_unique<ae::P2pStream>(
+          *aether_app, c, kServiceUid, ae::P2pPortHandle{});
+    }
+
+    // measure temperature and send updated value
+    UpdateSensors();
+  });
+
+  if (!r) {
     std::cerr << " !!! Client wasn't loaded";
     aether_app->Exit(2);
   }
-
-  std::cout << ae::Format(
-      "\n\n>>>>>>>\n>>>>>>> Client Loaded UID:{} \n>>>>>>> Visit "
-      "https://aethernet.io/smarthub.html?uuid={} \n<<<<<\n\n",
-      client_ptr->uid(), kServiceUid);
-
-  // Config connectivity policy, open 5s RX window every 60s.
-  client_ptr->connectivity_policy()
-      ->ConfigureRxTimings(ae::RequestPolicy::All{})
-      .ForAllPriorities(ae::RxTimingConf::Every(60s).WithWindow(5s));
-
-  // check current work_mode
-  // it's always TX if we woke up
-  auto work_mode = WorkMode::kTx;
-  auto current_time = ae::Now();
-  static constexpr ae::Duration threshold = 5s;
-  auto cp_status = client_ptr->connectivity_policy()->GetStatus();
-  // if it's next_service_time it's also RX
-  if ((current_time + threshold) >= cp_status.next_service_time) {
-    work_mode = work_mode | WorkMode::kRx;
-  }
-  std::cout << ae::Format(">>>> Run in {} work mode\n",
-                          WorkMode::ToText(work_mode));
-
-  if ((work_mode & WorkMode::kRx) != 0) {
-    // open message stream for receive and send
-    message_stream = std::make_unique<ae::P2pStream>(
-        *aether_app, client_ptr, kServiceUid,
-        client_ptr->message_stream_manager().CreatePort(kServiceUid));
-    message_stream->out_data_event().Subscribe(MessageReceived);
-  } else {
-    // open message stream for send only
-    message_stream = std::make_unique<ae::P2pStream>(
-        *aether_app, client_ptr, kServiceUid, ae::P2pPortHandle{});
-  }
-
-  // measure temperature and send updated value
-  UpdateSensors();
-}
-
-void ReadSensors(std::string* temperature, uint32_t* humidity,
-                 uint32_t* pressure, uint32_t* co2, uint32_t* gas_resistance) {
-  *temperature = "Full 25.67";
 }
 
 // implemented in sensors/
 void UpdateSensors() {
-  std::string temperature = {};
-  ReadSensors(&temperature, nullptr, nullptr, nullptr, nullptr);
-  std::cout << ae::Format(" >>> Temperature: [{}]\n", temperature);
+  std::int16_t temperature = {};
+  std::uint32_t humidity = {};
+  std::uint32_t co2 = {};
+
+  ReadSensors(&temperature, &humidity, nullptr, &co2, nullptr);
+  std::cout << ae::Format(" >>> Temperature: [{}], Humidity: [{}], CO2: [{}]\n",
+                          temperature, humidity, co2);
   // TODO: add check if wakeup cause is ulp then send value
   SendValue(temperature);
 }
@@ -249,7 +244,7 @@ void MessageReceived(ae::DataBuffer const& buffer) {
   std::cout << ae::Format(" >>> Received message from service: [{}]\n", buffer);
 }
 
-void SendValue(std::string const& temperature) {
+void SendValue(std::int16_t temperature) {
   // The stream is not initialized yet
   if (!message_stream) {
     return;
@@ -305,8 +300,9 @@ void GoToSleep(ae::TimePoint time_point) {
   aether_app->aether().Save();
 
   // Go to sleep
-  std::cout << ae::Format(" >>> Sleep from {} until {}...\n", ae::Now(),
-                          time_point);
+  std::cout << ae::Format(
+      " >>> Sleep from {:%Y-%m-%d %H:%M:%S} until {:%Y-%m-%d %H:%M:%S}...\n",
+      ae::Now(), time_point);
   // TODO: add separate sleep duration
   DeepSleep(time_point, time_point, 3000);  // wait till time or 30 deegrees
 }

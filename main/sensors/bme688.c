@@ -33,22 +33,34 @@
 #    include "sensors/sensors.h"
 #    include "sensors/utils.h"
 
-#    ifdef IS_ULP_COCPU
-#      define BME_I2C_NUM LP_I2C_NUM_0
-#    else
-#      define BME_I2C_NUM I2C_NUM_0
+#  if ULP_COMP == 0
+static i2c_master_bus_handle_t bus_handle;
+static i2c_master_dev_handle_t dev_handle_bme688;
+#  endif
+
+#    if ULP_COMP == 1
+#      define BME688_I2C_NUM_0 LP_I2C_NUM_0
+#      define I2C_BUS_HANDLE_S 0
+#      define I2C_HANDLE_PORT_S BME688_I2C_NUM_0
+#    elif ULP_COMP == 0
+#      define BME688_I2C_NUM_0 I2C_NUM_0
+#      define I2C_BUS_HANDLE_S &bus_handle
+#      define I2C_HANDLE_PORT_S dev_handle_bme688
 #    endif
 
 // Constants
 #    define I2C_TRANS_TIMEOUT_CYCLES 5000
 #    define I2C_TRANS_WAIT_FOREVER -1
+#    define I2C_BUS_SPEED 400000 // 400 KHz
 
 // --- SAFER Interface Functions ---
 static BME68X_INTF_RET_TYPE bme_i2c_read(uint8_t reg_addr, uint8_t* reg_data,
                                          uint32_t len, void* intf_ptr) {
   uint8_t dev_addr = *(uint8_t*)intf_ptr;
-  esp_err_t err = i2c_write_read(BME_I2C_NUM, dev_addr, &reg_addr, 1, reg_data,
+
+  esp_err_t err = i2c_write_read(I2C_HANDLE_PORT_S, dev_addr, &reg_addr, 1, reg_data,
                                  len, I2C_TRANS_TIMEOUT_CYCLES);
+
   return (err == ESP_OK) ? BME68X_OK : BME68X_E_COM_FAIL;
 }
 
@@ -67,8 +79,8 @@ static BME68X_INTF_RET_TYPE bme_i2c_write(uint8_t reg_addr,
   // Safe copy
   memcpy(&buffer[1], reg_data, len);
 
-  esp_err_t err =
-      i2c_write(BME_I2C_NUM, dev_addr, buffer, len + 1, I2C_TRANS_WAIT_FOREVER);
+  esp_err_t err = i2c_write(I2C_HANDLE_PORT_S, dev_addr, buffer, len + 1, I2C_TRANS_WAIT_FOREVER);
+
   return (err == ESP_OK) ? BME68X_OK : BME68X_E_COM_FAIL;
 }
 
@@ -82,12 +94,30 @@ struct bme68x_dev bme;
 struct bme68x_conf conf;
 uint8_t dev_addr = BME68X_I2C_ADDR_LOW;
 
-bool Init() {
-  // 1. INSTALL I2C DRIVER
-  if (i2c_init(BME_I2C_NUM, SENSOR_SDA_PIN, SENSOR_SCL_PIN) != ESP_OK) {
+bool init_i2c(uint8_t dev_addr){
+  // 2. Install I2C driver
+  if (i2c_init(I2C_BUS_HANDLE_S, BME688_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN, I2C_BUS_SPEED) != ESP_OK) {
     return false;
   }
 
+#if ULP_COMP == 0
+  // Configuration of a specific device on the bus
+  i2c_device_config_t dev_cfg_bme688 = {};
+  dev_cfg_bme688.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+  dev_cfg_bme688.device_address = dev_addr;  // Address BME688
+  dev_cfg_bme688.scl_speed_hz = I2C_BUS_SPEED;
+
+  if(i2c_master_bus_add_device(bus_handle, &dev_cfg_bme688, &dev_handle_bme688) != ESP_OK){
+    return false;
+  }
+#endif
+
+  return true;
+}
+
+bool Init() {
+  init_i2c(dev_addr);
+  
   // 2. Initialize BME Sensor
   bme.read = bme_i2c_read;
   bme.write = bme_i2c_write;
@@ -98,6 +128,10 @@ bool Init() {
 
   if (bme68x_init(&bme) != BME68X_OK) {
     dev_addr = BME68X_I2C_ADDR_HIGH;  // Try alternate address
+#if ULP_COMP == 0
+    i2c_master_bus_rm_device(dev_handle_bme688);
+#endif
+    init_i2c(dev_addr);
     if (bme68x_init(&bme) != BME68X_OK) {
       return false;
     }

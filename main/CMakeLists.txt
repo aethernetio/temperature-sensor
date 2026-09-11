@@ -197,7 +197,6 @@ else()
     if("${BOARD}" STREQUAL "2")
       ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../lp_core")
     endif()
-
   else()
     #Other platforms
     message(FATAL_ERROR "Platform ${CM_PLATFORM} is not supported")
