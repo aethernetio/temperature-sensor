@@ -194,8 +194,7 @@ else()
     # constants from user_config.h. Generate the ULP project for every supported
     # board, accepting both the symbolic values used by CI and numeric values
     # used by local builds.
-    if("${BOARD}" STREQUAL "" OR
-       "${BOARD}" STREQUAL "BOARD_AETHER_ESP32_C6" OR
+    if("${BOARD}" STREQUAL "BOARD_AETHER_ESP32_C6" OR
        "${BOARD}" STREQUAL "0" OR
        "${BOARD}" STREQUAL "BOARD_NANO_ESP32_C6" OR
        "${BOARD}" STREQUAL "1" OR
