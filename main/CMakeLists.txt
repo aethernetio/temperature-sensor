@@ -190,20 +190,18 @@ else()
       file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"\")\n")
     endif()
 
-    # Only the Nano ESP32-C6 profile uses the LP core. The default Aether C6
-    # board and the other profiles declare BOARD_HAS_ULP=0, so configuring an
-    # unused ULP ExternalProject only introduces an unnecessary toolchain
-    # dependency (and fails on newer ESP-IDF versions).
     # CMake sees BOARD before the C preprocessor expands the symbolic board
-    # constants from user_config.h. Accept both the public symbolic value used
-    # by CI and the corresponding numeric value for local builds.
-    if("${BOARD}" STREQUAL "BOARD_AETHER_ESP32_C6" OR
+    # constants from user_config.h. Generate the ULP project for every supported
+    # board, accepting both the symbolic values used by CI and numeric values
+    # used by local builds.
+    if("${BOARD}" STREQUAL "" OR
+       "${BOARD}" STREQUAL "BOARD_AETHER_ESP32_C6" OR
        "${BOARD}" STREQUAL "0" OR
-      "${BOARD}" STREQUAL "BOARD_NANO_ESP32_C6" OR
+       "${BOARD}" STREQUAL "BOARD_NANO_ESP32_C6" OR
        "${BOARD}" STREQUAL "1" OR
-      "${BOARD}" STREQUAL "BOARD_M5STACK_ATOM_LITE" OR
+       "${BOARD}" STREQUAL "BOARD_M5STACK_ATOM_LITE" OR
        "${BOARD}" STREQUAL "2")
-      ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../lp_core")
+      ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
     endif()
   else()
     #Other platforms
