@@ -42,7 +42,7 @@ static constexpr auto kServiceUid =
 #ifdef SERVICE_UID
     ae::Uid::FromString(SERVICE_UID);
 #else
-    ae::Uid::FromString("752fa297-ec98-47d9-8def-a3ef80ecca42");
+    ae::Uid::FromString("6b24b68f-063f-4fe3-8d5a-dc35386983fb");
 #endif
 
 #ifdef ESP_PLATFORM
