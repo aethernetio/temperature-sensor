@@ -4,8 +4,9 @@
     "Ninja",
     "-DCMAKE_BUILD_TYPE=Debug",
     "-DIDF_TARGET=esp32c6",
-    "-DWIFI_SSID=Test",
-    "-DWIFI_PASSWORD=Test",
+    "-DBOARD=BOARD_AETHER_ESP32_C6",
+    "-DWIFI_SSID=Test1234",
+    "-DWIFI_PASSWORD=Test2345",
     "-DUSER_CONFIG=../main/user_config.h"
   ],
   "idf.currentSetup": "G:\\dev\\esp32\\v6.1\\esp-idf",

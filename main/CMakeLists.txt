@@ -180,17 +180,13 @@ else()
       target_compile_definitions(${TARGET_NAME} PRIVATE "BOARD=${BOARD}")
     endif()
 
-    # Define the path to the board configuration file in the build folder
-    set(ULP_BOARD_FILE "${CMAKE_BINARY_DIR}/ulp_board_config.cmake")
-
-    # Write the value of the BOARD variable to this file
+    # ulp_add_project() configures a separate ExternalProject, so it does not
+    # inherit ordinary CMake variables from this component. Forward BOARD via
+    # ESP-IDF's arguments for CMake subprojects.
     if(NOT "${BOARD}" STREQUAL "")
-      file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"${BOARD}\")\n")
-    else()
-      file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"\")\n")
+      idf_build_set_property(EXTRA_CMAKE_ARGS "-DBOARD=${BOARD}" APPEND)
     endif()
 
-    # We call the project addition as usual
     ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
     
   else()
