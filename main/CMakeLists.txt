@@ -22,6 +22,11 @@ if(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
   list(APPEND src_list
     "experiment_early_entry.cpp"
   )
+elseif(AETHER_DIAG_UDP_RTC_INDEX)
+  list(APPEND src_list
+    "experiment_early_entry.cpp"
+    "udp_rtc_index_loop.cpp"
+  )
 elseif(AE_EXP_PREPARED_WIFI_CACHE_5X20)
   list(APPEND src_list
     "prepared_wifi_cache_5x20_bench.cpp"
@@ -158,7 +163,7 @@ else()
   )
 endif()
 
-if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
+if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND NOT AETHER_DIAG_UDP_RTC_INDEX)
   list(APPEND bme68x_srcs
     "../third-party/BME68x_SensorAPI/bme68x.c"
   )
@@ -203,10 +208,17 @@ else()
     set(BOARD "" CACHE STRING "Selected board - see user_config.h")
 
     #ESP32 CMake
-    idf_component_register(SRCS ${src_list} ${bme68x_srcs} ${sleeping_src} ${sensors_src}
-      INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/.."
-      REQUIRES soc ulp
-      PRIV_REQUIRES
+    set(_main_requires soc)
+    if(CONFIG_ULP_COPROC_ENABLED)
+      list(APPEND _main_requires ulp)
+    endif()
+    if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1")
+      message(STATUS "AETHER_DIAG_UDP_RTC_INDEX: adding nvs_flash esp_wifi ulp to REQUIRES")
+      list(APPEND _main_requires nvs_flash esp_wifi)
+      # HP-side ulp_lp_core_stop() (do not load/run ULP app in this diag).
+      list(APPEND _main_requires ulp)
+    endif()
+    set(_main_priv_requires
         idf::driver
         idf::esp_driver_i2c
         idf::esp_driver_tsens
@@ -218,9 +230,24 @@ else()
         idf::esp_netif
         idf::esp_hw_support
         idf::esp_pm)
+    idf_component_register(SRCS ${src_list} ${bme68x_srcs} ${sleeping_src} ${sensors_src}
+      INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/.."
+      REQUIRES ${_main_requires}
+      PRIV_REQUIRES ${_main_priv_requires})
 
     set(TARGET_NAME "${COMPONENT_LIB}")
-    if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
+    if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1")
+      # Ensure Wi-Fi headers/libs even if REQUIRES expansion was incomplete.
+      target_link_libraries(${TARGET_NAME} PUBLIC idf::esp_wifi idf::nvs_flash idf::lwip)
+      # Explicit ULP HP API includes (REQUIRES ulp alone may not expand includes early).
+      idf_build_get_property(_idf_path IDF_PATH)
+      target_include_directories(${TARGET_NAME} PRIVATE
+        "${_idf_path}/components/ulp/lp_core/include"
+        "${_idf_path}/components/ulp/lp_core/shared/include"
+        "${_idf_path}/components/ulp/ulp_common/include")
+      target_link_libraries(${TARGET_NAME} PUBLIC idf::ulp)
+    endif()
+    if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND NOT AETHER_DIAG_UDP_RTC_INDEX)
       include(../cmake/CPM.cmake)
       # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
       CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
@@ -238,18 +265,25 @@ else()
       target_compile_definitions(${TARGET_NAME} PRIVATE "BOARD=${BOARD}")
     endif()
 
-    # Define the path to the board configuration file in the build folder
-    set(ULP_BOARD_FILE "${CMAKE_BINARY_DIR}/ulp_board_config.cmake")
+    if(CONFIG_ULP_COPROC_ENABLED)
+      # Define the path to the board configuration file in the build folder
+      set(ULP_BOARD_FILE "${CMAKE_BINARY_DIR}/ulp_board_config.cmake")
 
-    # Write the value of the BOARD variable to this file
-    if(NOT "${BOARD}" STREQUAL "")
-      file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"${BOARD}\")\n")
-    else()
-      file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"\")\n")
+      # Write the value of the BOARD variable to this file
+      if(NOT "${BOARD}" STREQUAL "")
+        file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"${BOARD}\")\n")
+      else()
+        file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"\")\n")
+      endif()
+
+      # UDP/deep-sleep diags: link HP-side ulp_lp_core_stop() only — never load/run ULP app.
+      if(NOT AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" AND
+         NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1")
+        ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
+      else()
+        message(STATUS "Skipping ulp_add_project (diag path; ULP stop API only)")
+      endif()
     endif()
-
-    # We call the project addition as usual
-    ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
 
   else()
     #Other platforms
@@ -295,6 +329,10 @@ set(AE_EXP_PREPARED_FINAL_1MIN_100 "" CACHE STRING "Final 1-min 100-HOT energy r
 set(AE_EXP_FULL_1MIN_10 "" CACHE STRING "10 FULL Æther sends at 1-min cadence (set to 1)")
 set(AE_EXP_CACHED_FULL_HOT_1MIN "" CACHE STRING "Warmup FULL then 1 cached FULL + 10 HOT at 1 min (set to 1)")
 set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "" CACHE STRING "Diagnostic: early-entry 10 min deep sleep only (set to 1)")
+set(AETHER_DIAG_UDP_RTC_INDEX "" CACHE STRING "Diagnostic: WiFi+UDP RTC index sleep loop (set to 1)")
+set(AE_UDP_SERVER_HOST "" CACHE STRING "UDP server IPv4 for AETHER_DIAG_UDP_RTC_INDEX")
+set(AE_UDP_SERVER_PORT "" CACHE STRING "UDP server port for AETHER_DIAG_UDP_RTC_INDEX")
+set(AE_EXP_BOOTWIFI_HOT_TIMING "" CACHE STRING "FINAL_1MIN: use boot/wifi VAL100 timing knobs (set to 1)")
 set(AE_EXP_ENCODE_DURING_ASSOCIATION "" CACHE STRING "Force encode_during_association on power bench (set to 1)")
 set(AE_EXP_ENCODE_OVERLAP_DIAG "" CACHE STRING "Encode-overlap root-cause USB diagnostics (set to 1)")
 set(AE_EXP_ENCODE_OVERLAP_LEGACY_EARLY_SOCKET "" CACHE STRING "Reproduce broken early UDP socket bind (set to 1)")
@@ -379,6 +417,16 @@ ae_exp_define_if_set(AE_EXP_PREPARED_FINAL_1MIN_100)
 ae_exp_define_if_set(AE_EXP_FULL_1MIN_10)
 ae_exp_define_if_set(AE_EXP_CACHED_FULL_HOT_1MIN)
 ae_exp_define_if_set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
+ae_exp_define_if_set(AETHER_DIAG_UDP_RTC_INDEX)
+if(NOT "${AE_UDP_SERVER_HOST}" STREQUAL "")
+  target_compile_definitions(${TARGET_NAME} PRIVATE
+    "AE_UDP_SERVER_HOST=\"${AE_UDP_SERVER_HOST}\"")
+endif()
+if(NOT "${AE_UDP_SERVER_PORT}" STREQUAL "")
+  target_compile_definitions(${TARGET_NAME} PRIVATE
+    "AE_UDP_SERVER_PORT=${AE_UDP_SERVER_PORT}")
+endif()
+ae_exp_define_if_set(AE_EXP_BOOTWIFI_HOT_TIMING)
 ae_exp_define_if_set(AE_EXP_ENCODE_DURING_ASSOCIATION)
 ae_exp_define_if_set(AE_FULL_1MIN_ATTEMPTS)
 ae_exp_define_if_set(AE_FULL_1MIN_PERIOD_MS)

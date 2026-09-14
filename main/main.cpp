@@ -28,8 +28,9 @@ extern void loop();
 #if defined ESP_PLATFORM
 extern "C" void app_main(void) {
   ExperimentEarlyAppEntry();
-#if defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
-  // Unreachable: ExperimentEarlyAppEntry already called esp_deep_sleep_start.
+#if defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN) || \
+    defined(AETHER_DIAG_UDP_RTC_INDEX)
+  // Unreachable: ExperimentEarlyAppEntry never returns (deep sleep / UDP loop).
   for (;;) {
   }
 #else

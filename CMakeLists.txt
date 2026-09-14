@@ -69,6 +69,12 @@ set(AE_EXP_FULL_1MIN_10 "" CACHE STRING
     "10 FULL Aether sends at 1-min cadence (set to 1)")
 set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "" CACHE STRING
     "Diagnostic: app_main early-entry 10 min deep sleep only (set to 1)")
+set(AETHER_DIAG_UDP_RTC_INDEX "" CACHE STRING
+    "Diagnostic: WiFi+UDP RTC index + 3s deep sleep loop (set to 1)")
+set(AE_UDP_SERVER_HOST "" CACHE STRING
+    "IPv4 of local UDP server for AETHER_DIAG_UDP_RTC_INDEX")
+set(AE_UDP_SERVER_PORT "" CACHE STRING
+    "UDP port for AETHER_DIAG_UDP_RTC_INDEX (default 9000)")
 if(AE_EXP_FULL_AETHER_AETHERNETIO STREQUAL "1")
   # Exclusive minimal defaults — do NOT append silent/fastest/wpa2 overlays.
   set(SDKCONFIG_DEFAULTS
@@ -172,10 +178,14 @@ elseif(AE_EXP_FULL_1MIN_10 STREQUAL "1")
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
   set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1")
+  # Isolation: project sdkconfig.defaults only (INT_RC), no prepared_low_power/silent.
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults")
+  set(CMAKE_SUPPRESS_REGENERATION ON)
+elseif(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
-       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
-       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.bench")
   set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1")
   # Product prepared HOT path uses the measured low-power sdkconfig stack.
