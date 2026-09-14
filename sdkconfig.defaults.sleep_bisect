@@ -1,0 +1,7 @@
+# Thermometer 2 sleep-current bisect overlay.
+# Leave CONFIG_ULP_COPROC_ENABLED as in sdkconfig.defaults so HP-side
+# ulp/lp_core stop APIs link. CMake skips ulp_add_project for this diag
+# (no ULP app load/run). Silent console for clean sleep current.
+
+CONFIG_ESP_CONSOLE_NONE=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y

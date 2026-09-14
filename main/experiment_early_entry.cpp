@@ -21,7 +21,8 @@
      defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
      defined(AE_EXP_FULL_1MIN_10) || \
      defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN) || \
-     defined(AETHER_DIAG_UDP_RTC_INDEX))
+     defined(AETHER_DIAG_UDP_RTC_INDEX) || \
+     defined(AETHER_DIAG_SLEEP_POWER_BISECT))
 
 #  include <esp_sleep.h>
 #  include <esp_system.h>
@@ -30,6 +31,9 @@
 
 #  if defined(AETHER_DIAG_UDP_RTC_INDEX)
 #    include "udp_rtc_index_loop.h"
+#  endif
+#  if defined(AETHER_DIAG_SLEEP_POWER_BISECT)
+#    include "sleep_power_bisect.h"
 #  endif
 
 extern "C" std::uint64_t esp_rtc_get_time_us(void);
@@ -41,6 +45,8 @@ ExperimentEarlyEntrySnapshot g_early{};
 extern "C" void ExperimentEarlyAppEntry() {
 #if defined(AETHER_DIAG_UDP_RTC_INDEX)
   RunUdpRtcIndexLoop();
+#elif defined(AETHER_DIAG_SLEEP_POWER_BISECT)
+  RunSleepPowerBisect();
 #elif defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
   // Isolation: no Wi-Fi / app init. Timer deep sleep 1h; force-off available PD domains.
   esp_sleep_enable_timer_wakeup(1ULL * 60ULL * 60ULL * 1000000ULL);

@@ -22,6 +22,11 @@ if(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
   list(APPEND src_list
     "experiment_early_entry.cpp"
   )
+elseif(AETHER_DIAG_SLEEP_POWER_BISECT)
+  list(APPEND src_list
+    "experiment_early_entry.cpp"
+    "sleep_power_bisect.cpp"
+  )
 elseif(AETHER_DIAG_UDP_RTC_INDEX)
   list(APPEND src_list
     "experiment_early_entry.cpp"
@@ -163,7 +168,9 @@ else()
   )
 endif()
 
-if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND NOT AETHER_DIAG_UDP_RTC_INDEX)
+if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND
+   NOT AETHER_DIAG_UDP_RTC_INDEX AND
+   NOT AETHER_DIAG_SLEEP_POWER_BISECT)
   list(APPEND bme68x_srcs
     "../third-party/BME68x_SensorAPI/bme68x.c"
   )
@@ -218,6 +225,10 @@ else()
       # HP-side ulp_lp_core_stop() (do not load/run ULP app in this diag).
       list(APPEND _main_requires ulp)
     endif()
+    if(AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1")
+      message(STATUS "AETHER_DIAG_SLEEP_POWER_BISECT: adding ulp for LP stop API")
+      list(APPEND _main_requires ulp)
+    endif()
     set(_main_priv_requires
         idf::driver
         idf::esp_driver_i2c
@@ -247,7 +258,17 @@ else()
         "${_idf_path}/components/ulp/ulp_common/include")
       target_link_libraries(${TARGET_NAME} PUBLIC idf::ulp)
     endif()
-    if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND NOT AETHER_DIAG_UDP_RTC_INDEX)
+    if(AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1")
+      idf_build_get_property(_idf_path IDF_PATH)
+      target_include_directories(${TARGET_NAME} PRIVATE
+        "${_idf_path}/components/ulp/lp_core/include"
+        "${_idf_path}/components/ulp/lp_core/shared/include"
+        "${_idf_path}/components/ulp/ulp_common/include")
+      target_link_libraries(${TARGET_NAME} PUBLIC idf::ulp)
+    endif()
+    if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND
+       NOT AETHER_DIAG_UDP_RTC_INDEX AND
+       NOT AETHER_DIAG_SLEEP_POWER_BISECT)
       include(../cmake/CPM.cmake)
       # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
       CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
@@ -278,7 +299,8 @@ else()
 
       # UDP/deep-sleep diags: link HP-side ulp_lp_core_stop() only — never load/run ULP app.
       if(NOT AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" AND
-         NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1")
+         NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1" AND
+         NOT AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1")
         ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
       else()
         message(STATUS "Skipping ulp_add_project (diag path; ULP stop API only)")
@@ -330,6 +352,8 @@ set(AE_EXP_FULL_1MIN_10 "" CACHE STRING "10 FULL Æther sends at 1-min cadence (
 set(AE_EXP_CACHED_FULL_HOT_1MIN "" CACHE STRING "Warmup FULL then 1 cached FULL + 10 HOT at 1 min (set to 1)")
 set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "" CACHE STRING "Diagnostic: early-entry 10 min deep sleep only (set to 1)")
 set(AETHER_DIAG_UDP_RTC_INDEX "" CACHE STRING "Diagnostic: WiFi+UDP RTC index sleep loop (set to 1)")
+set(AETHER_DIAG_SLEEP_POWER_BISECT "" CACHE STRING "Diagnostic: Thermometer2 sleep current factor bisect (set to 1)")
+set(AE_SLEEP_BISECT_VARIANT "" CACHE STRING "Sleep power bisect variant id string")
 set(AE_UDP_SERVER_HOST "" CACHE STRING "UDP server IPv4 for AETHER_DIAG_UDP_RTC_INDEX")
 set(AE_UDP_SERVER_PORT "" CACHE STRING "UDP server port for AETHER_DIAG_UDP_RTC_INDEX")
 set(AE_EXP_BOOTWIFI_HOT_TIMING "" CACHE STRING "FINAL_1MIN: use boot/wifi VAL100 timing knobs (set to 1)")
@@ -418,6 +442,11 @@ ae_exp_define_if_set(AE_EXP_FULL_1MIN_10)
 ae_exp_define_if_set(AE_EXP_CACHED_FULL_HOT_1MIN)
 ae_exp_define_if_set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
 ae_exp_define_if_set(AETHER_DIAG_UDP_RTC_INDEX)
+ae_exp_define_if_set(AETHER_DIAG_SLEEP_POWER_BISECT)
+if(NOT "${AE_SLEEP_BISECT_VARIANT}" STREQUAL "")
+  target_compile_definitions(${TARGET_NAME} PRIVATE
+    "AE_SLEEP_BISECT_VARIANT=\"${AE_SLEEP_BISECT_VARIANT}\"")
+endif()
 if(NOT "${AE_UDP_SERVER_HOST}" STREQUAL "")
   target_compile_definitions(${TARGET_NAME} PRIVATE
     "AE_UDP_SERVER_HOST=\"${AE_UDP_SERVER_HOST}\"")
@@ -522,6 +551,7 @@ ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
    AE_EXP_CACHED_FULL_HOT_1MIN STREQUAL "1" OR
    AE_EXP_FULL_1MIN_10 STREQUAL "1" OR
    AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1" OR
+   AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1" OR
    (AE_EXP_PREPARED_POWER_FACTOR STREQUAL "1" AND
     NOT AE_EXP_ENCODE_OVERLAP_DIAG STREQUAL "1") OR
    AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1" OR

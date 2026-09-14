@@ -71,6 +71,10 @@ set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "" CACHE STRING
     "Diagnostic: app_main early-entry 10 min deep sleep only (set to 1)")
 set(AETHER_DIAG_UDP_RTC_INDEX "" CACHE STRING
     "Diagnostic: WiFi+UDP RTC index + 3s deep sleep loop (set to 1)")
+set(AETHER_DIAG_SLEEP_POWER_BISECT "" CACHE STRING
+    "Diagnostic: Thermometer2 deep-sleep current factor bisect (set to 1)")
+set(AE_SLEEP_BISECT_VARIANT "" CACHE STRING
+    "Sleep power bisect variant id (e.g. M0_MINIMAL)")
 set(AE_UDP_SERVER_HOST "" CACHE STRING
     "IPv4 of local UDP server for AETHER_DIAG_UDP_RTC_INDEX")
 set(AE_UDP_SERVER_PORT "" CACHE STRING
@@ -181,6 +185,13 @@ elseif(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1")
   # Isolation: project sdkconfig.defaults only (INT_RC), no prepared_low_power/silent.
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults")
+  set(CMAKE_SUPPRESS_REGENERATION ON)
+elseif(AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1")
+  # Minimal sleep bisect: no ULP app, silent console, no prepared_low_power extras.
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.sleep_bisect")
   set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS

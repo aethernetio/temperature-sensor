@@ -29,7 +29,8 @@ extern void loop();
 extern "C" void app_main(void) {
   ExperimentEarlyAppEntry();
 #if defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN) || \
-    defined(AETHER_DIAG_UDP_RTC_INDEX)
+    defined(AETHER_DIAG_UDP_RTC_INDEX) ||         \
+    defined(AETHER_DIAG_SLEEP_POWER_BISECT)
   // Unreachable: ExperimentEarlyAppEntry never returns (deep sleep / UDP loop).
   for (;;) {
   }

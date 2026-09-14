@@ -33,7 +33,8 @@ struct ExperimentEarlyEntrySnapshot {
      defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
      defined(AE_EXP_FULL_1MIN_10) || \
      defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN) || \
-     defined(AETHER_DIAG_UDP_RTC_INDEX))
+     defined(AETHER_DIAG_UDP_RTC_INDEX) || \
+     defined(AETHER_DIAG_SLEEP_POWER_BISECT))
 extern "C" void ExperimentEarlyAppEntry();
 ExperimentEarlyEntrySnapshot const& GetExperimentEarlyEntrySnapshot();
 #else
