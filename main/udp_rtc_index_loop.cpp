@@ -9,7 +9,8 @@
  *   PS_NONE through association/GOT_IP; Wi-Fi 4 + fixed 1M; retry 3,3
  *
  * Combined 1-min mode: warmup #0 then 10 measured sends at 60 s
- * start-to-start. Rails stay OFF (GPIO holds not released on timer wake).
+ * start-to-start. After teardown: verified GPIO shutdown (17 LOW, 2 HIGH,
+ * 18/6/7 disabled) then timer deep sleep. No esp_sleep_pd_config / LP-core.
  */
 
 #include "udp_rtc_index_loop.h"
@@ -25,6 +26,7 @@
 #  include <freertos/event_groups.h>
 #  include <freertos/task.h>
 
+#  include <driver/gpio.h>
 #  include <esp_attr.h>
 #  include <esp_event.h>
 #  include <esp_netif.h>
@@ -37,7 +39,11 @@
 #  include <soc/soc.h>
 #  include <soc/soc_caps.h>
 
-#  include "sleeping/board_sleep_powerdown.h"
+#  if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+// Verified board shutdown lives in this file (no BoardPrepareDeepSleep / PD / LP-core).
+#  else
+#    include "sleeping/board_sleep_powerdown.h"
+#  endif
 
 #  include <lwip/etharp.h>
 #  include <lwip/ip_addr.h>
@@ -309,39 +315,58 @@ bool WaitGotIpBounded() {
   return (bits & kGotIpBit) != 0;
 }
 
-void PeripheralPowerDownForDeepSleep() { BoardPowerDownForDeepSleep(); }
+void PeripheralPowerDownForDeepSleep() {
+#  if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+  // Unused in 1-min combined path; PrepareCombinedDeepSleep owns shutdown.
+#  else
+  BoardPowerDownForDeepSleep();
+#  endif
+}
 
 #if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
-void KeepRtcMemForCache() {
-  // Broken path (P0): only force RTC mem ON — leaves MODEM/TOP/etc at AUTO,
-  // which after Wi-Fi teardown often stays powered (~mA sleep). Kept for
-  // A/B when AE_COMBINED_APPLY_MIN_PD=0.
-#  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
-#  endif
-#  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
-#  endif
+void ConfigOutputLevelHold(gpio_num_t pin, int level) {
+  (void)gpio_hold_dis(pin);
+  gpio_config_t cfg = {};
+  cfg.pin_bit_mask = 1ULL << static_cast<unsigned>(pin);
+  cfg.mode = GPIO_MODE_OUTPUT;
+  cfg.pull_up_en = GPIO_PULLUP_DISABLE;
+  cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  cfg.intr_type = GPIO_INTR_DISABLE;
+  (void)gpio_config(&cfg);
+  (void)gpio_set_level(pin, level);
+  (void)gpio_hold_en(pin);
+}
+
+void ConfigDisableNoPull(gpio_num_t pin) {
+  (void)gpio_hold_dis(pin);
+  gpio_config_t cfg = {};
+  cfg.pin_bit_mask = 1ULL << static_cast<unsigned>(pin);
+  cfg.mode = GPIO_MODE_DISABLE;
+  cfg.pull_up_en = GPIO_PULLUP_DISABLE;
+  cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  cfg.intr_type = GPIO_INTR_DISABLE;
+  (void)gpio_config(&cfg);
+}
+
+/* Hand-verified Thermometer 2 sleep pinout (no LP-core regs, no pd_config). */
+void VerifiedPeripheralShutdownForDeepSleep() {
+  // GPIO17 STATUS_LED_ON: LOW + hold (cuts LED rail draw).
+  ConfigOutputLevelHold(GPIO_NUM_17, 0);
+  // GPIO2 PWR_ON: HIGH + hold (LOW raises sleep to ~mA on this unit).
+  ConfigOutputLevelHold(GPIO_NUM_2, 1);
+  // GPIO18 / I2C: fully disable.
+  ConfigDisableNoPull(GPIO_NUM_18);
+  ConfigDisableNoPull(GPIO_NUM_6);
+  ConfigDisableNoPull(GPIO_NUM_7);
 }
 
 void PrepareCombinedDeepSleep() {
-  // Always apply B1-class min PD domains, then keep RTC mem ON for caches.
-  // (AE_COMBINED_APPLY_MIN_PD=0 retained only for A/B broken baseline builds.)
-#  if defined(AE_COMBINED_APPLY_MIN_PD) && !(AE_COMBINED_APPLY_MIN_PD)
-  KeepRtcMemForCache();
-  BoardPowerDownForDeepSleep();
-#  else
-  BoardPrepareDeepSleep(/*retain_rtc_mem_on=*/1);
-#  endif
+  VerifiedPeripheralShutdownForDeepSleep();
+  (void)esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
 }
 
 void QuietRailsIfNeeded() {
-  // GPIO 2/17/18/6/7 are unused by Wi-Fi. Do not release holds on timer
-  // wake — they stay OFF for the whole run. Cold/flash reset still applies
-  // BoardPowerDownForDeepSleep once to establish the OFF+hold states.
-  if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
-    BoardPowerDownForDeepSleep();
-  }
+  // Do not force sleep pinout before Wi-Fi; apply only after teardown.
 }
 
 void EnterDoneSleep() {

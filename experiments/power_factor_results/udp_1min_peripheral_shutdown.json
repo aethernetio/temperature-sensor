@@ -1,0 +1,104 @@
+{
+  "udp": {
+    "attempts": 10,
+    "rx_unique": 9,
+    "rx_total": 9,
+    "missing": [
+      8
+    ],
+    "duplicates": {},
+    "all_idx": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      9,
+      10
+    ],
+    "t_idx": {
+      "0": 1789426491.1093993,
+      "1": 1789426499.5676355,
+      "2": 1789426559.310265,
+      "3": 1789426620.3334527,
+      "4": 1789426678.9222624,
+      "5": 1789426738.3612237,
+      "6": 1789426798.079357,
+      "7": 1789426857.7130399,
+      "9": 1789426977.2707894,
+      "10": 1789427037.0274658
+    }
+  },
+  "capture": {
+    "samples": 60500992,
+    "duration_s": 605.0099200000001,
+    "total_charge_C": 4.164434646109233,
+    "avg_uA": 6883.250188744061,
+    "wake_edges": [
+      0.37584
+    ],
+    "sleep_edges": [],
+    "raw_csv_decimated": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\udp_1min_peripheral_shutdown_raw.csv"
+  },
+  "active": {
+    "mean_mC": 78.16803305042296,
+    "median_mC": 62.44882684040205,
+    "min_mC": 50.98595597645031,
+    "max_mC": 195.45179451715174,
+    "n": 10
+  },
+  "sleep_raw": {
+    "mean_uA": 5360.6798852775055,
+    "median_uA": 4.62144,
+    "worst_uA": 5779.16394529,
+    "mean_of_window_means_uA": 5360.6798852775055,
+    "median_of_window_means_uA": 5460.819340797674,
+    "n": 10,
+    "filtering_used": false,
+    "despike_used_for_result": false,
+    "method": "rolling_frac_below_500uA_on_1kHz_decimated; median_uA=avg of per-window sample medians"
+  },
+  "full_cycle": {
+    "n_cycles": 10,
+    "duration_s": 594.806,
+    "total_charge_C": 4.094198511842001,
+    "charge_per_1min_cycle_mC": 409.4198511842001,
+    "average_current_uA": 6823.6641864033345,
+    "life_hours": 117.23906366817704,
+    "life_days": 4.884960986174043,
+    "life_months": 0.16047835039993572,
+    "charge_source": "fullrate_total_scaled_by_time_fraction",
+    "decimated_window_charge_C": 3.910858413977581
+  },
+  "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\udp_1min_peripheral_shutdown_raw.csv",
+  "validation": {
+    "ok": true,
+    "mean_uA": 4517.423087509134,
+    "median_uA": 4.568414852942941,
+    "frac_lt_1mA": 0.878758640223387,
+    "samples": 1398112,
+    "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\udp_shutdown_validate_sleep.csv",
+    "note": "gate uses median; mean may include PPK autorange spikes"
+  },
+  "branch": "diag/udp-1min-lowpower-peripheral-shutdown",
+  "sha": "2a35f0e5c5ccf6b316bb185f89c383a4a775e4ee",
+  "gpio": {
+    "GPIO17": "LOW+hold",
+    "GPIO2": "HIGH+hold",
+    "GPIO18": "DISABLED",
+    "GPIO6": "DISABLED",
+    "GPIO7": "DISABLED"
+  },
+  "wifi": {
+    "PRE_ms": 50,
+    "POST_ms": 200,
+    "target": "192.168.68.84:9000",
+    "cache_changed": false
+  },
+  "status": "OK",
+  "utc": "2026-09-14T23:04:54.037897+00:00",
+  "analysis_method": "reanalyze_decimated_rolling_sleep_mask"
+}

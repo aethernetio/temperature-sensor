@@ -27,7 +27,12 @@ elseif(AETHER_DIAG_SLEEP_POWER_BISECT)
     "experiment_early_entry.cpp"
     "sleep_power_bisect.cpp"
   )
-elseif(AETHER_DIAG_UDP_RTC_INDEX OR AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+elseif(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+  list(APPEND src_list
+    "experiment_early_entry.cpp"
+    "udp_rtc_index_loop.cpp"
+  )
+elseif(AETHER_DIAG_UDP_RTC_INDEX)
   list(APPEND src_list
     "experiment_early_entry.cpp"
     "udp_rtc_index_loop.cpp"
@@ -224,9 +229,11 @@ else()
     endif()
     if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" OR
        AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1")
-      message(STATUS "UDP diag: adding nvs_flash esp_wifi ulp to REQUIRES")
+      message(STATUS "UDP diag: adding nvs_flash esp_wifi to REQUIRES")
       list(APPEND _main_requires nvs_flash esp_wifi)
-      # HP-side ulp_lp_core_stop() (do not load/run ULP app in this diag).
+    endif()
+    if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1")
+      # BoardPowerDown LP stop API only for classic UDP RTC index path.
       list(APPEND _main_requires ulp)
     endif()
     if(AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1")

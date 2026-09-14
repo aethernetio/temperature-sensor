@@ -9,3 +9,6 @@ CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
 CONFIG_LWIP_DHCPS_STATIC_ENTRIES=y
 # CONFIG_LWIP_ESP_GRATUITOUS_ARP is not set
 # CONFIG_ESP_GRATUITOUS_ARP is not set
+
+# No ULP app / LP-core stop registers in the verified GPIO shutdown path.
+# CONFIG_ULP_COPROC_ENABLED is not set
