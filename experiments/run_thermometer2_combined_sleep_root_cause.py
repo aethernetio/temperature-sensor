@@ -221,10 +221,9 @@ def flash_with_ppk(ppk: sb.PpkSession, build_dir: Path) -> str:
     return sb.try_flash_with_retries(ppk, build_dir, cold_wait_s=40.0, attempts=5)
 
 
-def start_udp() -> lp.UdpCollector:
+def start_udp() -> None:
     lp.kill_udp_9000()
-    udp = lp.UdpCollector()
-    subprocess.run(
+    subprocess.Popen(
         [
             sys.executable,
             str(HERE / "udp_rtc_index_server.py"),
@@ -232,15 +231,12 @@ def start_udp() -> lp.UdpCollector:
             "0.0.0.0",
             "--port",
             str(UDP_PORT),
-            "--log",
-            str(HERE / "udp_rtc_index_server_live.log"),
         ],
         cwd=str(HERE),
-        check=False,
-        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     time.sleep(1.0)
-    return udp
 
 
 def row_from_meas(

@@ -108,6 +108,19 @@ class PpkSession:
         self.ppk = self.PPK2_API(port)
         self.ppk.__del__ = lambda *a, **k: None  # type: ignore[method-assign]
         self.ppk.get_modifiers()
+        # Nordic PPK2 range-switch "phantom spikes" dominate raw mean on µA floors
+        # unless spike smoothing is stronger than the library defaults (3 / 0.18).
+        # Match a heavier GUI Advanced spike-filter so contiguous Q/T reflects DUT.
+        try:
+            self.ppk.spike_filter_samples = 25
+            self.ppk.spike_filter_alpha = 0.08
+            self.ppk.spike_filter_alpha5 = 0.03
+            print(
+                "PPK_SPIKE_FILTER samples=25 alpha=0.08 alpha5=0.03",
+                flush=True,
+            )
+        except Exception as e:
+            print(f"ppk_spike_filter_warn={e}", flush=True)
         self.set_off()
         time.sleep(1.5)
         self.set_on()

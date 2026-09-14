@@ -147,39 +147,43 @@ void ApplyRtcMemAuto() {
 }
 
 void ApplyGpioFactors() {
-  // Order matches bisect plan; each named variant enables a cumulative set.
+  // Cumulative sets by letter prefix: M0; A*; B*; ...  Names are B1_*, not B_*.
   bool const pwr_low =
       VariantIs("A1_PWR_LOW") || VariantIs("A2_PWR_HOLD") ||
-      VariantIs("A3_PWR_ISOLATE") || VariantHasPrefix("B_") ||
-      VariantHasPrefix("C_") || VariantHasPrefix("D_") ||
-      VariantHasPrefix("E_") || VariantHasPrefix("F_") ||
-      VariantHasPrefix("G_") || VariantIs("Z_FULL_QUIET");
+      VariantIs("A3_PWR_ISOLATE") || VariantHasPrefix("B") ||
+      VariantHasPrefix("C") || VariantHasPrefix("D") ||
+      VariantHasPrefix("E") || VariantHasPrefix("F") ||
+      VariantHasPrefix("G") || VariantIs("Z_FULL_QUIET") ||
+      VariantIs("PROD_QUIET");
   bool const pwr_high = VariantIs("H1_PWR_HIGH");
   bool const pwr_hold =
       VariantIs("A2_PWR_HOLD") || VariantIs("A3_PWR_ISOLATE") ||
-      VariantIs("H1_PWR_HIGH") || VariantHasPrefix("B_") ||
-      VariantHasPrefix("C_") || VariantHasPrefix("D_") ||
-      VariantHasPrefix("E_") || VariantHasPrefix("F_") ||
-      VariantHasPrefix("G_") || VariantIs("Z_FULL_QUIET");
+      VariantIs("H1_PWR_HIGH") || VariantHasPrefix("B") ||
+      VariantHasPrefix("C") || VariantHasPrefix("D") ||
+      VariantHasPrefix("E") || VariantHasPrefix("F") ||
+      VariantHasPrefix("G") || VariantIs("Z_FULL_QUIET") ||
+      VariantIs("PROD_QUIET");
   bool const led_off_low =
       VariantIs("B1_LED_ON_LOW") || VariantIs("B3_LED_DATA_HZ") ||
-      VariantHasPrefix("C_") || VariantHasPrefix("D_") ||
-      VariantHasPrefix("E_") || VariantHasPrefix("F_") ||
-      VariantHasPrefix("G_") || VariantIs("Z_FULL_QUIET");
+      VariantHasPrefix("C") || VariantHasPrefix("D") ||
+      VariantHasPrefix("E") || VariantHasPrefix("F") ||
+      VariantHasPrefix("G") || VariantIs("Z_FULL_QUIET") ||
+      VariantIs("PROD_QUIET");
   bool const led_off_high = VariantIs("B2_LED_ON_HIGH");
   bool const led_data_hz =
-      VariantIs("B3_LED_DATA_HZ") || VariantHasPrefix("C_") ||
-      VariantHasPrefix("D_") || VariantHasPrefix("E_") ||
-      VariantHasPrefix("F_") || VariantHasPrefix("G_") ||
-      VariantIs("Z_FULL_QUIET");
+      VariantIs("B3_LED_DATA_HZ") || VariantHasPrefix("C") ||
+      VariantHasPrefix("D") || VariantHasPrefix("E") ||
+      VariantHasPrefix("F") || VariantHasPrefix("G") ||
+      VariantIs("Z_FULL_QUIET") || VariantIs("PROD_QUIET");
   bool const i2c_hz =
-      VariantIs("C1_I2C_HZ") || VariantHasPrefix("D_") ||
-      VariantHasPrefix("E_") || VariantHasPrefix("F_") ||
-      VariantHasPrefix("G_") || VariantIs("Z_FULL_QUIET");
+      VariantIs("C1_I2C_HZ") || VariantHasPrefix("D") ||
+      VariantHasPrefix("E") || VariantHasPrefix("F") ||
+      VariantHasPrefix("G") || VariantIs("Z_FULL_QUIET") ||
+      VariantIs("PROD_QUIET");
   bool const ulp_stop =
-      VariantIs("D1_ULP_STOP") || VariantHasPrefix("E_") ||
-      VariantHasPrefix("F_") || VariantHasPrefix("G_") ||
-      VariantIs("Z_FULL_QUIET");
+      VariantIs("D1_ULP_STOP") || VariantHasPrefix("E") ||
+      VariantHasPrefix("F") || VariantHasPrefix("G") ||
+      VariantIs("Z_FULL_QUIET") || VariantIs("PROD_QUIET");
 
   if (ulp_stop) {
     StopLpCoreBestEffort();
