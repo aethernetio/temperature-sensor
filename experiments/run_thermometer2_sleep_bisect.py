@@ -153,6 +153,10 @@ class PpkSession:
         samples: list[tuple[float, float]] = []
         t0 = time.time()
         last = t0
+        # PPK2 streams ~100 kHz; assign synthetic timestamps so Q/T is valid.
+        # Using wall-clock once per USB chunk collapses dt→0 and breaks charge.
+        sample_i = 0
+        fs = 100000.0
         try:
             while time.time() - t0 < duration_s:
                 try:
@@ -168,10 +172,11 @@ class PpkSession:
                         print(f"ppk_get_samples_warn={e}", flush=True)
                         break
                     for uA in chunk:
-                        samples.append((now - t0, float(uA)))
+                        samples.append((sample_i / fs, float(uA)))
+                        sample_i += 1
                 if now - last >= 5.0:
                     if samples:
-                        recent = [u for _, u in samples if _ >= max(0.0, now - t0 - 5)]
+                        recent = [u for _, u in samples if _ >= max(0.0, samples[-1][0] - 5)]
                         avg = statistics.fmean(recent) if recent else 0.0
                         print(
                             f"meas samples={len(samples)} recent_avg_uA={avg:.1f} "
@@ -208,13 +213,9 @@ class PpkSession:
         ts = [t for t, _ in window]
         us = [u for _, u in window]
         duration_s = max(1e-9, ts[-1] - ts[0]) if len(ts) > 1 else float("nan")
-        # Trapezoid charge (A·s). Uneven sample times → use recorded timestamps.
-        charge_C = 0.0
-        for i in range(1, len(ts)):
-            dt = ts[i] - ts[i - 1]
-            if dt > 0:
-                charge_C += 0.5 * (us[i] + us[i - 1]) * 1e-6 * dt
+        # Charge: uniform 100 kHz → mean * duration (trapezoid ≡ same).
         avg_uA = statistics.fmean(us)
+        charge_C = avg_uA * 1e-6 * duration_s
         from_q_uA = (charge_C / duration_s) * 1e6 if duration_s > 0 else float("nan")
         rel = abs(avg_uA - from_q_uA) / max(abs(avg_uA), 1.0)
         q_ok = (rel < 0.05 or abs(avg_uA - from_q_uA) < 1.0) and not (
@@ -246,6 +247,7 @@ class PpkSession:
                 "charge_mC": charge_C * 1000.0,
                 "avg_uA": avg_uA,
                 "avg_from_charge_uA": from_q_uA,
+                "median_uA": median,
                 "q_over_t_rel_err": rel,
                 "q_over_t_ok": q_ok,
                 "sample_filter_used": False,

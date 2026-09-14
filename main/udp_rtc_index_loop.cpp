@@ -325,12 +325,13 @@ void KeepRtcMemForCache() {
 }
 
 void PrepareCombinedDeepSleep() {
-#  if defined(AE_COMBINED_APPLY_MIN_PD) && (AE_COMBINED_APPLY_MIN_PD)
-  // P1+: same min PD domains as B1 sleep-only, then RTC mem ON for caches.
-  BoardPrepareDeepSleep(/*retain_rtc_mem_on=*/1);
-#  else
+  // Always apply B1-class min PD domains, then keep RTC mem ON for caches.
+  // (AE_COMBINED_APPLY_MIN_PD=0 retained only for A/B broken baseline builds.)
+#  if defined(AE_COMBINED_APPLY_MIN_PD) && !(AE_COMBINED_APPLY_MIN_PD)
   KeepRtcMemForCache();
   BoardPowerDownForDeepSleep();
+#  else
+  BoardPrepareDeepSleep(/*retain_rtc_mem_on=*/1);
 #  endif
 }
 

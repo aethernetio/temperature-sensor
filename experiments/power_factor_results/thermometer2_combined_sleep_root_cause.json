@@ -1,0 +1,192 @@
+{
+  "started_utc": "2026-09-14T10:47:49.032312+00:00",
+  "voltage_mv": 3000,
+  "variants": [
+    {
+      "name": "B1_CORRECTED_CONTROL",
+      "operation": "sleep-only B1_LED_ON_LOW",
+      "wake_cause": "timer_expected",
+      "sleep": {
+        "duration_s": 34.862772941589355,
+        "charge_C": 0.23762718374264313,
+        "charge_mC": 237.62718374264313,
+        "avg_uA": 7099.3046910114035,
+        "avg_from_charge_uA": 6816.0723801510085,
+        "q_over_t_rel_err": 0.03989578179663174,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "diag_filtered_lt200_avg_uA": 6.985226642918558
+      },
+      "verdict": "FAIL",
+      "utc": "2026-09-14T10:49:13.448745+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\B1_sleep.csv",
+      "port": "COM5"
+    },
+    {
+      "name": "COMBINED_P0_BROKEN",
+      "operation": "UDP+teardown apply_min_pd=0",
+      "wake_cause": "timer_after_udp",
+      "sleep": {
+        "duration_s": 34.92331051826477,
+        "charge_C": 0.3210376357652571,
+        "charge_mC": 321.0376357652571,
+        "avg_uA": 9156.985453777905,
+        "avg_from_charge_uA": 9192.646143822922,
+        "q_over_t_rel_err": 0.0038943700658937274,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "diag_filtered_lt200_avg_uA": 8.405037334080099
+      },
+      "verdict": "FAIL",
+      "utc": "2026-09-14T10:53:41.119176+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\COMBINED_P0_BROKEN_sleep.csv",
+      "port": "COM5",
+      "udp_log_idx_hits": 2539
+    },
+    {
+      "name": "COMBINED_P1_MIN_PD",
+      "operation": "UDP+teardown apply_min_pd=1",
+      "wake_cause": "timer_after_udp",
+      "sleep": {
+        "duration_s": 34.923728466033936,
+        "charge_C": 0.3062949836624849,
+        "charge_mC": 306.2949836624849,
+        "avg_uA": 9193.954855987884,
+        "avg_from_charge_uA": 8770.397581128282,
+        "q_over_t_rel_err": 0.0460691053517351,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "diag_filtered_lt200_avg_uA": 8.458789134343531
+      },
+      "verdict": "FAIL",
+      "utc": "2026-09-14T10:58:04.323953+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\COMBINED_P1_MIN_PD_sleep.csv",
+      "port": "COM5",
+      "udp_log_idx_hits": 2539
+    },
+    {
+      "name": "B1_SPIKEFILTER_FIXED_GPIO",
+      "operation": "B1+PPK spikefilter25",
+      "wake_cause": "timer",
+      "sleep": {
+        "duration_s": 34.91790723800659,
+        "charge_C": 0.2561081667695789,
+        "charge_mC": 256.10816676957893,
+        "avg_uA": 7620.57004924922,
+        "avg_from_charge_uA": 7334.5795045476425,
+        "q_over_t_rel_err": 0.037528760034133274,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "diag_filtered_lt200_avg_uA": 5.775885342856994
+      },
+      "verdict": "FAIL",
+      "utc": "2026-09-14T11:01:27.599966+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\B1_SPIKEFILTER_sleep.csv"
+    },
+    {
+      "name": "Z_FULL_QUIET_SPIKEFILTER",
+      "operation": "Z_FULL+PPK spikefilter25",
+      "wake_cause": "timer",
+      "sleep": {
+        "duration_s": 34.92132759094238,
+        "charge_C": 0.25468447960805846,
+        "charge_mC": 254.68447960805847,
+        "avg_uA": 7133.417657785643,
+        "avg_from_charge_uA": 7293.092708025124,
+        "q_over_t_rel_err": 0.02238408823086451,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "diag_filtered_lt200_avg_uA": 5.565563006088703
+      },
+      "verdict": "FAIL",
+      "utc": "2026-09-14T11:04:07.968891+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\Z_FULL_QUIET_SPIKEFILTER_sleep.csv"
+    },
+    {
+      "name": "COMBINED_P1_SPIKEFILTER",
+      "operation": "UDP+minPD+spikefilter25",
+      "wake_cause": "timer_after_udp",
+      "sleep": {
+        "duration_s": 34.922523498535156,
+        "charge_C": 0.24082476460355914,
+        "charge_mC": 240.82476460355915,
+        "avg_uA": 7474.8795445477035,
+        "avg_from_charge_uA": 6895.972583815733,
+        "q_over_t_rel_err": 0.07744699527020936,
+        "q_over_t_ok": false,
+        "sample_filter_used": false,
+        "diag_filtered_lt200_avg_uA": 6.337070205167461
+      },
+      "verdict": "FAIL",
+      "utc": "2026-09-14T11:06:10.125270+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\COMBINED_P1_SPIKEFILTER_sleep.csv"
+    }
+  ],
+  "notes": [
+    "PPK_ZERO_AVG_UA=0.110",
+    "P1 did not reach <=25 \u00b5A; stop before confirm \u2014 continue bisect"
+  ],
+  "original": {
+    "branch": "diag/thermometer2-lowenergy-wifi-plus-7ua-sleep",
+    "sha": "6aaa6f3d4bd6f6e7a914097b7a412b898496abde"
+  },
+  "updated_utc": "2026-09-14T11:22:23.898978+00:00",
+  "branch": "diag/thermometer2-combined-sleep-root-cause",
+  "sha": "45ceeb7be1eaa1ecbe162efefaf0a0a74e05ec01",
+  "PPK_ZERO_AVG_UA": 0.11026932187798977,
+  "conclusion": {
+    "measurement_bug": "prior 8.5uA was ua<200 filter; manual 8.41mA confirmed",
+    "b1_raw_also_mA": true,
+    "combined_not_worse_than_b1_under_raw": true,
+    "min_pd_does_not_fix_raw_mean": true,
+    "esp_deep_sleep_floor_median_uA": 3.5,
+    "target_16uA_raw_contiguous": "NOT_REACHED",
+    "root_cause": "Raw mA mean shared by sleep-only and combined (short high bursts). Prior B1 7uA vs combined 8mA was filtered vs raw. Min PD not the differentiator."
+  },
+  "final_10x60": {
+    "wakes_detected": 83,
+    "measured_wakes": 10,
+    "active_mC": [
+      8.597250396960046,
+      17.02306942235997,
+      60.29978685743978,
+      15.399531833759818,
+      11.719362401879907,
+      14.459948960159833,
+      8.872352302079886,
+      3.8030051686799906,
+      6.403170139320081,
+      4.879004113800045
+    ],
+    "active_mean_mC": 15.145648159643935,
+    "active_median_mC": 10.295857351979897,
+    "sleep_windows": [
+      {
+        "t0_s": 40.34,
+        "t1_s": 338.85112,
+        "duration_s": 298.48967999999996,
+        "n_samples": 17518,
+        "charge_C": 2.73742941673817,
+        "charge_mC": 2737.42941673817,
+        "avg_uA": 9170.56293606576,
+        "avg_from_charge_uA": 9170.934877005362,
+        "median_uA": 4.082,
+        "p95_uA": 51121.24314999999,
+        "max_uA": 596877.056,
+        "min_uA": -1.043,
+        "q_over_t_rel_err": 4.055813609205384e-05,
+        "q_over_t_ok": true,
+        "sample_filter_used": false
+      }
+    ],
+    "sleep_window_avg_uA": 9170.56293606576,
+    "sleep_window_worst_uA": 9170.56293606576,
+    "total_charge_C": 3.2750436862957706,
+    "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\final10_capture.csv",
+    "measure_meta": {
+      "samples": 33585888,
+      "avg_uA": 9029.103628084526,
+      "max_uA": 676531.1046170652
+    }
+  }
+}

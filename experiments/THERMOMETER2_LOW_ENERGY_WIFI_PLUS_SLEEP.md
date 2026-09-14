@@ -1,5 +1,8 @@
 # Thermometer 2 — low-energy Wi-Fi + 7 µA sleep
 
+> **SUPERSEDED / MEASUREMENT BUG**
+> Previous sleep value ~8.5 µA was invalid due to sample-threshold filtering (`ua < 200`). Manual PPK contiguous window showed **~8.41 mA** (343.16 mC / 40.79 s). See `THERMOMETER2_COMBINED_SLEEP_ROOT_CAUSE.md`. Sleep-only B1 “7 µA” used the same filter; the bisect `avg_uA` column was already ~mA. Under raw contiguous measurement, B1 and combined are both ~7–9 mA mean / ~µA median.
+
 - Branch: `diag/thermometer2-lowenergy-wifi-plus-7ua-sleep`
 - SHA: `494260d5a87e7dd4e43afd813d4ea4cd9d9c75a7`
 - Parent/historical repro SHA: `14118bac5570a2bba0d311197799faed0a63b250`
