@@ -67,8 +67,8 @@ set(AE_EXP_CACHED_FULL_HOT_1MIN "" CACHE STRING
     "Warmup FULL then 1 cached FULL + 10 HOT at 1 min (set to 1)")
 set(AE_EXP_FULL_1MIN_10 "" CACHE STRING
     "10 FULL Aether sends at 1-min cadence (set to 1)")
-set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "" CACHE STRING
-    "Diagnostic: app_main early-entry 10 min deep sleep only (set to 1)")
+set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "1" CACHE STRING
+    "Manual 10s active / 60s deep sleep (forced on this branch)" FORCE)
 set(AETHER_DIAG_UDP_RTC_INDEX "" CACHE STRING
     "Diagnostic: WiFi+UDP RTC index + 3s deep sleep loop (set to 1)")
 set(AETHER_DIAG_SLEEP_POWER_BISECT "" CACHE STRING
@@ -188,9 +188,10 @@ elseif(AE_EXP_FULL_1MIN_10 STREQUAL "1")
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
   set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1")
-  # Isolation: project sdkconfig.defaults only (INT_RC), no prepared_low_power/silent.
+  # Manual deep-sleep current test: base defaults + console/ULP off.
   list(APPEND SDKCONFIG_DEFAULTS
-       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults")
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.manual_10s_60s_sleep")
   set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1")
   # Minimal sleep bisect: no ULP app, silent console, no prepared_low_power extras.

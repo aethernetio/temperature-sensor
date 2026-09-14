@@ -14,6 +14,12 @@
 
 cmake_minimum_required(VERSION 3.16.0)
 
+# Branch diag/manual-10s-active-60s-sleep: only the manual deep-sleep test.
+set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "1" CACHE STRING
+    "Manual 10s active / 60s deep sleep (forced on this branch)" FORCE)
+set(src_list "manual_10s_60s_sleep_main.cpp")
+
+if(FALSE)
 list(APPEND src_list
   "main.cpp"
 )
@@ -168,6 +174,7 @@ else()
     "prepared_send/prepared_send.cpp"
   )
 endif()
+endif()  # FALSE: disabled experiment src selection on this branch
 
 if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND
    NOT AETHER_DIAG_UDP_RTC_INDEX AND
@@ -229,8 +236,9 @@ else()
       # HP-side ulp_lp_core_stop() (do not load/run ULP app in this diag).
       list(APPEND _main_requires ulp)
     endif()
-    if(AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1")
-      message(STATUS "AETHER_DIAG_SLEEP_POWER_BISECT: adding ulp for LP stop API")
+    if(AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1" OR
+       AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1")
+      message(STATUS "manual/sleep diag: adding ulp for LP-core stop headers")
       list(APPEND _main_requires ulp)
     endif()
     set(_main_priv_requires
@@ -263,7 +271,8 @@ else()
         "${_idf_path}/components/ulp/ulp_common/include")
       target_link_libraries(${TARGET_NAME} PUBLIC idf::ulp)
     endif()
-    if(AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1")
+    if(AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1" OR
+       AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1")
       idf_build_get_property(_idf_path IDF_PATH)
       target_include_directories(${TARGET_NAME} PRIVATE
         "${_idf_path}/components/ulp/lp_core/include"
