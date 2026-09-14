@@ -31,6 +31,7 @@ elseif(AETHER_DIAG_UDP_RTC_INDEX)
   list(APPEND src_list
     "experiment_early_entry.cpp"
     "udp_rtc_index_loop.cpp"
+    "sleeping/board_sleep_powerdown.cpp"
   )
 elseif(AE_EXP_PREPARED_WIFI_CACHE_5X20)
   list(APPEND src_list
@@ -179,6 +180,7 @@ if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND
     "sleeping/esp_main_sleep.cpp"
     "sleeping/thread_sleep.cpp"
     "sleeping/ulp_sleep.cpp"
+    "sleeping/board_sleep_powerdown.cpp"
   )
 
   list(APPEND sensors_src
@@ -274,6 +276,11 @@ else()
       CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
 
       target_link_libraries(${TARGET_NAME} PRIVATE aether)
+      idf_build_get_property(_idf_path IDF_PATH)
+      target_include_directories(${TARGET_NAME} PRIVATE
+        "${_idf_path}/components/ulp/lp_core/include"
+        "${_idf_path}/components/ulp/lp_core/shared/include"
+        "${_idf_path}/components/ulp/ulp_common/include")
     endif()
 
     if (NOT "${WIFI_SSID}" STREQUAL "")

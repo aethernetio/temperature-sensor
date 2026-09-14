@@ -1,0 +1,239 @@
+{
+  "repo": "temperature-sensor-prepared (origin aethernetio/temperature-sensor)",
+  "started_utc": "2026-09-14T06:36:46.912276+00:00",
+  "voltage_mv": 3000,
+  "variants": [
+    {
+      "name": "M0_MINIMAL",
+      "status": "OK",
+      "notes": "sleep_avg_uA=8.68 sleep_frac=0.873",
+      "port": "COM5",
+      "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-sleep-bisect",
+      "voltage_mv": 3000,
+      "measure_duration_s": 30.0,
+      "measure": {
+        "samples": 2800128,
+        "avg_uA": 7526.636776818095,
+        "median_uA": 4.34749005930204,
+        "min_uA": -1.0430749055359372,
+        "max_uA": 1288756.5416792536,
+        "stdev_uA": 53815.24468470554,
+        "sleep_avg_uA": 8.680639151088856,
+        "sleep_median_uA": 3.5521608021947975,
+        "sleep_frac": 0.8733332904781496,
+        "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\thermometer2_sleep_M0_MINIMAL.csv"
+      },
+      "utc": "2026-09-14T06:47:18.427249+00:00"
+    },
+    {
+      "name": "H1_PWR_HIGH",
+      "status": "OK",
+      "notes": "sleep_avg_uA=11.48 sleep_frac=0.828",
+      "port": "COM5",
+      "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-sleep-bisect",
+      "voltage_mv": 3000,
+      "measure_duration_s": 30.0,
+      "measure": {
+        "samples": 2800128,
+        "avg_uA": 9660.093403085275,
+        "median_uA": 5.761408738603804,
+        "min_uA": -0.026820854787793908,
+        "max_uA": 1307917.7258183924,
+        "stdev_uA": 61212.58842175871,
+        "sleep_avg_uA": 11.481387030402711,
+        "sleep_median_uA": 4.7893396465838425,
+        "sleep_frac": 0.8276125234275005,
+        "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\thermometer2_sleep_H1_PWR_HIGH.csv"
+      },
+      "utc": "2026-09-14T06:52:29.954132+00:00"
+    },
+    {
+      "name": "A2_PWR_HOLD",
+      "status": "OK",
+      "notes": "sleep_avg_uA=9.30 sleep_frac=0.865",
+      "port": "COM5",
+      "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-sleep-bisect",
+      "voltage_mv": 3000,
+      "measure_duration_s": 30.0,
+      "measure": {
+        "samples": 2800128,
+        "avg_uA": 7498.493891512275,
+        "median_uA": 4.656784770399301,
+        "min_uA": -0.9547049880795768,
+        "max_uA": 1289626.727561276,
+        "stdev_uA": 52030.837191038605,
+        "sleep_avg_uA": 9.303067481608702,
+        "sleep_median_uA": 3.8172705545638785,
+        "sleep_frac": 0.8646554728926678,
+        "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\thermometer2_sleep_A2_PWR_HOLD.csv"
+      },
+      "utc": "2026-09-14T06:54:08.912789+00:00"
+    },
+    {
+      "name": "Z_FULL_QUIET",
+      "status": "OK",
+      "notes": "sleep_avg_uA=8.07 sleep_frac=0.885",
+      "port": "COM5",
+      "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-sleep-bisect",
+      "voltage_mv": 3000,
+      "measure_duration_s": 30.0,
+      "measure": {
+        "samples": 2800128,
+        "avg_uA": 6446.256099487074,
+        "median_uA": 3.994010389476599,
+        "min_uA": -1.0430749055359372,
+        "max_uA": 1289626.727561276,
+        "stdev_uA": 47908.76233159978,
+        "sleep_avg_uA": 8.070796636656459,
+        "sleep_median_uA": 3.287051049825717,
+        "sleep_frac": 0.8845067082647651,
+        "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\thermometer2_sleep_Z_FULL_QUIET.csv"
+      },
+      "utc": "2026-09-14T06:55:50.675242+00:00"
+    },
+    {
+      "name": "B1_LED_ON_LOW",
+      "status": "OK",
+      "notes": "sleep_avg_uA=7.04 sleep_frac=0.901",
+      "port": "COM5",
+      "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-sleep-bisect",
+      "voltage_mv": 3000,
+      "measure_duration_s": 30.0,
+      "measure": {
+        "samples": 2800128,
+        "avg_uA": 5572.03201075331,
+        "median_uA": 3.368081824203276,
+        "min_uA": -1.0430749055359372,
+        "max_uA": 1350723.6372058883,
+        "stdev_uA": 44801.542617621155,
+        "sleep_avg_uA": 7.042412616857137,
+        "sleep_median_uA": 2.6684616276311948,
+        "sleep_frac": 0.9009809551563357,
+        "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\thermometer2_sleep_B1_LED_ON_LOW.csv"
+      },
+      "utc": "2026-09-14T06:57:29.312186+00:00"
+    },
+    {
+      "name": "B2_LED_ON_HIGH",
+      "status": "OK",
+      "notes": "sleep_avg_uA=8.70 sleep_frac=0.870",
+      "port": "COM5",
+      "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-sleep-bisect",
+      "voltage_mv": 3000,
+      "measure_duration_s": 30.0,
+      "measure": {
+        "samples": 2800128,
+        "avg_uA": 7329.622811465848,
+        "median_uA": 4.435859976758401,
+        "min_uA": -1.0430749055359372,
+        "max_uA": 1286146.428052269,
+        "stdev_uA": 51762.79369382414,
+        "sleep_avg_uA": 8.697358021647407,
+        "sleep_median_uA": 3.596345760922978,
+        "sleep_frac": 0.8698180940299872,
+        "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\thermometer2_sleep_B2_LED_ON_HIGH.csv"
+      },
+      "utc": "2026-09-14T08:35:40.822851+00:00"
+    }
+  ],
+  "branch": "diag/thermometer2-sleep-power-bisect",
+  "sha": "288ff1c47719343ee005bc3edcdd6b29c3c9a70c",
+  "original_backup": "backup/thermometer2-before-sleep-power-bisect",
+  "original_sha": "4ee8bfcb4d086be9820433eeb4a26ddd2e9aa0bd",
+  "original_branch": "diag/deep-sleep-10min",
+  "updated_utc": "2026-09-14T08:39:12.273199+00:00",
+  "confirmations": [
+    {
+      "name": "CONFIRM_1_B1_LED_ON_LOW",
+      "status": "OK",
+      "notes": "sleep_avg_uA=7.00 sleep_frac=0.898",
+      "port": "COM5",
+      "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-sleep-bisect",
+      "voltage_mv": 3000,
+      "measure_duration_s": 30.0,
+      "measure": {
+        "samples": 2800128,
+        "avg_uA": 5858.629996739864,
+        "median_uA": 3.3312360085538972,
+        "min_uA": -1.0430749055359372,
+        "max_uA": 1289626.727561276,
+        "stdev_uA": 46456.9601162043,
+        "sleep_avg_uA": 7.002639326916811,
+        "sleep_median_uA": 2.624276668903015,
+        "sleep_frac": 0.8975971812717133,
+        "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\thermometer2_sleep_CONFIRM_1_B1_LED_ON_LOW.csv"
+      },
+      "utc": "2026-09-14T08:37:23.946703+00:00",
+      "firmware_variant": "B1_LED_ON_LOW"
+    },
+    {
+      "name": "CONFIRM_2_B1_LED_ON_LOW",
+      "status": "OK",
+      "notes": "sleep_avg_uA=7.01 sleep_frac=0.898",
+      "port": "COM5",
+      "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-sleep-bisect",
+      "voltage_mv": 3000,
+      "measure_duration_s": 30.0,
+      "measure": {
+        "samples": 2800128,
+        "avg_uA": 5518.472445641686,
+        "median_uA": 3.3312360085538972,
+        "min_uA": -1.0430749055359372,
+        "max_uA": 1294849.3969201953,
+        "stdev_uA": 44533.210652715454,
+        "sleep_avg_uA": 7.0147875691648345,
+        "sleep_median_uA": 2.624276668903015,
+        "sleep_frac": 0.8979921632153959,
+        "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\thermometer2_sleep_CONFIRM_2_B1_LED_ON_LOW.csv"
+      },
+      "utc": "2026-09-14T08:38:18.153525+00:00",
+      "firmware_variant": "B1_LED_ON_LOW"
+    },
+    {
+      "name": "CONFIRM_3_B1_LED_ON_LOW",
+      "status": "OK",
+      "notes": "sleep_avg_uA=7.05 sleep_frac=0.899",
+      "port": "COM5",
+      "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-sleep-bisect",
+      "voltage_mv": 3000,
+      "measure_duration_s": 30.0,
+      "measure": {
+        "samples": 2800128,
+        "avg_uA": 5221.877939746344,
+        "median_uA": 3.3312360085538972,
+        "min_uA": -1.0430749055359372,
+        "max_uA": 1296590.8787319444,
+        "stdev_uA": 42963.438550118575,
+        "sleep_avg_uA": 7.050468821609935,
+        "sleep_median_uA": 2.624276668903015,
+        "sleep_frac": 0.8987674849149753,
+        "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\thermometer2_sleep_CONFIRM_3_B1_LED_ON_LOW.csv"
+      },
+      "utc": "2026-09-14T08:39:12.268714+00:00",
+      "firmware_variant": "B1_LED_ON_LOW"
+    }
+  ],
+  "analysis": {
+    "BASELINE_UA": 1000,
+    "MINIMAL_SLEEP_ONLY_UA": 8.68,
+    "BEST_VARIANT": "B1_LED_ON_LOW",
+    "BEST_UA": 7.04,
+    "BEST_CONFIRMED_MEAN_UA": 7.02,
+    "TARGET_16UA_REACHED": true,
+    "ROOT_CAUSE": "software/peripheral: production DeepSleep left PWR_ON/LED/I2C/ULP not quieted; M0_MINIMAL ~8.7uA proves hardware OK",
+    "FINAL_PIN_STATE": {
+      "GPIO2": "LOW+hold (PWR_ON OFF)",
+      "GPIO17": "LOW+hold (STATUS_LED_ON OFF; B1 better than B2)",
+      "GPIO18": "high-Z+hold",
+      "GPIO6": "high-Z+hold (SDA)",
+      "GPIO7": "high-Z+hold (SCL)"
+    },
+    "ULP_RUNNING_IN_SLEEP": false,
+    "RTC_SLOW_MEM": "ON in production (retained state); OFF in diag min-PD",
+    "RTC_FAST_MEM": "ON in production (retained state); OFF in diag min-PD",
+    "CONFIRM_1_UA": 7.0,
+    "CONFIRM_2_UA": 7.01,
+    "CONFIRM_3_UA": 7.05,
+    "PRODUCTION_FIX": "BoardPowerDownForDeepSleep() in esp_main_sleep DeepSleep path"
+  }
+}

@@ -15,6 +15,7 @@
  */
 
 #include "sleeping/sleeping.h"
+#include "sleeping/board_sleep_powerdown.h"
 
 #include <chrono>
 #include <functional>
@@ -63,7 +64,8 @@ int DeepSleep(time_point soft_sleep_tp, time_point, std::int16_t) {
   ESP_LOGI(TAG, "Timer wakeup enabled: %llu us", time_us);
 
   ESP_LOGI(TAG, "Entering deep sleep...");
-  // preserve RTC memory
+  BoardPowerDownForDeepSleep();
+  // preserve RTC memory (prepared cache / Aether state)
 #  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
 #  endif

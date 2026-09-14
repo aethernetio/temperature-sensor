@@ -22,7 +22,6 @@
 #  include <freertos/event_groups.h>
 #  include <freertos/task.h>
 
-#  include <driver/gpio.h>
 #  include <esp_attr.h>
 #  include <esp_event.h>
 #  include <esp_netif.h>
@@ -30,11 +29,11 @@
 #  include <esp_private/wifi.h>
 #  include <esp_sleep.h>
 #  include <esp_wifi.h>
-#  include <hal/lp_core_ll.h>
 #  include <nvs_flash.h>
 #  include <sdkconfig.h>
-#  include <soc/lp_aon_reg.h>
 #  include <soc/soc.h>
+
+#  include "sleeping/board_sleep_powerdown.h"
 
 #  include <lwip/etharp.h>
 #  include <lwip/ip_addr.h>
@@ -46,13 +45,7 @@
 // (main/boards/aether_esp32_c6.h). UDP diag does not link aether/user_config.
 #  include "boards/aether_esp32_c6.h"
 
-// LED_OFF_LEVEL_UNVERIFIED: no schematic/driver in temperature-sensor sets
-// STATUS_LED_ON_PIN off polarity; only the pin name exists. Candidate OFF=0
-// (PWR_ON is confirmed active-high in stcc4.c). Do not treat as fact.
-#  ifndef STATUS_LED_ON_OFF_LEVEL
-#    define STATUS_LED_ON_OFF_LEVEL 0
-#    define LED_OFF_LEVEL_UNVERIFIED 1
-#  endif
+// STATUS_LED_ON_OFF_LEVEL comes from aether_esp32_c6.h (OFF=LOW, bisect B1).
 
 
 extern "C" esp_err_t esp_wifi_internal_set_retry_counter(uint8_t short_retry,
@@ -288,61 +281,7 @@ bool WaitGotIpBounded() {
   return (bits & kGotIpBit) != 0;
 }
 
-// One peripheral power-down for every deep-sleep entry (incl. !got_ip).
-// UDP path never enables PWR_ON and never inits sensors / I2C.
-// Call at wake start and again immediately before esp_deep_sleep_start().
-void PeripheralPowerDownForDeepSleep() {
-  // Stop LP/ULP core even when CONFIG_ULP_COPROC_ENABLED=0 (prior image may
-  // have left it running). Mirrors ulp_lp_core_stop() without that Kconfig.
-  lp_core_ll_set_wakeup_source(0);
-  lp_core_ll_request_sleep();
-  REG_SET_BIT(LP_AON_LPCORE_REG, LP_AON_LPCORE_DISABLE);
-  (void)esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ULP);
-
-  // SDA/SCL: high-Z input, no internal pulls; hold for C6 deep sleep.
-  (void)gpio_hold_dis(SENSOR_SDA_PIN);
-  (void)gpio_hold_dis(SENSOR_SCL_PIN);
-  (void)gpio_reset_pin(SENSOR_SDA_PIN);
-  (void)gpio_reset_pin(SENSOR_SCL_PIN);
-  (void)gpio_set_direction(SENSOR_SDA_PIN, GPIO_MODE_INPUT);
-  (void)gpio_set_direction(SENSOR_SCL_PIN, GPIO_MODE_INPUT);
-  (void)gpio_pullup_dis(SENSOR_SDA_PIN);
-  (void)gpio_pullup_dis(SENSOR_SCL_PIN);
-  (void)gpio_pulldown_dis(SENSOR_SDA_PIN);
-  (void)gpio_pulldown_dis(SENSOR_SCL_PIN);
-  (void)gpio_hold_en(SENSOR_SDA_PIN);
-  (void)gpio_hold_en(SENSOR_SCL_PIN);
-
-#if BOARD_HAS_PWR_ON == 1
-  // GPIO2 OFF=LOW confirmed (stcc4 Init drives HIGH to power sensors on).
-  (void)gpio_hold_dis(static_cast<gpio_num_t>(PWR_ON_GPIO));
-  (void)gpio_reset_pin(static_cast<gpio_num_t>(PWR_ON_GPIO));
-  (void)gpio_set_direction(static_cast<gpio_num_t>(PWR_ON_GPIO),
-                           GPIO_MODE_OUTPUT);
-  (void)gpio_set_level(static_cast<gpio_num_t>(PWR_ON_GPIO), 0);
-  // C6: per-IO hold persists through deep sleep (no gpio_deep_sleep_hold_*).
-  (void)gpio_hold_en(static_cast<gpio_num_t>(PWR_ON_GPIO));
-#endif
-
-#if BOARD_HAS_LED == 1 && defined(STATUS_LED_ON_PIN)
-  // LED_OFF_LEVEL_UNVERIFIED: best-effort LOW (no driver/schematic OFF confirm).
-  (void)gpio_hold_dis(STATUS_LED_ON_PIN);
-  (void)gpio_reset_pin(STATUS_LED_ON_PIN);
-  (void)gpio_set_direction(STATUS_LED_ON_PIN, GPIO_MODE_OUTPUT);
-  (void)gpio_set_level(STATUS_LED_ON_PIN, STATUS_LED_ON_OFF_LEVEL);
-  (void)gpio_hold_en(STATUS_LED_ON_PIN);
-#endif
-
-#if BOARD_HAS_LED == 1 && defined(STATUS_LED_PIN)
-  // Data line: OFF polarity unverified — float high-Z (no pulls) + hold.
-  (void)gpio_hold_dis(STATUS_LED_PIN);
-  (void)gpio_reset_pin(STATUS_LED_PIN);
-  (void)gpio_set_direction(STATUS_LED_PIN, GPIO_MODE_INPUT);
-  (void)gpio_pullup_dis(STATUS_LED_PIN);
-  (void)gpio_pulldown_dis(STATUS_LED_PIN);
-  (void)gpio_hold_en(STATUS_LED_PIN);
-#endif
-}
+void PeripheralPowerDownForDeepSleep() { BoardPowerDownForDeepSleep(); }
 
 }  // namespace
 

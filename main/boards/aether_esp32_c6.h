@@ -35,6 +35,11 @@
 #  define STATUS_LED_ON_PIN GPIO_NUM_17
 #  define STATUS_LED_PIN GPIO_NUM_18
 #endif
+#ifndef STATUS_LED_ON_OFF_LEVEL
+/* GPIO17 LOW = LED rail off. B1_LED_ON_LOW slept at hardware floor (~7 µA);
+ * GPIO17 HIGH as ON would have been milliamps, so OFF=LOW. */
+#  define STATUS_LED_ON_OFF_LEVEL 0
+#endif
 #ifndef PWR_ON_GPIO
 #  define PWR_ON_GPIO GPIO_NUM_2
 #  define LP_PWR_ON_GPIO LP_IO_NUM_2

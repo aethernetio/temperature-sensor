@@ -154,12 +154,13 @@ void ApplyGpioFactors() {
       VariantHasPrefix("C_") || VariantHasPrefix("D_") ||
       VariantHasPrefix("E_") || VariantHasPrefix("F_") ||
       VariantHasPrefix("G_") || VariantIs("Z_FULL_QUIET");
+  bool const pwr_high = VariantIs("H1_PWR_HIGH");
   bool const pwr_hold =
       VariantIs("A2_PWR_HOLD") || VariantIs("A3_PWR_ISOLATE") ||
-      VariantHasPrefix("B_") || VariantHasPrefix("C_") ||
-      VariantHasPrefix("D_") || VariantHasPrefix("E_") ||
-      VariantHasPrefix("F_") || VariantHasPrefix("G_") ||
-      VariantIs("Z_FULL_QUIET");
+      VariantIs("H1_PWR_HIGH") || VariantHasPrefix("B_") ||
+      VariantHasPrefix("C_") || VariantHasPrefix("D_") ||
+      VariantHasPrefix("E_") || VariantHasPrefix("F_") ||
+      VariantHasPrefix("G_") || VariantIs("Z_FULL_QUIET");
   bool const led_off_low =
       VariantIs("B1_LED_ON_LOW") || VariantIs("B3_LED_DATA_HZ") ||
       VariantHasPrefix("C_") || VariantHasPrefix("D_") ||
@@ -189,16 +190,17 @@ void ApplyGpioFactors() {
     HoldInputHighZ(SENSOR_SCL_PIN);
   }
 
-  if (pwr_low) {
+  if (pwr_low || pwr_high) {
 #  if BOARD_HAS_PWR_ON == 1
+    int const level = pwr_high ? 1 : 0;
     if (pwr_hold) {
-      HoldOutputLevel(static_cast<gpio_num_t>(PWR_ON_GPIO), 0);
+      HoldOutputLevel(static_cast<gpio_num_t>(PWR_ON_GPIO), level);
     } else {
       (void)gpio_hold_dis(static_cast<gpio_num_t>(PWR_ON_GPIO));
       (void)gpio_reset_pin(static_cast<gpio_num_t>(PWR_ON_GPIO));
       (void)gpio_set_direction(static_cast<gpio_num_t>(PWR_ON_GPIO),
                                GPIO_MODE_OUTPUT);
-      (void)gpio_set_level(static_cast<gpio_num_t>(PWR_ON_GPIO), 0);
+      (void)gpio_set_level(static_cast<gpio_num_t>(PWR_ON_GPIO), level);
     }
 #  endif
   }
@@ -254,12 +256,11 @@ void FlashWindowThenSleep() {
   int wait_ms = AE_SLEEP_BISECT_FLASH_MS;
   if (cause == ESP_SLEEP_WAKEUP_TIMER) {
     wait_ms = AE_SLEEP_BISECT_TIMER_SETTLE_MS;
-  } else if (rr == ESP_RST_POWERON || rr == ESP_RST_BROWNOUT ||
-             cause == ESP_SLEEP_WAKEUP_UNDEFINED) {
-    // Cold power-on / first boot after PPK OFF→ON: long flashable window.
+  } else if (rr == ESP_RST_POWERON || rr == ESP_RST_BROWNOUT) {
+    // Cold power-on after PPK OFF→ON: long flashable window.
     wait_ms = AE_SLEEP_BISECT_COLD_MS;
   } else {
-    // Software reset / flash-induced reset: shorter window.
+    // Flash / external / software / USB reset: shorter window.
     wait_ms = AE_SLEEP_BISECT_FLASH_MS;
   }
 

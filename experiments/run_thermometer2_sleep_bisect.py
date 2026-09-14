@@ -30,6 +30,7 @@ ESPRESSIF_VID = 0x303A
 
 VARIANTS_DEFAULT = [
     "M0_MINIMAL",
+    "H1_PWR_HIGH",
     "A0_BASELINE_NOPIN",
     "A1_PWR_LOW",
     "A2_PWR_HOLD",
@@ -141,10 +142,18 @@ class PpkSession:
         last = t0
         try:
             while time.time() - t0 < duration_s:
-                raw = self.ppk.get_data()
+                try:
+                    raw = self.ppk.get_data()
+                except OSError as e:
+                    print(f"ppk_get_data_warn={e}", flush=True)
+                    break
                 now = time.time()
                 if raw:
-                    chunk, _ = self.ppk.get_samples(raw)
+                    try:
+                        chunk, _ = self.ppk.get_samples(raw)
+                    except Exception as e:
+                        print(f"ppk_get_samples_warn={e}", flush=True)
+                        break
                     for uA in chunk:
                         samples.append((now - t0, float(uA)))
                 if now - last >= 5.0:
@@ -162,13 +171,18 @@ class PpkSession:
         finally:
             try:
                 self.ppk.stop_measuring()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"ppk_stop_warn={e}", flush=True)
 
-        with out_csv.open("w", encoding="utf-8", newline="") as f:
-            f.write("t_s,uA\n")
-            for t, u in samples:
-                f.write(f"{t:.6f},{u:.3f}\n")
+        try:
+            step = max(1, len(samples) // 20000) if samples else 1
+            with out_csv.open("w", encoding="utf-8", newline="") as f:
+                f.write("t_s,uA\n")
+                for i, (t, u) in enumerate(samples):
+                    if i % step == 0:
+                        f.write(f"{t:.6f},{u:.3f}\n")
+        except OSError as e:
+            print(f"csv_write_warn={e}", flush=True)
 
         use = [u for t, u in samples if t >= 2.0]
         if len(use) < 100:
@@ -182,6 +196,13 @@ class PpkSession:
             if len(use_sorted) % 2
             else 0.5 * (use_sorted[mid - 1] + use_sorted[mid])
         )
+        # Spike-tolerant sleep estimate (matches prior PPK campaigns): keep |I|<200µA.
+        filtered = [u for u in use if abs(u) < 200.0]
+        if len(filtered) < max(100, len(use) // 20):
+            filtered = [u for u in use if abs(u) < 1000.0]
+        filt_avg = statistics.fmean(filtered) if filtered else float("nan")
+        filt_med = statistics.median(filtered) if filtered else float("nan")
+        frac_sleepish = (len(filtered) / len(use)) if use else 0.0
         return {
             "samples": len(use),
             "avg_uA": statistics.fmean(use),
@@ -189,6 +210,9 @@ class PpkSession:
             "min_uA": min(use),
             "max_uA": max(use),
             "stdev_uA": statistics.pstdev(use) if len(use) > 1 else 0.0,
+            "sleep_avg_uA": filt_avg,
+            "sleep_median_uA": filt_med,
+            "sleep_frac": frac_sleepish,
             "csv": str(out_csv),
         }
 
@@ -235,11 +259,13 @@ def wait_espressif_com(timeout_s: float = 45.0) -> str | None:
 
 
 def idf_cmd(extra: str) -> list[str]:
-    # Use export.ps1 from IDF v6 tree + idf6 python explicitly.
+    # Use export.ps1 from IDF v6 tree. Clear PYTHONPATH so ppk2-venv site-packages
+    # (e.g. pyparsing) cannot break IDF dependency checks.
     ps = f"""
 $ErrorActionPreference = 'Stop'
 $env:IDF_PATH = '{IDF_PATH.as_posix()}'
-$env:IDF_PYTHON = '{IDF_PYTHON.as_posix()}'
+$env:PYTHONPATH = $null
+$env:ESP_IDF_EXPORT_DEBUG = $null
 . '{EXPORT_PS1.as_posix()}'
 Set-Location '{ROOT.as_posix()}'
 {extra}
@@ -258,7 +284,7 @@ exit $LASTEXITCODE
 def build_variant(variant: str, build_dir: Path) -> None:
     build_dir.mkdir(parents=True, exist_ok=True)
     b = build_dir.as_posix()
-    # First configure if needed, then build. BOARD=0 => AETHER_ESP32_C6.
+    # Reuse one build tree; only variant define changes → fast incremental rebuild.
     extra = f"""
 if (-not (Test-Path '{b}/CMakeCache.txt')) {{
   idf.py -B '{b}' -D AETHER_DIAG_SLEEP_POWER_BISECT=1 -D AE_SLEEP_BISECT_VARIANT={variant} -D BOARD=0 set-target esp32c6
@@ -272,11 +298,46 @@ idf.py -B '{b}' -D AETHER_DIAG_SLEEP_POWER_BISECT=1 -D AE_SLEEP_BISECT_VARIANT={
 
 
 def flash_port(port: str, build_dir: Path) -> None:
-    b = build_dir.as_posix()
-    extra = f"idf.py -B '{b}' -p {port} flash"
-    r = run(idf_cmd(extra), cwd=str(ROOT))
+    """Flash via esptool directly (no export.ps1) while COM is still alive."""
+    ensure_ppk_path()
+    import serial
+
+    # Hold chip in reset immediately so it cannot deep-sleep before flash.
+    try:
+        ser = serial.Serial(port, 115200, timeout=0.2)
+        ser.setDTR(False)
+        ser.setRTS(True)  # reset held
+        time.sleep(0.05)
+        ser.close()
+    except Exception as e:
+        print(f"reset_hold_warn={e}", flush=True)
+
+    flash_args = build_dir / "flash_args"
+    if not flash_args.exists():
+        raise RuntimeError(f"missing flash_args in {build_dir}")
+
+    cmd = [
+        str(IDF_PYTHON),
+        "-m",
+        "esptool",
+        "--chip",
+        "esp32c6",
+        "-p",
+        port,
+        "-b",
+        "460800",
+        "--before",
+        "default-reset",
+        "--after",
+        "hard-reset",
+        "write-flash",
+        "@flash_args",
+    ]
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    r = run(cmd, cwd=str(build_dir), env=env)
     if r.returncode != 0:
-        raise RuntimeError(f"flash failed port={port} code={r.returncode}")
+        raise RuntimeError(f"esptool flash failed port={port} code={r.returncode}")
 
 
 def hard_reset(port: str) -> None:
@@ -291,6 +352,28 @@ def hard_reset(port: str) -> None:
         time.sleep(0.05)
 
 
+def try_flash_with_retries(
+    ppk: PpkSession, build_dir: Path, cold_wait_s: float, attempts: int = 4
+) -> str:
+    last_err = "no attempts"
+    for i in range(attempts):
+        print(f"=== FLASH attempt {i + 1}/{attempts} ===", flush=True)
+        ppk.power_cycle()
+        port = wait_espressif_com(timeout_s=max(35.0, cold_wait_s))
+        if not port:
+            last_err = "NO_COM"
+            continue
+        # Flash ASAP — do not run export.ps1.
+        try:
+            flash_port(port, build_dir)
+            return port
+        except Exception as e:
+            last_err = str(e)
+            print(f"flash_attempt_fail={e}", flush=True)
+            time.sleep(1.0)
+    raise RuntimeError(last_err)
+
+
 def load_results() -> dict:
     if JSON_OUT.exists():
         return json.loads(JSON_OUT.read_text(encoding="utf-8"))
@@ -302,11 +385,12 @@ def load_results() -> dict:
     }
 
 
-def save_results(data: dict) -> None:
+def save_results(data: dict, write_markdown: bool = True) -> None:
     RESULTS.mkdir(parents=True, exist_ok=True)
     data["updated_utc"] = datetime.now(timezone.utc).isoformat()
     JSON_OUT.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    write_md(data)
+    if write_markdown:
+        write_md(data)
 
 
 def write_md(data: dict) -> None:
@@ -323,22 +407,20 @@ def write_md(data: dict) -> None:
         "",
         "## Results",
         "",
-        "| Variant | avg_uA | median_uA | min_uA | max_uA | duration_s | status | notes |",
+        "| Variant | sleep_avg_uA | sleep_med_uA | median_uA | avg_uA | frac | status | notes |",
         "|---|---:|---:|---:|---:|---:|---|---|",
     ]
     for v in data.get("variants", []):
         m = v.get("measure") or {}
-        avg = m.get("avg_uA")
-        med = m.get("median_uA")
-        mn = m.get("min_uA")
-        mx = m.get("max_uA")
 
         def fmt(x):
             return f"{x:.2f}" if isinstance(x, (int, float)) else ""
 
         lines.append(
-            f"| {v.get('name')} | {fmt(avg)} | {fmt(med)} | {fmt(mn)} | {fmt(mx)} | "
-            f"{v.get('measure_duration_s', '')} | {v.get('status', '')} | {v.get('notes', '')} |"
+            f"| {v.get('name')} | {fmt(m.get('sleep_avg_uA'))} | "
+            f"{fmt(m.get('sleep_median_uA'))} | {fmt(m.get('median_uA'))} | "
+            f"{fmt(m.get('avg_uA'))} | {fmt(m.get('sleep_frac'))} | "
+            f"{v.get('status', '')} | {v.get('notes', '')} |"
         )
     lines.extend(
         [
@@ -379,10 +461,13 @@ def run_one(
     measure_s: float,
     cold_wait_s: float,
     skip_build: bool,
+    skip_flash: bool = False,
+    result_name: str | None = None,
 ) -> dict:
-    build_dir = ROOT / f"build-sleep-bisect-{variant.lower()}"
+    build_dir = ROOT / "build-sleep-bisect"
     notes: list[str] = []
     status = "OK"
+    stored_name = result_name or variant
 
     if not skip_build:
         print(f"=== BUILD {variant} ===", flush=True)
@@ -390,38 +475,35 @@ def run_one(
             build_variant(variant, build_dir)
         except Exception as e:
             return {
-                "name": variant,
+                "name": stored_name,
                 "status": "BUILD_FAIL",
                 "notes": str(e),
                 "build_dir": str(build_dir),
             }
 
-    print(f"=== POWER CYCLE {variant} ===", flush=True)
-    ppk.power_cycle()
-    port = wait_espressif_com(timeout_s=max(35.0, cold_wait_s))
-    if not port:
-        # Cold window may need longer; try one more cycle.
+    port = None
+    if skip_flash:
+        print(f"=== POWER CYCLE (no flash) {variant} ===", flush=True)
         ppk.power_cycle()
-        port = wait_espressif_com(timeout_s=55.0)
-    if not port:
-        return {
-            "name": variant,
-            "status": "NO_COM",
-            "notes": "Espressif COM not found after PPK power ON",
-            "build_dir": str(build_dir),
-        }
-
-    print(f"=== FLASH {variant} on {port} ===", flush=True)
-    try:
-        flash_port(port, build_dir)
-    except Exception as e:
-        return {
-            "name": variant,
-            "status": "FLASH_FAIL",
-            "notes": str(e),
-            "port": port,
-            "build_dir": str(build_dir),
-        }
+        port = wait_espressif_com(timeout_s=max(35.0, cold_wait_s))
+        if not port:
+            return {
+                "name": stored_name,
+                "status": "NO_COM",
+                "notes": "Espressif COM not found after PPK power ON",
+                "build_dir": str(build_dir),
+            }
+    else:
+        print(f"=== POWER CYCLE + FLASH {variant} ===", flush=True)
+        try:
+            port = try_flash_with_retries(ppk, build_dir, cold_wait_s)
+        except Exception as e:
+            return {
+                "name": stored_name,
+                "status": "FLASH_FAIL" if "NO_COM" not in str(e) else "NO_COM",
+                "notes": str(e),
+                "build_dir": str(build_dir),
+            }
 
     time.sleep(1.0)
     port2 = wait_espressif_com(timeout_s=20.0) or port
@@ -431,21 +513,28 @@ def run_one(
     except Exception as e:
         notes.append(f"reset_warn={e}")
 
-    print("Waiting for deep sleep entry (~12s after reset)...", flush=True)
-    time.sleep(12.0)
+    # After flash/reset: firmware flash window ~8s then deep sleep.
+    # Use 15s to clear the window with margin (cold 25s only on power-on).
+    print("Waiting for deep sleep entry (~15s after reset)...", flush=True)
+    time.sleep(15.0)
 
-    csv_path = RESULTS / f"thermometer2_sleep_{variant}.csv"
+    csv_path = RESULTS / f"thermometer2_sleep_{stored_name}.csv"
     print(f"=== MEASURE {variant} {measure_s}s ===", flush=True)
     try:
         meas = ppk.measure(measure_s, csv_path)
-        if meas["avg_uA"] > 5000:
+        sleep_ua = meas.get("sleep_avg_uA", meas["median_uA"])
+        sleep_frac = meas.get("sleep_frac", 0.0)
+        if sleep_frac < 0.5 and meas["median_uA"] > 500:
             status = "NO_SLEEP"
-            notes.append("avg>5mA — likely awake")
-        elif meas["avg_uA"] > 200:
+            notes.append("low sleep_frac / high median")
+        elif sleep_ua > 200:
             notes.append("elevated_sleep_or_leak")
+        notes.append(
+            f"sleep_avg_uA={sleep_ua:.2f} sleep_frac={sleep_frac:.3f}"
+        )
     except Exception as e:
         return {
-            "name": variant,
+            "name": stored_name,
             "status": "MEASURE_FAIL",
             "notes": str(e),
             "port": port2,
@@ -453,7 +542,7 @@ def run_one(
         }
 
     return {
-        "name": variant,
+        "name": stored_name,
         "status": status,
         "notes": "; ".join(notes),
         "port": port2,
@@ -472,6 +561,10 @@ def main() -> int:
     ap.add_argument("--cold-wait-s", type=float, default=40.0)
     ap.add_argument("--variants", nargs="*", default=None)
     ap.add_argument("--skip-build", action="store_true")
+    ap.add_argument("--skip-flash", action="store_true")
+    ap.add_argument("--no-md", action="store_true")
+    ap.add_argument("--result-name", default=None)
+    ap.add_argument("--confirmations", type=int, default=0)
     ap.add_argument("--only", default=None)
     args = ap.parse_args()
 
@@ -493,19 +586,70 @@ def main() -> int:
 
     ppk = PpkSession(args.voltage_mv)
     ppk.open()
+    write_md_flag = not args.no_md
     try:
         for variant in variants:
-            data["variants"] = [
-                v for v in data.get("variants", []) if v.get("name") != variant
-            ]
+            if args.confirmations > 0:
+                # Build once, then N confirmation flashes/measures.
+                if not args.skip_build:
+                    print(f"=== BUILD {variant} (confirmations) ===", flush=True)
+                    build_variant(variant, ROOT / "build-sleep-bisect")
+                data.setdefault("confirmations", [])
+                for i in range(1, args.confirmations + 1):
+                    cname = f"CONFIRM_{i}_{variant}"
+                    result = run_one(
+                        variant,
+                        ppk,
+                        args.measure_s,
+                        args.cold_wait_s,
+                        skip_build=True,
+                        skip_flash=args.skip_flash,
+                        result_name=cname,
+                    )
+                    result["firmware_variant"] = variant
+                    data["confirmations"] = [
+                        c
+                        for c in data.get("confirmations", [])
+                        if c.get("name") != cname
+                    ]
+                    data["confirmations"].append(result)
+                    save_results(data, write_markdown=write_md_flag)
+                    avg = (result.get("measure") or {}).get("sleep_avg_uA")
+                    print(
+                        f"RESULT {cname} status={result.get('status')} "
+                        f"sleep_avg_uA={avg}",
+                        flush=True,
+                    )
+                continue
+
+            stored = args.result_name or variant
+            if not args.result_name:
+                data["variants"] = [
+                    v for v in data.get("variants", []) if v.get("name") != variant
+                ]
             result = run_one(
-                variant, ppk, args.measure_s, args.cold_wait_s, args.skip_build
+                variant,
+                ppk,
+                args.measure_s,
+                args.cold_wait_s,
+                args.skip_build,
+                skip_flash=args.skip_flash,
+                result_name=stored,
             )
-            data["variants"].append(result)
-            save_results(data)
-            avg = (result.get("measure") or {}).get("avg_uA")
+            if args.result_name:
+                data.setdefault("confirmations", [])
+                data["confirmations"] = [
+                    c
+                    for c in data.get("confirmations", [])
+                    if c.get("name") != stored
+                ]
+                data["confirmations"].append(result)
+            else:
+                data["variants"].append(result)
+            save_results(data, write_markdown=write_md_flag)
+            avg = (result.get("measure") or {}).get("sleep_avg_uA")
             print(
-                f"RESULT {variant} status={result.get('status')} avg_uA={avg}",
+                f"RESULT {stored} status={result.get('status')} sleep_avg_uA={avg}",
                 flush=True,
             )
     finally:
@@ -516,7 +660,7 @@ def main() -> int:
             pass
         ppk.close()
 
-    save_results(data)
+    save_results(data, write_markdown=write_md_flag)
     return 0
 
 
