@@ -4,6 +4,7 @@
 - Starting branch: `diag/thermometer2-sleep-power-bisect`
 - Starting SHA: `a2aa419c51ada9f092662a0be39207a0551826e1`
 - Branch: `diag/thermometer2-udp-low-power-1min`
+- HEAD: `b61569d70fc479e5168d8fc235475de800b64d85`
 - CURRENT_FLASH_EXPECTED (before reflash): `B1_LED_ON_LOW` (~7.05 µA sleep-only)
 - Voltage: 3000 mV (PPK2 source meter)
 - UDP: `192.168.68.84:9000` LE uint32 index
@@ -64,6 +65,7 @@ Deep-sleep current is from `|I|<200 µA` samples between bursts, not from the 10
 - silent console (`CONFIG_ESP_CONSOLE_NONE`)
 - pre=300 / post=200
 - after 10 measured sends → DONE 1 h deep sleep
+- firmware SHA: `b61569d70fc479e5168d8fc235475de800b64d85`
 
 ## Method
 1. `AETHER_DIAG_UDP_LOW_POWER_1MIN_10` silent build
