@@ -12,7 +12,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
-        for name in ("aether/all.h", "esp_timer.h", "hal/uart_types.h", "soc/gpio_num.h"):
+        for name in ("aether/all.h", "user_config.h", "esp_timer.h", "hal/uart_types.h", "soc/gpio_num.h"):
             path = folder / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("")
