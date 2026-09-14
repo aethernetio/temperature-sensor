@@ -118,17 +118,24 @@ void setup() {
     std::int16_t hot_temperature = {};
     ReadSensors(&hot_temperature, nullptr, nullptr, nullptr, nullptr);
 
-    auto hot_status =
-        temp_sensor::prepared_send::TryHotWakePreparedSend(hot_temperature);
+#if BOARD_HAS_STCC4 == 1 && BOARD_HAS_ULP == 0
+    if (stcc4_error != 0) {
+      std::cerr << " !!! STCC4 read failed; skipping prepared sensor send\n";
+    } else
+#endif
+    {
+      auto hot_status =
+          temp_sensor::prepared_send::TryHotWakePreparedSend(hot_temperature);
 
-    std::cout << ae::Format(" >>> Prepared hot path status: {}\n",
-                            temp_sensor::prepared_send::ToString(hot_status));
+      std::cout << ae::Format(" >>> Prepared hot path status: {}\n",
+                              temp_sensor::prepared_send::ToString(hot_status));
 
-    if (hot_status == temp_sensor::prepared_send::HotSendStatus::kSent) {
-      auto sleep_until =
-          std::chrono::system_clock::now() + kPreparedHotSleepSeconds;
-      DeepSleep(sleep_until, sleep_until, 3000);
-      return;
+      if (hot_status == temp_sensor::prepared_send::HotSendStatus::kSent) {
+        auto sleep_until =
+            std::chrono::system_clock::now() + kPreparedHotSleepSeconds;
+        DeepSleep(sleep_until, sleep_until, 3000);
+        return;
+      }
     }
   }
 #endif
@@ -233,6 +240,14 @@ void UpdateSensors() {
   std::uint32_t co2 = {};
 
   ReadSensors(&temperature, &humidity, nullptr, &co2, nullptr);
+#if BOARD_HAS_STCC4 == 1 && BOARD_HAS_ULP == 0
+  if (stcc4_error != 0) {
+    std::cerr << " !!! STCC4 read failed; no valid sample to send\n";
+    next_tx_time = ae::Now() + kTxInterval;
+    SleepReady();
+    return;
+  }
+#endif
   std::cout << ae::Format(" >>> Temperature: [{}], Humidity: [{}], CO2: [{}]\n",
                           temperature, humidity, co2);
   // TODO: add check if wakeup cause is ulp then send value
@@ -255,6 +270,7 @@ void SendValue(std::int16_t temperature) {
   std::cout << ae::Format(" [CALL-CHAIN] SendValue payload_size={}\n",
                           message.size());
 
+  next_tx_time = ae::Now() + kTxInterval;
   message_stream->Write(std::move(message)).status_event().Subscribe([](auto) {
     // Export/refresh prepared block after the full send path has a valid
     // stream. If export fails, keep normal behavior and just sleep.
@@ -267,7 +283,6 @@ void SendValue(std::int16_t temperature) {
     SleepReady();
   });
 
-  next_tx_time = ae::Now() + kTxInterval;
 }
 
 void SleepReady() {
@@ -284,7 +299,7 @@ void SleepReady() {
     go_to_sleep(status.next_service_time);
   } else {
     std::cout << ">>> Wait for can suspend\n";
-    client->connectivity_policy()->suspend_allowed_event().Subscribe([&]() {
+    client->connectivity_policy()->suspend_allowed_event().Subscribe([go_to_sleep]() {
       go_to_sleep(client->connectivity_policy()->GetStatus().next_service_time);
     });
   }

@@ -18,9 +18,24 @@
 #define SENSORS_SENSORS_H_
 
 #include <stdint.h>
+#include "user_config.h"
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#if BOARD_HAS_STCC4 == 1 && BOARD_HAS_ULP == 0
+// Status of the most recent STCC4 read; outputs stay unchanged on error.
+extern volatile uint32_t stcc4_error;
+#if BOARD_HAS_PWR_ON == 1
+// Release the sensor bus and switch off the rail before main-CPU deep sleep.
+void PowerOffSensors(void);
+#endif
+#endif
+
+#if BOARD_HAS_ULP == 1 && ULP_COMP == 0
+// Start ULP on cold boot and wait for a sample before reading shared memory.
+void PrepareUlpSensors(void);
 #endif
 
 /**
