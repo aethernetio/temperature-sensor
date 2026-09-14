@@ -1,9 +1,9 @@
 /*
  * Copyright 2026 Aethernet Inc.
  *
- * Manual Thermometer 2 deep-sleep current test.
+ * Manual Thermometer 2 deep-sleep current test (no forced PD configs).
  * One app_main: quiet GPIOs → 10 s active → deep sleep 60 s → repeat.
- * No Wi-Fi, Aether, ULP app, sensors, or diagnostic framework.
+ * No Wi-Fi, Aether, ULP app, sensors, or forced power-domain OFF.
  */
 
 #include <driver/gpio.h>
@@ -63,18 +63,7 @@ extern "C" void app_main(void) {
   // Visible active window on PPK (ordinary FreeRTOS delay).
   vTaskDelay(pdMS_TO_TICKS(10000));
 
-  // ESP32-C6 power domains: unused OFF (no RTC_DATA_ATTR retention).
-  // C6 has no RTC_SLOW/FAST_MEM or CNNT PD enums in this IDF — omit them.
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_OFF);
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL32K, ESP_PD_OPTION_OFF);
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RC32K, ESP_PD_OPTION_OFF);
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RC_FAST, ESP_PD_OPTION_OFF);
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_CPU, ESP_PD_OPTION_OFF);
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_VDDSDIO, ESP_PD_OPTION_OFF);
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_MODEM, ESP_PD_OPTION_OFF);
-  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_TOP, ESP_PD_OPTION_OFF);
-
+  // No forced power-domain OFF — IDF default/AUTO for timer deep sleep.
   (void)esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
   esp_sleep_enable_timer_wakeup(60ULL * 1000000ULL);
   esp_deep_sleep_start();
