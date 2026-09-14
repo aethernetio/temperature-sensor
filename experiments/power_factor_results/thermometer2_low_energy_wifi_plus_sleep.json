@@ -1,6 +1,6 @@
 {
   "branch": "diag/thermometer2-lowenergy-wifi-plus-7ua-sleep",
-  "sha": "62f707b9903a89b00fb9035b03f4c098a00f0536",
+  "sha": "494260d5a87e7dd4e43afd813d4ea4cd9d9c75a7",
   "parent_sha": "14118bac5570a2bba0d311197799faed0a63b250",
   "voltage_mv": 3000,
   "pre_ms": 50,
@@ -270,5 +270,6 @@
     "ppk_csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_plus_sleep\\ppk_20260914_095814.csv"
   },
   "utc": "2026-09-14T10:07:50.830317+00:00",
-  "final_sha": "62f707b9903a89b00fb9035b03f4c098a00f0536"
+  "final_sha": "494260d5a87e7dd4e43afd813d4ea4cd9d9c75a7",
+  "result_commit": "62f707b9903a89b00fb9035b03f4c098a00f0536"
 }
