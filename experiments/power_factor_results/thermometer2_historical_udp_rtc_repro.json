@@ -1,0 +1,119 @@
+{
+  "mode": "AETHER_DIAG_UDP_RTC_INDEX",
+  "board_powerdown": false,
+  "interval_s": 10,
+  "udp_host": "192.168.68.84",
+  "udp_port": 9000,
+  "voltage_mv": 3000,
+  "sha": "14118bac5570a2bba0d311197799faed0a63b250",
+  "branch": "diag/thermometer2-udp-rtc-historical-repro",
+  "compile_fixes": [
+    "PeripheralPowerDownForDeepSleep no-op for AETHER_DIAG_UDP_RTC_INDEX"
+  ],
+  "sdkconfig": "force_sdk from _diag_udp_rtc_index_flash.py (~35 mC reference comment)",
+  "HISTORICAL_LOW_ENERGY_SOURCE": "AETHER_DIAG_UDP_RTC_INDEX @ force_sdk; PRE=50ms POST=200ms; 10s sleep; full RTC cache; WiFi4+1M; PS_NONE then MAX_MODEM; FULL teardown; UDP 192.168.68.84:9000",
+  "ppk_csv": "experiments\\power_modes_raw\\thermometer2_historical_udp_rtc\\ppk_20260914_094543.csv",
+  "plots": {
+    "overview": "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_10_wakes_overview.png",
+    "zooms": [
+      "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_wake_00_zoom.png",
+      "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_wake_01_zoom.png",
+      "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_wake_02_zoom.png",
+      "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_wake_03_zoom.png",
+      "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_wake_04_zoom.png",
+      "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_wake_05_zoom.png",
+      "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_wake_06_zoom.png",
+      "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_wake_07_zoom.png",
+      "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_wake_08_zoom.png",
+      "experiments\\power_factor_results\\thermometer2_low_energy_plots\\historical_wake_09_zoom.png"
+    ]
+  },
+  "wakes": [
+    {
+      "i": 0,
+      "t_start_s": 10.42,
+      "t_end_s": 11.34,
+      "duration_ms": 919.9999999999999,
+      "charge_mC": 60.3815359615997
+    },
+    {
+      "i": 1,
+      "t_start_s": 21.020000000000003,
+      "t_end_s": 21.91,
+      "duration_ms": 889.999999999997,
+      "charge_mC": 55.262656120499464
+    },
+    {
+      "i": 2,
+      "t_start_s": 31.590000000000003,
+      "t_end_s": 32.480000000000004,
+      "duration_ms": 890.0000000000006,
+      "charge_mC": 55.92786997739252
+    },
+    {
+      "i": 3,
+      "t_start_s": 42.160000000000004,
+      "t_end_s": 44.36000000000001,
+      "duration_ms": 2200.0000000000027,
+      "charge_mC": 192.20339851970343
+    },
+    {
+      "i": 4,
+      "t_start_s": 53.99,
+      "t_end_s": 54.910000000000004,
+      "duration_ms": 920.0000000000017,
+      "charge_mC": 55.40426555610419
+    },
+    {
+      "i": 5,
+      "t_start_s": 64.58,
+      "t_end_s": 65.56,
+      "duration_ms": 980.000000000004,
+      "charge_mC": 63.2378675155931
+    },
+    {
+      "i": 6,
+      "t_start_s": 75.23,
+      "t_end_s": 76.22000000000001,
+      "duration_ms": 990.0000000000091,
+      "charge_mC": 62.86442316228924
+    },
+    {
+      "i": 7,
+      "t_start_s": 85.87,
+      "t_end_s": 86.77000000000001,
+      "duration_ms": 900.0000000000057,
+      "charge_mC": 53.71947524190194
+    },
+    {
+      "i": 8,
+      "t_start_s": 96.45,
+      "t_end_s": 97.36000000000001,
+      "duration_ms": 910.0000000000108,
+      "charge_mC": 56.57351008000314
+    },
+    {
+      "i": 9,
+      "t_start_s": 107.04,
+      "t_end_s": 107.93,
+      "duration_ms": 890.0000000000006,
+      "charge_mC": 55.68119356439885
+    }
+  ],
+  "summary": {
+    "n": 10,
+    "mean_mC": 71.12561956994855,
+    "median_mC": 56.25069002869783,
+    "min_mC": 53.71947524190194,
+    "max_mC": 192.20339851970343,
+    "mean_duration_ms": 1049.0000000000032,
+    "median_duration_ms": 915.0000000000053
+  },
+  "sleep_between_wakes_uA": {
+    "avg": 10.311466367003115,
+    "median": 3.596
+  },
+  "udp_rx_in_capture": "idx 0..14 (15 packets); 10 measured wakes after warm/power-on",
+  "acceptance_40_80_mC": true,
+  "boundaries_method": "100Hz envelope I>1.5mA for >=150ms; pad -80ms/+200ms for rise and teardown tail; timestamps reconstructed at 5kHz"
+}

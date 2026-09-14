@@ -74,7 +74,7 @@ namespace {
 constexpr int kGotIpBit = BIT0;
 #if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
 #  ifndef AE_UDP_PRE_SETTLE_MS
-#    define AE_UDP_PRE_SETTLE_MS 300
+#    define AE_UDP_PRE_SETTLE_MS 50
 #  endif
 #  ifndef AE_UDP_POST_SEND_HOLD_MS
 #    define AE_UDP_POST_SEND_HOLD_MS 200

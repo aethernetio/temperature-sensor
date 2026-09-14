@@ -1,0 +1,43 @@
+HISTORICAL_LOW_ENERGY_SOURCE=
+  primary_numeric_match:
+    experiment=LONG1000_CHIRKOV (prepared HOT, best-config campaign)
+    branch=feat/prepared-power-factor-study
+    sha_record=c72179b59ebc89 (Record best-config winner FULL/CPU80 after LONG1000 and SLEEP60)
+    sha_runner_era=f6fd526 / 59ebc89
+    report=experiments/PREPARED_POWER_BEST_CONFIG.md + power_best_config/20260902_142719/LONG1000_CHIRKOV/result.json
+    AP=chirkov
+    energy_median_mJ=170.261 → charge@3.0V=56.75 mC (≈53 mC target)
+    wake_median_ms=572.527 (first20=568.485 ≈567 ms target)
+    interval_original=2 s start-to-start (LONG1000)
+    flags/sdkconfig:
+      CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP=y
+      CONFIG_RTC_CLK_SRC_EXT_CRYS=y
+      CPU=80 (esp_pm min=max)
+      teardown=FULL (stop+deinit+destroy netif+delete event loop)
+      connected PS=WIFI_PS_NONE
+      disconnected PM=ON (default)
+      encode_during_association=false
+      PRE_chirkov=25 ms POST=0
+      console/logging=NONE
+      channel/BSSID/static-IP/ARP=profile/cache as prepared HOT portable winner
+    protocol=Aether prepared HOT (NOT raw UDP :9000)
+  secondary_user_ppk_match_2026-09-05:
+    build=build-bootwifi-bssid-1m-cpu80 (AE_EXP_BOOTWIFI_HOT_TIMING / PreparedHotWakePlain)
+    manual_PPK≈42 mC / ≈423 ms; selection wake≈45.3 mC (→≈53.7 mC with 10 min sleep@14 µA)
+    interval_original≈10 s
+    Wi-Fi: BSSID+channel, 11B fixed 1M, static IP+ARP, PS_MAX_MODEM, stop-only teardown, STA_CONNECTED wait
+  thermometer2_udp_rtc_path:
+    branch_intro=diag/deep-sleep-10min @ 8130be9 (main/udp_rtc_index_loop.cpp)
+    mode=AETHER_DIAG_UDP_RTC_INDEX
+    UDP=192.168.68.84:9000 uint32 LE index
+    original_interval=10 s
+    PRE_settle=50 ms POST_hold=200 ms
+    PS_NONE through assoc/GOT_IP then PS_MAX_MODEM
+    Wi-Fi4 + fixed 1M, retry 3,3
+    cache ALL on: channel+static IP+BSSID+peer ARP+gw ARP
+    teardown=FULL
+    NO committed historical energy at ~53 mC for this path
+    combined_601mC_path=diag/thermometer2-udp-low-power-1min @ b61569d/14118ba is NOT historical low-energy (new combine; ~8 s wakes → ~600 mC)
+  reproduction_choice:
+    flash=AETHER_DIAG_UDP_RTC_INDEX original 10 s AS-IS WITHOUT BoardPowerDownForDeepSleep
+    reason=only Thermometer2 firmware that targets UDP :9000; measure with visual wake→sleep integration before any sleep-fix merge
