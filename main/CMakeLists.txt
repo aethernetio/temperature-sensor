@@ -27,7 +27,7 @@ elseif(AETHER_DIAG_SLEEP_POWER_BISECT)
     "experiment_early_entry.cpp"
     "sleep_power_bisect.cpp"
   )
-elseif(AETHER_DIAG_UDP_RTC_INDEX)
+elseif(AETHER_DIAG_UDP_RTC_INDEX OR AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
   list(APPEND src_list
     "experiment_early_entry.cpp"
     "udp_rtc_index_loop.cpp"
@@ -171,6 +171,7 @@ endif()
 
 if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND
    NOT AETHER_DIAG_UDP_RTC_INDEX AND
+   NOT AETHER_DIAG_UDP_LOW_POWER_1MIN_10 AND
    NOT AETHER_DIAG_SLEEP_POWER_BISECT)
   list(APPEND bme68x_srcs
     "../third-party/BME68x_SensorAPI/bme68x.c"
@@ -221,8 +222,9 @@ else()
     if(CONFIG_ULP_COPROC_ENABLED)
       list(APPEND _main_requires ulp)
     endif()
-    if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1")
-      message(STATUS "AETHER_DIAG_UDP_RTC_INDEX: adding nvs_flash esp_wifi ulp to REQUIRES")
+    if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" OR
+       AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1")
+      message(STATUS "UDP diag: adding nvs_flash esp_wifi ulp to REQUIRES")
       list(APPEND _main_requires nvs_flash esp_wifi)
       # HP-side ulp_lp_core_stop() (do not load/run ULP app in this diag).
       list(APPEND _main_requires ulp)
@@ -249,7 +251,8 @@ else()
       PRIV_REQUIRES ${_main_priv_requires})
 
     set(TARGET_NAME "${COMPONENT_LIB}")
-    if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1")
+    if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" OR
+       AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1")
       # Ensure Wi-Fi headers/libs even if REQUIRES expansion was incomplete.
       target_link_libraries(${TARGET_NAME} PUBLIC idf::esp_wifi idf::nvs_flash idf::lwip)
       # Explicit ULP HP API includes (REQUIRES ulp alone may not expand includes early).
@@ -270,6 +273,7 @@ else()
     endif()
     if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND
        NOT AETHER_DIAG_UDP_RTC_INDEX AND
+       NOT AETHER_DIAG_UDP_LOW_POWER_1MIN_10 AND
        NOT AETHER_DIAG_SLEEP_POWER_BISECT)
       include(../cmake/CPM.cmake)
       # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
@@ -306,6 +310,7 @@ else()
 
       # UDP/deep-sleep diags: link HP-side ulp_lp_core_stop() only — never load/run ULP app.
       if(NOT AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" AND
+         NOT AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1" AND
          NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1" AND
          NOT AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1")
         ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
@@ -360,9 +365,12 @@ set(AE_EXP_CACHED_FULL_HOT_1MIN "" CACHE STRING "Warmup FULL then 1 cached FULL 
 set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "" CACHE STRING "Diagnostic: early-entry 10 min deep sleep only (set to 1)")
 set(AETHER_DIAG_UDP_RTC_INDEX "" CACHE STRING "Diagnostic: WiFi+UDP RTC index sleep loop (set to 1)")
 set(AETHER_DIAG_SLEEP_POWER_BISECT "" CACHE STRING "Diagnostic: Thermometer2 sleep current factor bisect (set to 1)")
+set(AETHER_DIAG_UDP_LOW_POWER_1MIN_10 "" CACHE STRING "Diagnostic: UDP RTC + powerdown 10x60s (set to 1)")
 set(AE_SLEEP_BISECT_VARIANT "" CACHE STRING "Sleep power bisect variant id string")
-set(AE_UDP_SERVER_HOST "" CACHE STRING "UDP server IPv4 for AETHER_DIAG_UDP_RTC_INDEX")
-set(AE_UDP_SERVER_PORT "" CACHE STRING "UDP server port for AETHER_DIAG_UDP_RTC_INDEX")
+set(AE_UDP_SERVER_HOST "" CACHE STRING "UDP server IPv4 for UDP diagnostics")
+set(AE_UDP_SERVER_PORT "" CACHE STRING "UDP server port for UDP diagnostics")
+set(AE_UDP_PRE_SETTLE_MS "" CACHE STRING "Pre-send settle ms after GOT_IP")
+set(AE_UDP_POST_SEND_HOLD_MS "" CACHE STRING "Post-send hold ms")
 set(AE_EXP_BOOTWIFI_HOT_TIMING "" CACHE STRING "FINAL_1MIN: use boot/wifi VAL100 timing knobs (set to 1)")
 set(AE_EXP_ENCODE_DURING_ASSOCIATION "" CACHE STRING "Force encode_during_association on power bench (set to 1)")
 set(AE_EXP_ENCODE_OVERLAP_DIAG "" CACHE STRING "Encode-overlap root-cause USB diagnostics (set to 1)")
@@ -450,6 +458,9 @@ ae_exp_define_if_set(AE_EXP_CACHED_FULL_HOT_1MIN)
 ae_exp_define_if_set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
 ae_exp_define_if_set(AETHER_DIAG_UDP_RTC_INDEX)
 ae_exp_define_if_set(AETHER_DIAG_SLEEP_POWER_BISECT)
+ae_exp_define_if_set(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+ae_exp_define_if_set(AE_UDP_PRE_SETTLE_MS)
+ae_exp_define_if_set(AE_UDP_POST_SEND_HOLD_MS)
 if(NOT "${AE_SLEEP_BISECT_VARIANT}" STREQUAL "")
   target_compile_definitions(${TARGET_NAME} PRIVATE
     "AE_SLEEP_BISECT_VARIANT=\"${AE_SLEEP_BISECT_VARIANT}\"")
@@ -559,6 +570,7 @@ ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
    AE_EXP_FULL_1MIN_10 STREQUAL "1" OR
    AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1" OR
    AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1" OR
+   AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1" OR
    (AE_EXP_PREPARED_POWER_FACTOR STREQUAL "1" AND
     NOT AE_EXP_ENCODE_OVERLAP_DIAG STREQUAL "1") OR
    AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1" OR

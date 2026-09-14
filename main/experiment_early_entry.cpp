@@ -22,6 +22,7 @@
      defined(AE_EXP_FULL_1MIN_10) || \
      defined(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN) || \
      defined(AETHER_DIAG_UDP_RTC_INDEX) || \
+     defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10) || \
      defined(AETHER_DIAG_SLEEP_POWER_BISECT))
 
 #  include <esp_sleep.h>
@@ -29,7 +30,8 @@
 #  include <esp_timer.h>
 #  include <soc/soc_caps.h>
 
-#  if defined(AETHER_DIAG_UDP_RTC_INDEX)
+#  if defined(AETHER_DIAG_UDP_RTC_INDEX) || \
+      defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
 #    include "udp_rtc_index_loop.h"
 #  endif
 #  if defined(AETHER_DIAG_SLEEP_POWER_BISECT)
@@ -43,7 +45,8 @@ ExperimentEarlyEntrySnapshot g_early{};
 }
 
 extern "C" void ExperimentEarlyAppEntry() {
-#if defined(AETHER_DIAG_UDP_RTC_INDEX)
+#if defined(AETHER_DIAG_UDP_RTC_INDEX) || \
+    defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
   RunUdpRtcIndexLoop();
 #elif defined(AETHER_DIAG_SLEEP_POWER_BISECT)
   RunSleepPowerBisect();

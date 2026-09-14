@@ -1,19 +1,22 @@
 /*
  * Copyright 2026 Aethernet Inc.
  *
- * UDP RTC index bisect (AETHER_DIAG_UDP_RTC_INDEX).
+ * UDP RTC index path (AETHER_DIAG_UDP_RTC_INDEX and
+ * AETHER_DIAG_UDP_LOW_POWER_1MIN_10).
  *
- * Fixed across steps:
- *   wait GOT_IP → PS_MAX_MODEM → 50 ms settle → udp_sendto → 200 ms hold →
- *   full teardown → deep sleep 10 s
- *   PS_NONE through association/GOT_IP; AMPDU defaults; Wi-Fi 4 + fixed 1M
+ * Shared: wait GOT_IP → post-connect PS → settle → udp_sendto → hold →
+ *   full teardown → BoardPowerDownForDeepSleep → timer deep sleep
+ *   PS_NONE through association/GOT_IP; Wi-Fi 4 + fixed 1M; retry 3,3
  *
- * Toggle ONE cache flag per flash (see kCache* below).
+ * Combined 1-min mode: warmup #0 then 10 measured sends at 60 s
+ * start-to-start. Rails stay OFF (GPIO holds not released on timer wake).
  */
 
 #include "udp_rtc_index_loop.h"
 
-#if defined(ESP_PLATFORM) && defined(AETHER_DIAG_UDP_RTC_INDEX)
+#if defined(ESP_PLATFORM) && \
+    (defined(AETHER_DIAG_UDP_RTC_INDEX) || \
+     defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10))
 
 #  include <cstdint>
 #  include <cstring>
@@ -32,6 +35,7 @@
 #  include <nvs_flash.h>
 #  include <sdkconfig.h>
 #  include <soc/soc.h>
+#  include <soc/soc_caps.h>
 
 #  include "sleeping/board_sleep_powerdown.h"
 
@@ -50,6 +54,7 @@
 
 extern "C" esp_err_t esp_wifi_internal_set_retry_counter(uint8_t short_retry,
                                                          uint8_t long_retry);
+extern "C" std::uint64_t esp_rtc_get_time_us(void);
 
 #  ifndef WIFI_SSID
 #    error "WIFI_SSID required"
@@ -67,7 +72,24 @@ extern "C" esp_err_t esp_wifi_internal_set_retry_counter(uint8_t short_retry,
 namespace {
 
 constexpr int kGotIpBit = BIT0;
+#if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+#  ifndef AE_UDP_PRE_SETTLE_MS
+#    define AE_UDP_PRE_SETTLE_MS 300
+#  endif
+#  ifndef AE_UDP_POST_SEND_HOLD_MS
+#    define AE_UDP_POST_SEND_HOLD_MS 200
+#  endif
+constexpr int kPreSettleMs = AE_UDP_PRE_SETTLE_MS;
+constexpr int kPostSendHoldMs = AE_UDP_POST_SEND_HOLD_MS;
+constexpr std::uint32_t kMeasuredSends = 10;
+constexpr std::uint64_t kPeriodUs = 60ULL * 1000000ULL;
+constexpr std::uint64_t kWarmupSleepUs = 8ULL * 1000000ULL;
+constexpr std::uint64_t kDoneSleepUs = 60ULL * 60ULL * 1000000ULL;
+#else
+constexpr int kPreSettleMs = 50;
+constexpr int kPostSendHoldMs = 200;
 constexpr std::uint64_t kSleepUs = 10ULL * 1000000ULL;
+#endif
 constexpr int kArpResolveTimeoutMs = 500;
 constexpr int kArpLearnTimeoutMs = 1500;  // one-shot learn during post-send hold
 constexpr TickType_t kGotIpTimeoutTicks = pdMS_TO_TICKS(10000);
@@ -94,6 +116,12 @@ RTC_DATA_ATTR std::uint32_t g_gateway = 0;
 RTC_DATA_ATTR std::uint32_t g_peer_ip = 0;
 RTC_DATA_ATTR std::uint8_t g_peer_mac[6] = {};
 RTC_DATA_ATTR std::uint8_t g_gw_mac[6] = {};
+
+#if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+RTC_DATA_ATTR std::uint64_t g_next_deadline_us = 0;
+RTC_DATA_ATTR std::uint8_t g_have_deadline = 0;
+RTC_DATA_ATTR std::uint32_t g_overrun = 0;
+#endif
 
 EventGroupHandle_t g_events = nullptr;
 // Reconnect only until GOT_IP. After that, a mid-hold disconnect + auto
@@ -283,6 +311,34 @@ bool WaitGotIpBounded() {
 
 void PeripheralPowerDownForDeepSleep() { BoardPowerDownForDeepSleep(); }
 
+#if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+void KeepRtcMemForCache() {
+  // RTC_DATA_ATTR (index, channel, BSSID, IP, ARP) must survive sleep.
+#  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
+#  endif
+#  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
+#  endif
+}
+
+void QuietRailsIfNeeded() {
+  // GPIO 2/17/18/6/7 are unused by Wi-Fi. Do not release holds on timer
+  // wake — they stay OFF for the whole run. Cold/flash reset still applies
+  // BoardPowerDownForDeepSleep once to establish the OFF+hold states.
+  if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
+    BoardPowerDownForDeepSleep();
+  }
+}
+
+void EnterDoneSleep() {
+  KeepRtcMemForCache();
+  BoardPowerDownForDeepSleep();
+  esp_sleep_enable_timer_wakeup(kDoneSleepUs);
+  esp_deep_sleep_start();
+}
+#endif
+
 }  // namespace
 
 extern "C" void RunUdpRtcIndexLoop() {
@@ -290,8 +346,21 @@ extern "C" void RunUdpRtcIndexLoop() {
     // ------------------------------------------------------------------
     // One wake cycle: keep rails off → caches → GOT_IP → settle → send → sleep
     // ------------------------------------------------------------------
+#if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+    if (g_index > kMeasuredSends) {
+      EnterDoneSleep();
+    }
+    QuietRailsIfNeeded();
+    std::uint64_t const cycle_start_us = esp_rtc_get_time_us();
+    bool const warmup = (g_index == 0);
+    if (!warmup && !g_have_deadline) {
+      g_next_deadline_us = cycle_start_us + kPeriodUs;
+      g_have_deadline = 1;
+    }
+#else
     // Reassert OFF after wake without enabling peripherals.
     PeripheralPowerDownForDeepSleep();
+#endif
     g_want_reconnect = true;
     nvs_flash_init();
     esp_netif_init();
@@ -363,7 +432,7 @@ extern "C" void RunUdpRtcIndexLoop() {
       // Periodic GARP stays off in sdkconfig; one announce refreshes AP ARP.
       SendOneShotGar(netif);
 
-      vTaskDelay(pdMS_TO_TICKS(50));  // settle after GOT_IP (keep fixed)
+      vTaskDelay(pdMS_TO_TICKS(kPreSettleMs));  // settle after GOT_IP
 
       (void)esp_wifi_internal_set_fix_rate(WIFI_IF_STA, true,
                                            WIFI_PHY_RATE_1M_L);
@@ -380,7 +449,7 @@ extern "C" void RunUdpRtcIndexLoop() {
 
       (void)esp_netif_tcpip_exec(&UdpSendTcpip, &send);
       TickType_t const hold_deadline =
-          xTaskGetTickCount() + pdMS_TO_TICKS(200);  // post-send hold
+          xTaskGetTickCount() + pdMS_TO_TICKS(kPostSendHoldMs);
       ++g_index;
 
       // Learn enabled caches once (cold → hot). Overlap ARP resolve with hold.
@@ -424,7 +493,7 @@ extern "C" void RunUdpRtcIndexLoop() {
         }
       }
 
-      // Finish remaining post-send hold (never shorter than 200 ms).
+      // Finish remaining post-send hold (never shorter than kPostSendHoldMs).
       TickType_t const now = xTaskGetTickCount();
       if (now < hold_deadline) {
         vTaskDelay(hold_deadline - now);
@@ -437,6 +506,11 @@ extern "C" void RunUdpRtcIndexLoop() {
       if (kCacheGwArp && g_have_gw_mac && g_gateway != 0) {
         RemoveStaticArp(g_gateway);
       }
+#if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+    } else if (g_index > 0) {
+      // Measured slot with no GOT_IP: still consume the attempt (no retry burst).
+      ++g_index;
+#endif
     }
 
     // Full teardown
@@ -454,11 +528,33 @@ extern "C" void RunUdpRtcIndexLoop() {
     (void)esp_event_loop_delete_default();
     (void)esp_netif_deinit();
 
+#if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+    KeepRtcMemForCache();
+    BoardPowerDownForDeepSleep();
+    {
+      std::uint64_t const now_us = esp_rtc_get_time_us();
+      std::uint64_t sleep_us = kWarmupSleepUs;
+      // Warmup (#0) or just-finished warmup (g_index==1, deadline not armed).
+      if (g_index > 1 || g_have_deadline) {
+        if (now_us >= g_next_deadline_us) {
+          g_next_deadline_us = now_us + kPeriodUs;
+          ++g_overrun;
+        }
+        sleep_us = g_next_deadline_us - now_us;
+        g_next_deadline_us += kPeriodUs;
+      }
+      if (sleep_us < 1000ULL) {
+        sleep_us = 1000ULL;
+      }
+      esp_sleep_enable_timer_wakeup(sleep_us);
+    }
+#else
     PeripheralPowerDownForDeepSleep();
     esp_sleep_enable_timer_wakeup(kSleepUs);
+#endif
     // Do not esp_sleep_enable_ulp_wakeup(); timer deep sleep only.
     esp_deep_sleep_start();
   }
 }
 
-#endif  // ESP_PLATFORM && AETHER_DIAG_UDP_RTC_INDEX
+#endif  // ESP_PLATFORM && (UDP_RTC_INDEX || UDP_LOW_POWER_1MIN_10)

@@ -1,0 +1,11 @@
+# Thermometer 2 combined UDP + low-power overlay.
+# Silent console (no 25s flash window). Keep ULP component enabled so
+# HP-side LP-core stop APIs link; CMake skips ulp_add_project.
+# Static ARP needs DHCPS_STATIC_ENTRIES. Periodic GARP stays off.
+
+CONFIG_ESP_CONSOLE_NONE=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+CONFIG_LWIP_DHCPS_STATIC_ENTRIES=y
+# CONFIG_LWIP_ESP_GRATUITOUS_ARP is not set
+# CONFIG_ESP_GRATUITOUS_ARP is not set

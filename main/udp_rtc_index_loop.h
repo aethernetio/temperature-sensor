@@ -7,7 +7,9 @@
 #ifndef TEMP_SENSOR_UDP_RTC_INDEX_LOOP_H_
 #define TEMP_SENSOR_UDP_RTC_INDEX_LOOP_H_
 
-#if defined(ESP_PLATFORM) && defined(AETHER_DIAG_UDP_RTC_INDEX)
+#if defined(ESP_PLATFORM) && \
+    (defined(AETHER_DIAG_UDP_RTC_INDEX) || \
+     defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10))
 extern "C" void RunUdpRtcIndexLoop();
 #endif
 

@@ -73,12 +73,18 @@ set(AETHER_DIAG_UDP_RTC_INDEX "" CACHE STRING
     "Diagnostic: WiFi+UDP RTC index + 3s deep sleep loop (set to 1)")
 set(AETHER_DIAG_SLEEP_POWER_BISECT "" CACHE STRING
     "Diagnostic: Thermometer2 deep-sleep current factor bisect (set to 1)")
+set(AETHER_DIAG_UDP_LOW_POWER_1MIN_10 "" CACHE STRING
+    "Diagnostic: UDP RTC cache + BoardPowerDown, 10x 60s (set to 1)")
 set(AE_SLEEP_BISECT_VARIANT "" CACHE STRING
     "Sleep power bisect variant id (e.g. M0_MINIMAL)")
 set(AE_UDP_SERVER_HOST "" CACHE STRING
-    "IPv4 of local UDP server for AETHER_DIAG_UDP_RTC_INDEX")
+    "IPv4 of local UDP server for UDP diagnostics")
 set(AE_UDP_SERVER_PORT "" CACHE STRING
-    "UDP port for AETHER_DIAG_UDP_RTC_INDEX (default 9000)")
+    "UDP port for UDP diagnostics (default 9000)")
+set(AE_UDP_PRE_SETTLE_MS "" CACHE STRING
+    "Pre-send settle ms after GOT_IP (UDP low-power combined)")
+set(AE_UDP_POST_SEND_HOLD_MS "" CACHE STRING
+    "Post-send hold ms (UDP low-power combined)")
 if(AE_EXP_FULL_AETHER_AETHERNETIO STREQUAL "1")
   # Exclusive minimal defaults — do NOT append silent/fastest/wpa2 overlays.
   set(SDKCONFIG_DEFAULTS
@@ -197,6 +203,14 @@ elseif(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.bench")
+  set(CMAKE_SUPPRESS_REGENERATION ON)
+elseif(AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1")
+  # Silent console, no flash window. ULP HP stop API only (no ULP app).
+  # Keep RTC mem powered for RTC_DATA_ATTR Wi-Fi/ARP cache.
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.udp_low_power")
   set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1")
   # Product prepared HOT path uses the measured low-power sdkconfig stack.
