@@ -30,13 +30,11 @@
 #  include <esp_private/wifi.h>
 #  include <esp_sleep.h>
 #  include <esp_wifi.h>
+#  include <hal/lp_core_ll.h>
 #  include <nvs_flash.h>
 #  include <sdkconfig.h>
-
-#  if !CONFIG_ULP_COPROC_ENABLED
-#    error "AETHER_DIAG_UDP_RTC_INDEX requires CONFIG_ULP_COPROC_ENABLED for ulp_lp_core_stop()"
-#  endif
-#  include <ulp_lp_core.h>
+#  include <soc/lp_aon_reg.h>
+#  include <soc/soc.h>
 
 #  include <lwip/etharp.h>
 #  include <lwip/ip_addr.h>
@@ -291,16 +289,17 @@ bool WaitGotIpBounded() {
 }
 
 // One peripheral power-down for every deep-sleep entry (incl. !got_ip).
-// Sensors unused in UDP diag: never enable PWR_ON, never init I2C drivers.
+// UDP path never enables PWR_ON and never inits sensors / I2C.
+// Call at wake start and again immediately before esp_deep_sleep_start().
 void PeripheralPowerDownForDeepSleep() {
-  // Stop LP core if a prior image left it running. Clears LP-timer wakeups and
-  // requests sleep (IDF ulp_lp_core_stop). Do not load/run ULP in this path.
-  ulp_lp_core_stop();
+  // Stop LP/ULP core even when CONFIG_ULP_COPROC_ENABLED=0 (prior image may
+  // have left it running). Mirrors ulp_lp_core_stop() without that Kconfig.
+  lp_core_ll_set_wakeup_source(0);
+  lp_core_ll_request_sleep();
+  REG_SET_BIT(LP_AON_LPCORE_REG, LP_AON_LPCORE_DISABLE);
   (void)esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ULP);
 
-  // SDA/SCL: high-Z, no internal pulls (avoid MCU-side parasitic feed).
-  // External pull topology unknown without schematic. Do not hold these
-  // (not power-control pins).
+  // SDA/SCL: high-Z input, no internal pulls; hold for C6 deep sleep.
   (void)gpio_hold_dis(SENSOR_SDA_PIN);
   (void)gpio_hold_dis(SENSOR_SCL_PIN);
   (void)gpio_reset_pin(SENSOR_SDA_PIN);
@@ -311,43 +310,37 @@ void PeripheralPowerDownForDeepSleep() {
   (void)gpio_pullup_dis(SENSOR_SCL_PIN);
   (void)gpio_pulldown_dis(SENSOR_SDA_PIN);
   (void)gpio_pulldown_dis(SENSOR_SCL_PIN);
+  (void)gpio_hold_en(SENSOR_SDA_PIN);
+  (void)gpio_hold_en(SENSOR_SCL_PIN);
 
 #if BOARD_HAS_PWR_ON == 1
-  // stcc4 Init() drives PWR_ON HIGH to enable rail → OFF is LOW.
-  {
-    esp_err_t err;
-    err = gpio_hold_dis(static_cast<gpio_num_t>(PWR_ON_GPIO));
-    (void)err;
-    (void)gpio_reset_pin(static_cast<gpio_num_t>(PWR_ON_GPIO));
-    (void)gpio_set_direction(static_cast<gpio_num_t>(PWR_ON_GPIO),
-                             GPIO_MODE_OUTPUT);
-    (void)gpio_set_level(static_cast<gpio_num_t>(PWR_ON_GPIO), 0);
-    err = gpio_hold_en(static_cast<gpio_num_t>(PWR_ON_GPIO));
-    (void)err;
-  }
+  // GPIO2 OFF=LOW confirmed (stcc4 Init drives HIGH to power sensors on).
+  (void)gpio_hold_dis(static_cast<gpio_num_t>(PWR_ON_GPIO));
+  (void)gpio_reset_pin(static_cast<gpio_num_t>(PWR_ON_GPIO));
+  (void)gpio_set_direction(static_cast<gpio_num_t>(PWR_ON_GPIO),
+                           GPIO_MODE_OUTPUT);
+  (void)gpio_set_level(static_cast<gpio_num_t>(PWR_ON_GPIO), 0);
+  // C6: per-IO hold persists through deep sleep (no gpio_deep_sleep_hold_*).
+  (void)gpio_hold_en(static_cast<gpio_num_t>(PWR_ON_GPIO));
 #endif
 
-#if defined(STATUS_LED_ON_PIN)
-  // Cut LED rail. OFF level unverified (LED_OFF_LEVEL_UNVERIFIED).
-  {
-    esp_err_t err;
-    err = gpio_hold_dis(STATUS_LED_ON_PIN);
-    (void)err;
-    (void)gpio_reset_pin(STATUS_LED_ON_PIN);
-    (void)gpio_set_direction(STATUS_LED_ON_PIN, GPIO_MODE_OUTPUT);
-    (void)gpio_set_level(STATUS_LED_ON_PIN, STATUS_LED_ON_OFF_LEVEL);
-    err = gpio_hold_en(STATUS_LED_ON_PIN);
-    (void)err;
-  }
+#if BOARD_HAS_LED == 1 && defined(STATUS_LED_ON_PIN)
+  // LED_OFF_LEVEL_UNVERIFIED: best-effort LOW (no driver/schematic OFF confirm).
+  (void)gpio_hold_dis(STATUS_LED_ON_PIN);
+  (void)gpio_reset_pin(STATUS_LED_ON_PIN);
+  (void)gpio_set_direction(STATUS_LED_ON_PIN, GPIO_MODE_OUTPUT);
+  (void)gpio_set_level(STATUS_LED_ON_PIN, STATUS_LED_ON_OFF_LEVEL);
+  (void)gpio_hold_en(STATUS_LED_ON_PIN);
 #endif
 
-#if defined(STATUS_LED_PIN)
-  // Do not drive data into a powered-off LED.
+#if BOARD_HAS_LED == 1 && defined(STATUS_LED_PIN)
+  // Data line: OFF polarity unverified — float high-Z (no pulls) + hold.
   (void)gpio_hold_dis(STATUS_LED_PIN);
   (void)gpio_reset_pin(STATUS_LED_PIN);
   (void)gpio_set_direction(STATUS_LED_PIN, GPIO_MODE_INPUT);
   (void)gpio_pullup_dis(STATUS_LED_PIN);
   (void)gpio_pulldown_dis(STATUS_LED_PIN);
+  (void)gpio_hold_en(STATUS_LED_PIN);
 #endif
 }
 
