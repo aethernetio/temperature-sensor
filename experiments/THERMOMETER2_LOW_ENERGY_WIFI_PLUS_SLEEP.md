@@ -1,7 +1,7 @@
 # Thermometer 2 — low-energy Wi-Fi + 7 µA sleep
 
 - Branch: `diag/thermometer2-lowenergy-wifi-plus-7ua-sleep`
-- SHA: `14118bac5570a2bba0d311197799faed0a63b250`
+- SHA: `62f707b9903a89b00fb9035b03f4c098a00f0536`
 - Parent/historical repro SHA: `14118bac5570a2bba0d311197799faed0a63b250`
 - Voltage: 3000 mV
 - UDP: `192.168.68.84:9000`
