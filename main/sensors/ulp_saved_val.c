@@ -20,16 +20,18 @@
 
 #if ((BOARD_HAS_ULP == 1) && (ULP_COMP == 0))
 #  include <stdio.h>
+#  include <inttypes.h>
 
 #  include "ulp_main.h"
 
 void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
+  PrepareUlpSensors();
   printf(" >>> ULP Temperature: [%d]\n", (int16_t)ulp_temperature);
-  printf(" >>> ULP Humidity: [%d]\n", (int16_t)ulp_humidity);
-  printf(" >>> ULP Pressure: [%d]\n", (int16_t)ulp_pressure);
-  printf(" >>> ULP Co2: [%d]\n", (int16_t)ulp_co2);
-  printf(" >>> ULP Gas_resistance: [%d]\n", (int16_t)ulp_gas_resistance);
+  printf(" >>> ULP Humidity: [%" PRIu32 "]\n", ulp_humidity);
+  printf(" >>> ULP Pressure: [%" PRIu32 "]\n", ulp_pressure);
+  printf(" >>> ULP Co2: [%" PRIu32 "]\n", ulp_co2);
+  printf(" >>> ULP Gas_resistance: [%" PRIu32 "]\n", ulp_gas_resistance);
 
   if (temperature) {
     *temperature = (int16_t)ulp_temperature;

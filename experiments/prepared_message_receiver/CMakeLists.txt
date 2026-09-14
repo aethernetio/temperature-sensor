@@ -1,0 +1,25 @@
+# Copyright 2026 Aethernet Inc.
+cmake_minimum_required(VERSION 3.16)
+project(prepared_message_receiver LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(USER_CONFIG "${CMAKE_CURRENT_LIST_DIR}/user_config.h" CACHE PATH "" FORCE)
+set(AE_DISTILLATION OFF CACHE BOOL "" FORCE)
+set(AE_FILTRATION ON CACHE BOOL "" FORCE)
+set(AE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(AE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
+include("${CMAKE_CURRENT_LIST_DIR}/../../cmake/CPM.cmake")
+# Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
+CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
+
+if(TARGET aether AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  target_compile_options(aether PRIVATE -Wno-error -Wno-cpp)
+endif()
+
+add_executable(prepared_message_receiver main.cpp)
+target_compile_definitions(prepared_message_receiver PRIVATE
+  "USER_CONFIG=\"${CMAKE_CURRENT_LIST_DIR}/user_config.h\"")
+target_link_libraries(prepared_message_receiver PRIVATE aether)

@@ -15,16 +15,15 @@
  */
 
 #include <chrono>
-#include <memory>
 #include <cstdlib>
 #include <iostream>
-
+#include <memory>
 
 #include "aether/all.h"
 #include "aether/env.h"
+#include "prepared_send/prepared_send.h"
 #include "sensors/sensors.h"
 #include "sleeping/sleeping.h"
-
 
 using namespace std::chrono_literals;
 
@@ -34,7 +33,7 @@ using namespace std::chrono_literals;
  * For real applications you should register your own uid \see aethernet.io
  */
 static constexpr auto kParentUid =
-    ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
+    ae::Uid::FromString("b1ac52c8-8d94-bd39-4c01-a631ac594165");
 /**
  * \brief Uid of aether service for store the temperature values.
  * TODO: add actual uid
@@ -43,7 +42,7 @@ static constexpr auto kServiceUid =
 #ifdef SERVICE_UID
     ae::Uid::FromString(SERVICE_UID);
 #else
-    ae::Uid::FromString("752fa297-ec98-47d9-8def-a3ef80ecca42");
+    ae::Uid::FromString("6b24b68f-063f-4fe3-8d5a-dc35386983fb");
 #endif
 
 #ifdef ESP_PLATFORM
@@ -95,8 +94,51 @@ static std::unique_ptr<ae::AetherApp> aether_app;
 static ae::Client::ptr client;
 static std::unique_ptr<ae::P2pStream> message_stream;
 
+#ifndef AETHER_PREPARED_HOT_SLEEP_SECONDS
+#  define AETHER_PREPARED_HOT_SLEEP_SECONDS 30
+#endif
+
+static constexpr auto kPreparedHotSleepSeconds =
+    std::chrono::seconds{AETHER_PREPARED_HOT_SLEEP_SECONDS};
+
+static constexpr std::size_t kPreparedNonceReserve =
+#ifdef AETHER_PREPARED_NONCE_RESERVE
+    AETHER_PREPARED_NONCE_RESERVE;
+#else
+    32;
+#endif
+
 void setup() {
   std::cout << ae::Format("Setup {:%Y-%m-%d %H:%M:%S}\n") << ae::Now();
+
+#if defined(ESP_PLATFORM)
+  // Prepared-send hot path: try to send current temperature without creating
+  // full AetherApp. Any error falls back to the normal full boot below.
+  {
+    std::int16_t hot_temperature = {};
+    ReadSensors(&hot_temperature, nullptr, nullptr, nullptr, nullptr);
+
+#if BOARD_HAS_STCC4 == 1 && BOARD_HAS_ULP == 0
+    if (stcc4_error != 0) {
+      std::cerr << " !!! STCC4 read failed; skipping prepared sensor send\n";
+    } else
+#endif
+    {
+      auto hot_status =
+          temp_sensor::prepared_send::TryHotWakePreparedSend(hot_temperature);
+
+      std::cout << ae::Format(" >>> Prepared hot path status: {}\n",
+                              temp_sensor::prepared_send::ToString(hot_status));
+
+      if (hot_status == temp_sensor::prepared_send::HotSendStatus::kSent) {
+        auto sleep_until =
+            std::chrono::system_clock::now() + kPreparedHotSleepSeconds;
+        DeepSleep(sleep_until, sleep_until, 3000);
+        return;
+      }
+    }
+  }
+#endif
 
   aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
@@ -198,6 +240,14 @@ void UpdateSensors() {
   std::uint32_t co2 = {};
 
   ReadSensors(&temperature, &humidity, nullptr, &co2, nullptr);
+#if BOARD_HAS_STCC4 == 1 && BOARD_HAS_ULP == 0
+  if (stcc4_error != 0) {
+    std::cerr << " !!! STCC4 read failed; no valid sample to send\n";
+    next_tx_time = ae::Now() + kTxInterval;
+    SleepReady();
+    return;
+  }
+#endif
   std::cout << ae::Format(" >>> Temperature: [{}], Humidity: [{}], CO2: [{}]\n",
                           temperature, humidity, co2);
   // TODO: add check if wakeup cause is ulp then send value
@@ -210,16 +260,29 @@ void MessageReceived(ae::DataBuffer const& buffer) {
 }
 
 void SendValue(std::int16_t temperature) {
-  temperature = (temperature/100 + 30) * 3;
-  auto payload = { 0x03, 0x03, 0x0A, (temperature) & 0xFF, (temperature >> 8) & 0xFF };
-  auto message = ae::DataBuffer{std::begin(payload), std::end(payload)};
+  // The stream is not initialized yet
+  if (!message_stream) {
+    return;
+  }
 
+  auto message =
+      temp_sensor::prepared_send::MakeTemperaturePayload(temperature);
+  std::cout << ae::Format(" [CALL-CHAIN] SendValue payload_size={}\n",
+                          message.size());
+
+  next_tx_time = ae::Now() + kTxInterval;
   message_stream->Write(std::move(message)).status_event().Subscribe([](auto) {
+    // Export/refresh prepared block after the full send path has a valid
+    // stream. If export fails, keep normal behavior and just sleep.
+    if (client.is_valid() && message_stream) {
+      temp_sensor::prepared_send::ExportPreparedSendBlock(
+          client, message_stream->destination(), kPreparedNonceReserve);
+    }
+
     // with any result ready to sleep
     SleepReady();
   });
 
-  next_tx_time = ae::Now() + kTxInterval;
 }
 
 void SleepReady() {
@@ -236,7 +299,7 @@ void SleepReady() {
     go_to_sleep(status.next_service_time);
   } else {
     std::cout << ">>> Wait for can suspend\n";
-    client->connectivity_policy()->suspend_allowed_event().Subscribe([&]() {
+    client->connectivity_policy()->suspend_allowed_event().Subscribe([go_to_sleep]() {
       go_to_sleep(client->connectivity_policy()->GetStatus().next_service_time);
     });
   }

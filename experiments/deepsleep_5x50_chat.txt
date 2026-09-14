@@ -1,0 +1,42 @@
+[OUTER 1/5]
+full_user_ms=12669
+hot_sendto=50/50
+receiver_hot=49/50
+hot_user_median_ms=260
+wake_overhead_median_ms=40
+callback_seen_sum=49 timeouts_sum=0
+brownout=0
+unexpected_reset=0
+remaining=4
+NEXT:
+FULL 2/5
+
+
+[OUTER 3/5]
+full_user_ms=4309
+hot_sendto=50/50
+receiver_hot=49/50
+hot_user_median_ms=250
+wake_overhead_median_ms=40
+callback_seen_sum=48 timeouts_sum=1
+brownout=0
+unexpected_reset=0
+remaining=2
+NEXT:
+FULL 4/5
+
+
+[OUTER 4/5]
+full_user_ms=3599
+hot_sendto=50/50
+receiver_hot=43/50
+hot_user_median_ms=250
+wake_overhead_median_ms=40
+callback_seen_sum=43 timeouts_sum=0
+brownout=0
+unexpected_reset=0
+remaining=1
+NEXT:
+FULL 5/5
+
+  17:[18:26:09.012827]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:01.000000s, rx_window: 0:00:0

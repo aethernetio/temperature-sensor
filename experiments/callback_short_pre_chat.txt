@@ -1,0 +1,68 @@
+[TEST 1/6] PRE25_N50
+delivery=37/50
+callback=50/50
+timeouts=0
+missing=13 dup=0 ooo=0
+connect_med=128
+txdone_med=13
+teardown_med=59
+cycle_med=230
+p90=250
+max=310
+result=PASS
+remaining=5
+BEST NOW:
+PRE=25 cycle=230ms del=37/50 cb=50
+NEXT: PRE25_VAL200 if OK
+
+[TEST 2/6] PRE25_VAL200
+delivery=182/200
+callback=200/200
+timeouts=0
+missing=18 dup=0 ooo=0
+connect_med=131
+txdone_med=20
+teardown_med=58
+cycle_med=230
+p90=270
+max=390
+result=PASS
+remaining=4
+BEST NOW:
+PRE=25 cycle=230ms del=37/50 cb=50
+NEXT: PRE10_N50
+
+[TEST 3/6] PRE10_N50
+delivery=21/50
+callback=50/50
+timeouts=0
+missing=29 dup=0 ooo=0
+connect_med=143
+txdone_med=0
+teardown_med=61
+cycle_med=220
+p90=250
+max=290
+result=FAIL
+remaining=3
+BEST NOW:
+PRE=25 cycle=230ms del=37/50 cb=50
+NEXT: PRE0_N50
+
+[TEST 4/6] PRE0_N50
+delivery=7/50
+callback=49/50
+timeouts=1
+missing=43 dup=0 ooo=0
+connect_med=130
+txdone_med=0
+teardown_med=85
+cycle_med=220
+p90=250
+max=1060
+result=FAIL
+remaining=2
+BEST NOW:
+PRE=25 cycle=230ms del=37/50 cb=50
+NEXT: VAL200 for best short PRE
+

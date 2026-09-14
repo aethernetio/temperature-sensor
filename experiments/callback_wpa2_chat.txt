@@ -1,0 +1,126 @@
+[TEST 1/12] CALLBACK_WPA2_VAL20_PRE200
+delivery=19/20
+callback=20/20
+timeouts=0
+connect_med=127
+txdone_med=1
+cycle_med=420
+p90=440
+auth=3 result=PASS
+remaining=11
+BEST NOW:
+none
+NEXT: VAL100 if cb>=18
+
+[TEST 2/12] CALLBACK_WPA2_VAL100_PRE200
+delivery=100/100
+callback=100/100
+timeouts=0
+connect_med=127
+txdone_med=2
+cycle_med=420
+p90=490
+auth=3 result=PASS
+remaining=10
+BEST NOW:
+PRE=200 POST=callback cycle=420ms del=19/20 cb=20
+NEXT: VAL200 if normal
+
+[TEST 3/12] CALLBACK_WPA2_VAL200_PRE200
+delivery=189/200
+callback=200/200
+timeouts=0
+connect_med=127
+txdone_med=1
+cycle_med=430
+p90=490
+auth=3 result=PASS
+remaining=9
+BEST NOW:
+PRE=200 POST=callback cycle=420ms del=100/100 cb=100
+NEXT: PRE sweep if stable
+
+[TEST 4/12] CALLBACK_WPA2_PRE150_S20
+delivery=20/20
+callback=20/20
+timeouts=0
+connect_med=115
+txdone_med=4
+cycle_med=350
+p90=420
+auth=3 result=PASS
+remaining=8
+BEST NOW:
+PRE=200 POST=callback cycle=430ms del=189/200 cb=200
+NEXT: next PRE
+
+[TEST 5/12] CALLBACK_WPA2_PRE100_S20
+delivery=20/20
+callback=20/20
+timeouts=0
+connect_med=128
+txdone_med=0
+cycle_med=320
+p90=350
+auth=3 result=PASS
+remaining=7
+BEST NOW:
+PRE=150 POST=callback cycle=350ms del=20/20 cb=20
+NEXT: next PRE
+
+[TEST 6/12] CALLBACK_WPA2_PRE75_S20
+delivery=20/20
+callback=20/20
+timeouts=0
+connect_med=134
+txdone_med=4
+cycle_med=280
+p90=320
+auth=3 result=PASS
+remaining=6
+BEST NOW:
+PRE=100 POST=callback cycle=320ms del=20/20 cb=20
+NEXT: next PRE
+
+[TEST 7/12] CALLBACK_WPA2_PRE50_S20
+delivery=16/20
+callback=20/20
+timeouts=0
+connect_med=133
+txdone_med=6
+cycle_med=270
+p90=330
+auth=3 result=FAIL
+remaining=5
+BEST NOW:
+PRE=75 POST=callback cycle=280ms del=20/20 cb=20
+NEXT: next PRE
+
+[TEST 8/12] CALLBACK_WPA2_PRE25_S20
+delivery=20/20
+callback=20/20
+timeouts=0
+connect_med=114
+txdone_med=1
+cycle_med=230
+p90=290
+auth=3 result=PASS
+remaining=4
+BEST NOW:
+PRE=50 POST=callback cycle=270ms del=16/20 cb=20
+NEXT: next PRE
+
+[TEST 9/12] CALLBACK_WPA2_PRE0_S20
+delivery=3/20
+callback=20/20
+timeouts=0
+connect_med=126
+txdone_med=0
+cycle_med=220
+p90=230
+auth=3 result=FAIL
+remaining=3
+BEST NOW:
+PRE=25 POST=callback cycle=230ms del=20/20 cb=20
+NEXT: next PRE
+

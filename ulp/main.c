@@ -26,13 +26,16 @@
 #  include "ulp_lp_core_utils.h"
 
 #  include "sensors/sensors.h"
+#  if BOARD_HAS_STCC4 == 1
+extern volatile uint32_t stcc4_error;
+#  endif
 
 #  define nullptr ((void*)0)
 
 // Variables in RTC memory (accessible from main.c)
-volatile int16_t wakeup_temp_threshold;  // Threshold: XX.XX°C
+volatile int32_t wakeup_temp_threshold;  // Threshold: XX.XX°C
 volatile uint32_t wakeup_co2_threshold;  // Threshold: XXX ppm
-volatile uint16_t wakeup_gas_threshold;  // Threshold: Gas
+volatile uint32_t wakeup_gas_threshold;  // Threshold: Gas
 // Variables to store latest values
 
 int16_t temperature;
@@ -42,15 +45,26 @@ uint32_t co2;
 uint32_t gas_resistance;
 
 volatile uint32_t can_start = 0;
-// Local variables
-static bool should_wakeup = false;
+volatile uint32_t sample_count = 0;
+volatile uint32_t sample_in_progress = 0;
+volatile uint32_t wakeup_enabled = 0;
 
 int main(void) {
   while (can_start == 0) {
     asm("nop");
   }  // Waiting main CPU
 
+  sample_in_progress = 1;
   ReadSensors(&temperature, &humidity, &pressure, &co2, &gas_resistance);
+  asm volatile("fence rw, rw" ::: "memory");
+  ++sample_count;
+  sample_in_progress = 0;
+#  if BOARD_HAS_STCC4 == 1
+  if (stcc4_error != 0) {
+    return 0;
+  }
+#  endif
+  bool should_wakeup = false;
   if (temperature > wakeup_temp_threshold) {
     should_wakeup = true;
   }
@@ -61,7 +75,7 @@ int main(void) {
     should_wakeup = true;
   }
 
-  if (should_wakeup) {
+  if (wakeup_enabled && should_wakeup) {
     ulp_lp_core_wakeup_main_processor();
   }
 
