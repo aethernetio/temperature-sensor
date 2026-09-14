@@ -313,12 +313,24 @@ void PeripheralPowerDownForDeepSleep() { BoardPowerDownForDeepSleep(); }
 
 #if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
 void KeepRtcMemForCache() {
-  // RTC_DATA_ATTR (index, channel, BSSID, IP, ARP) must survive sleep.
+  // Broken path (P0): only force RTC mem ON — leaves MODEM/TOP/etc at AUTO,
+  // which after Wi-Fi teardown often stays powered (~mA sleep). Kept for
+  // A/B when AE_COMBINED_APPLY_MIN_PD=0.
 #  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
   (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
 #  endif
 #  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
   (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
+#  endif
+}
+
+void PrepareCombinedDeepSleep() {
+#  if defined(AE_COMBINED_APPLY_MIN_PD) && (AE_COMBINED_APPLY_MIN_PD)
+  // P1+: same min PD domains as B1 sleep-only, then RTC mem ON for caches.
+  BoardPrepareDeepSleep(/*retain_rtc_mem_on=*/1);
+#  else
+  KeepRtcMemForCache();
+  BoardPowerDownForDeepSleep();
 #  endif
 }
 
@@ -332,8 +344,7 @@ void QuietRailsIfNeeded() {
 }
 
 void EnterDoneSleep() {
-  KeepRtcMemForCache();
-  BoardPowerDownForDeepSleep();
+  PrepareCombinedDeepSleep();
   esp_sleep_enable_timer_wakeup(kDoneSleepUs);
   esp_deep_sleep_start();
 }
@@ -529,11 +540,19 @@ extern "C" void RunUdpRtcIndexLoop() {
     (void)esp_netif_deinit();
 
 #if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
-    KeepRtcMemForCache();
-    BoardPowerDownForDeepSleep();
+    PrepareCombinedDeepSleep();
     {
       std::uint64_t const now_us = esp_rtc_get_time_us();
       std::uint64_t sleep_us = kWarmupSleepUs;
+#  if defined(AE_COMBINED_LONG_SLEEP_AFTER_FIRST) && \
+      (AE_COMBINED_LONG_SLEEP_AFTER_FIRST)
+      // Root-cause diag: after first measured UDP (g_index>=2), sleep 10 min.
+      if (g_index >= 2) {
+        sleep_us = 10ULL * 60ULL * 1000000ULL;
+        esp_sleep_enable_timer_wakeup(sleep_us);
+        esp_deep_sleep_start();
+      }
+#  endif
       // Warmup (#0) or just-finished warmup (g_index==1, deadline not armed).
       if (g_index > 1 || g_have_deadline) {
         if (now_us >= g_next_deadline_us) {

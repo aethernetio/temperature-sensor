@@ -110,9 +110,11 @@ def envelope_wakes(ua: np.ndarray, t: np.ndarray) -> list[tuple[float, float]]:
 
 
 def analyze(csv: Path, out_prefix: str) -> dict:
+    import ppk_contiguous_sleep as cs
+
     ua = np.loadtxt(csv, delimiter=",", skiprows=1, usecols=1)
     t = np.arange(len(ua), dtype=float) * DT_S
-    segs = envelope_wakes(ua, t)
+    segs = cs.find_wake_segments(t, ua)
     # drop power-on / warmup (first), take next 10
     wakes = segs[1 : 1 + MEASURED] if len(segs) > MEASURED else segs[:MEASURED]
     rows = []
@@ -130,14 +132,22 @@ def analyze(csv: Path, out_prefix: str) -> dict:
         )
     qs = [r["charge_mC"] for r in rows]
     ds = [r["duration_ms"] for r in rows]
-    # sleep after last wake (prefer last 15s of capture if past last wake)
-    if wakes:
-        t_sleep0 = wakes[-1][1] + 1.0
-    else:
-        t_sleep0 = max(0.0, t[-1] - 15.0)
-    sleep_m = (t >= t_sleep0) & (ua < 200.0)
-    sleep_avg = float(np.mean(ua[sleep_m])) if np.any(sleep_m) else None
-    sleep_med = float(np.median(ua[sleep_m])) if np.any(sleep_m) else None
+    # Contiguous sleep windows between wakes — ALL samples, no ua<200 filter.
+    sleep_wins = cs.sleep_windows_between_wakes(
+        wakes, float(t[-1]) if len(t) else 0.0, guard_s=2.0, min_window_s=15.0
+    )
+    sleep_stats = [cs.contiguous_stats(t, ua, a, b) for a, b in sleep_wins]
+    for st in sleep_stats:
+        cs.assert_q_over_t(st)
+    sleep_avg = (
+        float(statistics.mean([s["avg_uA"] for s in sleep_stats])) if sleep_stats else None
+    )
+    sleep_med = (
+        float(statistics.median([s["median_uA"] for s in sleep_stats]))
+        if sleep_stats
+        else None
+    )
+    sleep_worst = max((s["avg_uA"] for s in sleep_stats), default=None)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(14, 5))
@@ -146,8 +156,10 @@ def analyze(csv: Path, out_prefix: str) -> dict:
     for i, (a, b) in enumerate(wakes):
         ax.axvspan(a, b, color="orange", alpha=0.3)
         ax.text((a + b) / 2, 2e5, str(i), ha="center", fontsize=8)
+    for a, b in sleep_wins:
+        ax.axvspan(a, b, color="cyan", alpha=0.15)
     ax.set_yscale("symlog", linthresh=100)
-    ax.set_title(f"{out_prefix} — 10 wakes")
+    ax.set_title(f"{out_prefix} — 10 wakes (cyan=raw sleep windows)")
     ax.set_xlabel("t (s)")
     ax.set_ylabel("I (uA)")
     fig.tight_layout()
@@ -177,7 +189,6 @@ def analyze(csv: Path, out_prefix: str) -> dict:
 
     mean_mC = statistics.mean(qs) if qs else None
     med_mC = statistics.median(qs) if qs else None
-    # 1-min cycle charge = active + sleep*(60-dur)
     cycle_mCs = []
     if mean_mC is not None and sleep_avg is not None:
         for r in rows:
@@ -194,7 +205,14 @@ def analyze(csv: Path, out_prefix: str) -> dict:
             "mean_duration_ms": statistics.mean(ds) if ds else None,
             "median_duration_ms": statistics.median(ds) if ds else None,
         },
-        "sleep_uA": {"avg": sleep_avg, "median": sleep_med, "from_s": t_sleep0},
+        "sleep_uA": {
+            "avg": sleep_avg,
+            "median": sleep_med,
+            "worst": sleep_worst,
+            "windows": sleep_stats,
+            "sample_filter_used": False,
+            "method": "raw_contiguous_between_wakes_guard_2s",
+        },
         "cycle_mC": {
             "mean": statistics.mean(cycle_mCs) if cycle_mCs else None,
             "median": statistics.median(cycle_mCs) if cycle_mCs else None,

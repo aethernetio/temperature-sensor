@@ -22,8 +22,24 @@
 extern "C" {
 #endif
 
-/* Quiet Thermometer 2 rails before deep sleep. No flash-window delays. */
+/* Quiet Thermometer 2 rails (GPIO/ULP) before deep sleep. No flash-window delays. */
 void BoardPowerDownForDeepSleep(void);
+
+/* Force available PD domains OFF (same set used by B1 sleep-only ~7 µA). */
+void BoardApplyMinPowerDomains(void);
+
+/* Keep RTC slow/fast memory powered for RTC_DATA_ATTR caches. */
+void BoardRetainRtcMemoryOn(void);
+
+/* Prefer AUTO retention where the SoC keeps RTC_DATA_ATTR correctly. */
+void BoardRetainRtcMemoryAuto(void);
+
+/*
+ * Full pre-deep-sleep prep: GPIO/ULP quiet + min PD domains + RTC mem policy.
+ * retain_rtc_mem_on: true → RTC_*_MEM ON (UDP/prepared caches);
+ *                    false → leave domains as ApplyMin left them (OFF).
+ */
+void BoardPrepareDeepSleep(int retain_rtc_mem_on);
 
 #ifdef __cplusplus
 }

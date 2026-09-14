@@ -22,6 +22,7 @@
 #  include <esp_sleep.h>
 #  include <hal/lp_core_ll.h>
 #  include <soc/lp_aon_reg.h>
+#  include <soc/soc_caps.h>
 
 #  ifndef BOARD
 #    define BOARD 0
@@ -80,6 +81,69 @@ extern "C" void BoardPowerDownForDeepSleep(void) {
 #  if defined(BOARD_HAS_LED) && BOARD_HAS_LED == 1 && defined(STATUS_LED_PIN)
   HoldInputHighZ(STATUS_LED_PIN);
 #  endif
+}
+
+extern "C" void BoardApplyMinPowerDomains(void) {
+#  if SOC_PM_SUPPORT_RTC_PERIPH_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
+#  endif
+#  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
+#  endif
+#  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
+#  endif
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_OFF);
+#  if SOC_PM_SUPPORT_XTAL32K_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL32K, ESP_PD_OPTION_OFF);
+#  endif
+#  if SOC_PM_SUPPORT_RC32K_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RC32K, ESP_PD_OPTION_OFF);
+#  endif
+#  if SOC_PM_SUPPORT_RC_FAST_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RC_FAST, ESP_PD_OPTION_OFF);
+#  endif
+#  if SOC_PM_SUPPORT_CPU_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_CPU, ESP_PD_OPTION_OFF);
+#  endif
+#  if SOC_PM_SUPPORT_VDDSDIO_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_VDDSDIO, ESP_PD_OPTION_OFF);
+#  endif
+#  if SOC_PM_SUPPORT_MODEM_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_MODEM, ESP_PD_OPTION_OFF);
+#  endif
+#  if SOC_PM_SUPPORT_TOP_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_TOP, ESP_PD_OPTION_OFF);
+#  endif
+#  if SOC_PM_SUPPORT_CNNT_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_CNNT, ESP_PD_OPTION_OFF);
+#  endif
+}
+
+extern "C" void BoardRetainRtcMemoryOn(void) {
+#  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
+#  endif
+#  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
+#  endif
+}
+
+extern "C" void BoardRetainRtcMemoryAuto(void) {
+#  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_AUTO);
+#  endif
+#  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
+  (void)esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_AUTO);
+#  endif
+}
+
+extern "C" void BoardPrepareDeepSleep(int retain_rtc_mem_on) {
+  BoardPowerDownForDeepSleep();
+  BoardApplyMinPowerDomains();
+  if (retain_rtc_mem_on) {
+    BoardRetainRtcMemoryOn();
+  }
 }
 
 #endif  // ESP_PLATFORM

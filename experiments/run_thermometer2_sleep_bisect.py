@@ -184,35 +184,60 @@ class PpkSession:
         except OSError as e:
             print(f"csv_write_warn={e}", flush=True)
 
-        use = [u for t, u in samples if t >= 2.0]
-        if len(use) < 100:
-            use = [u for _, u in samples]
-        if not use:
+        # Contiguous window: drop only the first settle_s seconds (enter sleep),
+        # then use EVERY sample — no |I|<200 filtering (that hid ~8 mA as ~8 µA).
+        settle_s = 5.0
+        window = [(t, u) for t, u in samples if t >= settle_s]
+        if len(window) < 100:
+            window = list(samples)
+        if not window:
             raise RuntimeError("no current samples")
-        use_sorted = sorted(use)
+        ts = [t for t, _ in window]
+        us = [u for _, u in window]
+        duration_s = max(1e-9, ts[-1] - ts[0]) if len(ts) > 1 else float("nan")
+        # Trapezoid charge (A·s). Uneven sample times → use recorded timestamps.
+        charge_C = 0.0
+        for i in range(1, len(ts)):
+            dt = ts[i] - ts[i - 1]
+            if dt > 0:
+                charge_C += 0.5 * (us[i] + us[i - 1]) * 1e-6 * dt
+        avg_uA = statistics.fmean(us)
+        from_q_uA = (charge_C / duration_s) * 1e6 if duration_s > 0 else float("nan")
+        rel = abs(avg_uA - from_q_uA) / max(abs(avg_uA), 1.0)
+        q_ok = (rel < 0.05 or abs(avg_uA - from_q_uA) < 1.0) and not (
+            duration_s >= 5.0 and charge_C >= 0.05 and avg_uA < 100.0
+        )
+        use_sorted = sorted(us)
         mid = len(use_sorted) // 2
         median = (
             use_sorted[mid]
             if len(use_sorted) % 2
             else 0.5 * (use_sorted[mid - 1] + use_sorted[mid])
         )
-        # Spike-tolerant sleep estimate (matches prior PPK campaigns): keep |I|<200µA.
-        filtered = [u for u in use if abs(u) < 200.0]
-        if len(filtered) < max(100, len(use) // 20):
-            filtered = [u for u in use if abs(u) < 1000.0]
+        # Diagnostic only — never used as pass/fail sleep current.
+        filtered = [u for u in us if abs(u) < 200.0]
         filt_avg = statistics.fmean(filtered) if filtered else float("nan")
-        filt_med = statistics.median(filtered) if filtered else float("nan")
-        frac_sleepish = (len(filtered) / len(use)) if use else 0.0
         return {
-            "samples": len(use),
-            "avg_uA": statistics.fmean(use),
+            "samples": len(us),
+            "avg_uA": avg_uA,
             "median_uA": median,
-            "min_uA": min(use),
-            "max_uA": max(use),
-            "stdev_uA": statistics.pstdev(use) if len(use) > 1 else 0.0,
-            "sleep_avg_uA": filt_avg,
-            "sleep_median_uA": filt_med,
-            "sleep_frac": frac_sleepish,
+            "min_uA": min(us),
+            "max_uA": max(us),
+            "stdev_uA": statistics.pstdev(us) if len(us) > 1 else 0.0,
+            "sleep_avg_uA": avg_uA,  # RAW contiguous mean (pass/fail)
+            "sleep_median_uA": median,
+            "sleep_frac": 1.0,
+            "raw_contiguous": {
+                "duration_s": duration_s,
+                "charge_C": charge_C,
+                "charge_mC": charge_C * 1000.0,
+                "avg_uA": avg_uA,
+                "avg_from_charge_uA": from_q_uA,
+                "q_over_t_rel_err": rel,
+                "q_over_t_ok": q_ok,
+                "sample_filter_used": False,
+                "diag_filtered_lt200_avg_uA": filt_avg,
+            },
             "csv": str(out_csv),
         }
 

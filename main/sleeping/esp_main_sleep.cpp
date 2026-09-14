@@ -64,14 +64,8 @@ int DeepSleep(time_point soft_sleep_tp, time_point, std::int16_t) {
   ESP_LOGI(TAG, "Timer wakeup enabled: %llu us", time_us);
 
   ESP_LOGI(TAG, "Entering deep sleep...");
-  BoardPowerDownForDeepSleep();
-  // preserve RTC memory (prepared cache / Aether state)
-#  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
-  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
-#  endif
-#  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
-  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
-#  endif
+  // GPIO/ULP quiet + min PD domains (B1 floor) + RTC mem ON for caches.
+  BoardPrepareDeepSleep(/*retain_rtc_mem_on=*/1);
 
   // Enter deep sleep
   esp_err_t ret = esp_deep_sleep_try_to_start();
