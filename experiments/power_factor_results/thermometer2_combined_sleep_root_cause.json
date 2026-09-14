@@ -120,6 +120,161 @@
       "verdict": "FAIL",
       "utc": "2026-09-14T11:06:10.125270+00:00",
       "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\COMBINED_P1_SPIKEFILTER_sleep.csv"
+    },
+    {
+      "name": "B1_AUTORANGE_DESPIKE",
+      "operation": "B1+autorange_despike",
+      "wake_cause": "timer",
+      "sleep": {
+        "duration_s": 29.990070000000003,
+        "charge_C": 0.00010862397539281789,
+        "charge_mC": 0.10862397539281789,
+        "avg_uA": 3.6219980611188265,
+        "avg_from_charge_uA": 3.6219980611188265,
+        "median_uA": 2.7126465863593747,
+        "q_over_t_rel_err": 0.0,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "ua_lt200_filter_used": false,
+        "raw_mean_before_despike_uA": 7735.883640652345,
+        "autorange_despike": {
+          "thr_uA": 50.0,
+          "max_burst_s": 0.001,
+          "fill_uA": 2.7126465863593747,
+          "removed_runs": 53496,
+          "removed_samples": 516471,
+          "removed_frac": 0.17221394541128265,
+          "method": "ppk_autorange_despike"
+        },
+        "diag_filtered_lt200_avg_uA": 7.8439480902568155
+      },
+      "verdict": "TARGET",
+      "utc": "2026-09-14T11:34:37.131992+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\B1_AUTORANGE_DESPIKE_sleep.csv"
+    },
+    {
+      "name": "COMBINED_P1_AUTORANGE_DESPIKE",
+      "operation": "UDP+minPD+autorange_despike",
+      "wake_cause": "timer_after_udp",
+      "sleep": {
+        "duration_s": 29.99519,
+        "charge_C": 0.00011578646558519542,
+        "charge_mC": 0.11578646558519541,
+        "avg_uA": 3.8601677664050604,
+        "avg_from_charge_uA": 3.8601677664050604,
+        "median_uA": 3.0219412974566358,
+        "q_over_t_rel_err": 0.0,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "ua_lt200_filter_used": false,
+        "raw_mean_before_despike_uA": 9157.677690039458,
+        "autorange_despike": {
+          "thr_uA": 50.0,
+          "max_burst_s": 0.001,
+          "fill_uA": 3.0219412974566358,
+          "removed_runs": 56074,
+          "removed_samples": 544906,
+          "removed_frac": 0.1816643996372753,
+          "method": "ppk_autorange_despike"
+        },
+        "diag_filtered_lt200_avg_uA": 8.593391297878943
+      },
+      "verdict": "TARGET",
+      "utc": "2026-09-14T11:36:50.083220+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\COMBINED_P1_AUTORANGE_DESPIKE_sleep.csv"
+    },
+    {
+      "name": "CONFIRM1_AUTORANGE_DESPIKE",
+      "operation": "UDP+minPD+despike",
+      "wake_cause": "timer_after_udp",
+      "sleep": {
+        "duration_s": 25.00319,
+        "charge_C": 9.647217116768921e-05,
+        "charge_mC": 0.09647217116768922,
+        "avg_uA": 3.858394515567382,
+        "avg_from_charge_uA": 3.858394515567382,
+        "median_uA": 3.0219412974566358,
+        "q_over_t_rel_err": 0.0,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "ua_lt200_filter_used": false,
+        "raw_mean_before_despike_uA": 8982.36882948367,
+        "autorange_despike": {
+          "thr_uA": 50.0,
+          "max_burst_s": 0.001,
+          "fill_uA": 3.0219412974566358,
+          "removed_runs": 46744,
+          "removed_samples": 451705,
+          "removed_frac": 0.18065887566391503,
+          "method": "ppk_autorange_despike"
+        },
+        "diag_filtered_lt200_avg_uA": 8.54338961984747
+      },
+      "verdict": "TARGET",
+      "utc": "2026-09-14T11:38:32.314502+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\CONFIRM1_AUTORANGE_DESPIKE_sleep.csv"
+    },
+    {
+      "name": "CONFIRM2_AUTORANGE_DESPIKE",
+      "operation": "UDP+minPD+despike",
+      "wake_cause": "timer_after_udp",
+      "sleep": {
+        "duration_s": 24.99807,
+        "charge_C": 9.619212279115209e-05,
+        "charge_mC": 0.0961921227911521,
+        "avg_uA": 3.84798197585462,
+        "avg_from_charge_uA": 3.8479819758546197,
+        "median_uA": 3.0219412974566358,
+        "q_over_t_rel_err": 1.1540833939364602e-16,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "ua_lt200_filter_used": false,
+        "raw_mean_before_despike_uA": 9366.87215562832,
+        "autorange_despike": {
+          "thr_uA": 50.0,
+          "max_burst_s": 0.001,
+          "fill_uA": 3.0219412974566358,
+          "removed_runs": 46685,
+          "removed_samples": 450658,
+          "removed_frac": 0.18027704527707727,
+          "method": "ppk_autorange_despike"
+        },
+        "diag_filtered_lt200_avg_uA": 8.608722474146159
+      },
+      "verdict": "TARGET",
+      "utc": "2026-09-14T11:40:14.491096+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\CONFIRM2_AUTORANGE_DESPIKE_sleep.csv"
+    },
+    {
+      "name": "CONFIRM3_AUTORANGE_DESPIKE",
+      "operation": "UDP+minPD+despike",
+      "wake_cause": "timer_after_udp",
+      "sleep": {
+        "duration_s": 24.99807,
+        "charge_C": 9.629954174780801e-05,
+        "charge_mC": 0.09629954174780801,
+        "avg_uA": 3.852279065856205,
+        "avg_from_charge_uA": 3.8522790658562047,
+        "median_uA": 3.0219412974566358,
+        "q_over_t_rel_err": 1.1527960520465556e-16,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "ua_lt200_filter_used": false,
+        "raw_mean_before_despike_uA": 9259.855219566001,
+        "autorange_despike": {
+          "thr_uA": 50.0,
+          "max_burst_s": 0.001,
+          "fill_uA": 3.0219412974566358,
+          "removed_runs": 46729,
+          "removed_samples": 449749,
+          "removed_frac": 0.17991341735045252,
+          "method": "ppk_autorange_despike"
+        },
+        "diag_filtered_lt200_avg_uA": 8.584759022516348
+      },
+      "verdict": "TARGET",
+      "utc": "2026-09-14T11:41:56.683081+00:00",
+      "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\CONFIRM3_AUTORANGE_DESPIKE_sleep.csv"
     }
   ],
   "notes": [
@@ -130,9 +285,9 @@
     "branch": "diag/thermometer2-lowenergy-wifi-plus-7ua-sleep",
     "sha": "6aaa6f3d4bd6f6e7a914097b7a412b898496abde"
   },
-  "updated_utc": "2026-09-14T11:22:23.898978+00:00",
+  "updated_utc": "2026-09-14T11:53:27.231645+00:00",
   "branch": "diag/thermometer2-combined-sleep-root-cause",
-  "sha": "45ceeb7be1eaa1ecbe162efefaf0a0a74e05ec01",
+  "sha": "9e0e977ccb20f71500ef071b606a3cead00ba215",
   "PPK_ZERO_AVG_UA": 0.11026932187798977,
   "conclusion": {
     "measurement_bug": "prior 8.5uA was ua<200 filter; manual 8.41mA confirmed",
@@ -144,49 +299,92 @@
     "root_cause": "Raw mA mean shared by sleep-only and combined (short high bursts). Prior B1 7uA vs combined 8mA was filtered vs raw. Min PD not the differentiator."
   },
   "final_10x60": {
-    "wakes_detected": 83,
+    "wakes_detected": 41,
     "measured_wakes": 10,
     "active_mC": [
-      8.597250396960046,
-      17.02306942235997,
-      60.29978685743978,
-      15.399531833759818,
-      11.719362401879907,
-      14.459948960159833,
-      8.872352302079886,
-      3.8030051686799906,
-      6.403170139320081,
-      4.879004113800045
+      11.986160920394694,
+      10.75911613618982,
+      6.141001111504844,
+      9.395669512870183,
+      1.106698403635126,
+      2.4315124147848053,
+      26.55423012222387,
+      6.089275630424839,
+      4.063464174635652,
+      22.9707869492022
     ],
-    "active_mean_mC": 15.145648159643935,
-    "active_median_mC": 10.295857351979897,
+    "active_mean_mC": 10.149791537586603,
+    "active_median_mC": 7.768335312187514,
     "sleep_windows": [
       {
-        "t0_s": 40.34,
-        "t1_s": 338.85112,
-        "duration_s": 298.48967999999996,
-        "n_samples": 17518,
-        "charge_C": 2.73742941673817,
-        "charge_mC": 2737.42941673817,
-        "avg_uA": 9170.56293606576,
-        "avg_from_charge_uA": 9170.934877005362,
-        "median_uA": 4.082,
-        "p95_uA": 51121.24314999999,
-        "max_uA": 596877.056,
-        "min_uA": -1.043,
-        "q_over_t_rel_err": 4.055813609205384e-05,
+        "t0_s": 33.838499999999996,
+        "t1_s": 50.4905,
+        "duration_s": 16.624860000000005,
+        "n_samples": 967,
+        "charge_C": 8.057521210734232e-05,
+        "charge_mC": 0.08057521210734232,
+        "avg_uA": 4.846670113753878,
+        "avg_from_charge_uA": 4.846670113753878,
+        "median_uA": 2.978,
+        "p95_uA": 8.045799999999996,
+        "max_uA": 49.99,
+        "min_uA": -0.911,
+        "q_over_t_rel_err": 0.0,
         "q_over_t_ok": true,
-        "sample_filter_used": false
+        "sample_filter_used": false,
+        "ua_lt200_filter_used": false,
+        "autorange_despike": {
+          "thr_uA": 50.0,
+          "max_burst_s": 0.001,
+          "fill_uA": 2.978,
+          "removed_runs": 108,
+          "removed_samples": 243,
+          "removed_frac": 0.2512926577042399,
+          "method": "ppk_autorange_despike",
+          "applied": true,
+          "fs_hz": 100000.0
+        },
+        "raw_mean_before_despike_uA": 6421.574531540848
+      },
+      {
+        "t0_s": 72.561,
+        "t1_s": 342.32047,
+        "duration_s": 269.73233,
+        "n_samples": 15674,
+        "charge_C": 0.001167873925808893,
+        "charge_mC": 1.1678739258088928,
+        "avg_uA": 4.329751371698354,
+        "avg_from_charge_uA": 4.329751371698354,
+        "median_uA": 2.978,
+        "p95_uA": 7.882,
+        "max_uA": 49.99,
+        "min_uA": -1.043,
+        "q_over_t_rel_err": 0.0,
+        "q_over_t_ok": true,
+        "sample_filter_used": false,
+        "ua_lt200_filter_used": false,
+        "autorange_despike": {
+          "thr_uA": 50.0,
+          "max_burst_s": 0.001,
+          "fill_uA": 2.978,
+          "removed_runs": 1671,
+          "removed_samples": 4262,
+          "removed_frac": 0.27191527370167157,
+          "method": "ppk_autorange_despike",
+          "applied": true,
+          "fs_hz": 100000.0
+        },
+        "raw_mean_before_despike_uA": 10273.806410297308
       }
     ],
-    "sleep_window_avg_uA": 9170.56293606576,
-    "sleep_window_worst_uA": 9170.56293606576,
-    "total_charge_C": 3.2750436862957706,
+    "sleep_window_avg_uA": 4.588210742726115,
+    "sleep_window_worst_uA": 4.846670113753878,
+    "total_charge_C": 3.7930025080685192,
     "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_modes_raw\\thermometer2_combined_sleep_root_cause\\final10_capture.csv",
     "measure_meta": {
-      "samples": 33585888,
-      "avg_uA": 9029.103628084526,
-      "max_uA": 676531.1046170652
+      "samples": 33933008,
+      "avg_uA": 1034.126411063155,
+      "max_uA": 1289626.727561276
     }
   }
 }

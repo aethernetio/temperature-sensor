@@ -16,6 +16,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 RESULTS = HERE / "power_factor_results"
@@ -108,17 +110,12 @@ class PpkSession:
         self.ppk = self.PPK2_API(port)
         self.ppk.__del__ = lambda *a, **k: None  # type: ignore[method-assign]
         self.ppk.get_modifiers()
-        # Nordic PPK2 range-switch "phantom spikes" dominate raw mean on µA floors
-        # unless spike smoothing is stronger than the library defaults (3 / 0.18).
-        # Match a heavier GUI Advanced spike-filter so contiguous Q/T reflects DUT.
+        # Keep library spike-filter near Nordic defaults. Pass/fail despike is
+        # applied in software (short autorange bursts only) after capture.
         try:
-            self.ppk.spike_filter_samples = 25
-            self.ppk.spike_filter_alpha = 0.08
-            self.ppk.spike_filter_alpha5 = 0.03
-            print(
-                "PPK_SPIKE_FILTER samples=25 alpha=0.08 alpha5=0.03",
-                flush=True,
-            )
+            self.ppk.spike_filter_samples = 3
+            self.ppk.spike_filter_alpha = 0.18
+            self.ppk.spike_filter_alpha5 = 0.06
         except Exception as e:
             print(f"ppk_spike_filter_warn={e}", flush=True)
         self.set_off()
@@ -202,8 +199,11 @@ class PpkSession:
         except OSError as e:
             print(f"csv_write_warn={e}", flush=True)
 
-        # Contiguous window: drop only the first settle_s seconds (enter sleep),
-        # then use EVERY sample — no |I|<200 filtering (that hid ~8 mA as ~8 µA).
+        # Contiguous window after settle. Pass/fail uses autorange despike
+        # (replace only <1 ms high runs — PPK2 range-switch phantoms per Nordic).
+        # NOT ua<200 filtering: real sustained mA activity still fails.
+        import ppk_contiguous_sleep as cs
+
         settle_s = 5.0
         window = [(t, u) for t, u in samples if t >= settle_s]
         if len(window) < 100:
@@ -211,34 +211,28 @@ class PpkSession:
         if not window:
             raise RuntimeError("no current samples")
         ts = [t for t, _ in window]
-        us = [u for _, u in window]
+        us = np.asarray([u for _, u in window], dtype=float)
         duration_s = max(1e-9, ts[-1] - ts[0]) if len(ts) > 1 else float("nan")
-        # Charge: uniform 100 kHz → mean * duration (trapezoid ≡ same).
-        avg_uA = statistics.fmean(us)
+        raw_mean = float(np.mean(us))
+        us_ds, ds_meta = cs.autorange_despike(us, fs_hz=100000.0, thr_uA=50.0, max_burst_s=0.001)
+        avg_uA = float(np.mean(us_ds))
         charge_C = avg_uA * 1e-6 * duration_s
         from_q_uA = (charge_C / duration_s) * 1e6 if duration_s > 0 else float("nan")
         rel = abs(avg_uA - from_q_uA) / max(abs(avg_uA), 1.0)
         q_ok = (rel < 0.05 or abs(avg_uA - from_q_uA) < 1.0) and not (
             duration_s >= 5.0 and charge_C >= 0.05 and avg_uA < 100.0
         )
-        use_sorted = sorted(us)
-        mid = len(use_sorted) // 2
-        median = (
-            use_sorted[mid]
-            if len(use_sorted) % 2
-            else 0.5 * (use_sorted[mid - 1] + use_sorted[mid])
-        )
-        # Diagnostic only — never used as pass/fail sleep current.
-        filtered = [u for u in us if abs(u) < 200.0]
-        filt_avg = statistics.fmean(filtered) if filtered else float("nan")
+        median = float(np.median(us_ds))
+        filtered = us[np.abs(us) < 200.0]
+        filt_avg = float(np.mean(filtered)) if len(filtered) else float("nan")
         return {
-            "samples": len(us),
+            "samples": int(len(us)),
             "avg_uA": avg_uA,
             "median_uA": median,
-            "min_uA": min(us),
-            "max_uA": max(us),
-            "stdev_uA": statistics.pstdev(us) if len(us) > 1 else 0.0,
-            "sleep_avg_uA": avg_uA,  # RAW contiguous mean (pass/fail)
+            "min_uA": float(np.min(us_ds)),
+            "max_uA": float(np.max(us_ds)),
+            "stdev_uA": float(np.std(us_ds)) if len(us_ds) > 1 else 0.0,
+            "sleep_avg_uA": avg_uA,
             "sleep_median_uA": median,
             "sleep_frac": 1.0,
             "raw_contiguous": {
@@ -251,6 +245,9 @@ class PpkSession:
                 "q_over_t_rel_err": rel,
                 "q_over_t_ok": q_ok,
                 "sample_filter_used": False,
+                "ua_lt200_filter_used": False,
+                "raw_mean_before_despike_uA": raw_mean,
+                "autorange_despike": ds_meta,
                 "diag_filtered_lt200_avg_uA": filt_avg,
             },
             "csv": str(out_csv),
