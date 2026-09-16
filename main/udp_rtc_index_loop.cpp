@@ -8,9 +8,13 @@
  *   full teardown → BoardPowerDownForDeepSleep → timer deep sleep
  *   PS_NONE through association/GOT_IP; Wi-Fi 4 + fixed 1M; retry 3,3
  *
- * Combined 1-min mode: warmup #0 then 10 measured sends at 60 s
- * start-to-start. After teardown: verified GPIO shutdown (17 LOW, 2 HIGH,
- * 18/6/7 disabled) then timer deep sleep. No esp_sleep_pd_config / LP-core.
+ * Combined 1-min mode: warmup #0 then N measured sends at 60 s
+ * start-to-start (default N=100). After teardown: verified GPIO shutdown
+ * (17 LOW, 2 HIGH, 18/6/7 disabled) then timer deep sleep.
+ * No esp_sleep_pd_config / LP-core.
+ *
+ * Cold boot / non-TIMER wake: remain awake 60 s before first UDP cycle so
+ * USB/COM stays flashable. Timer deep-sleep wakes skip that wait.
  */
 
 #include "udp_rtc_index_loop.h"
@@ -33,6 +37,7 @@
 #  include <esp_netif_net_stack.h>
 #  include <esp_private/wifi.h>
 #  include <esp_sleep.h>
+#  include <esp_task_wdt.h>
 #  include <esp_wifi.h>
 #  include <nvs_flash.h>
 #  include <sdkconfig.h>
@@ -87,10 +92,14 @@ constexpr int kGotIpBit = BIT0;
 #  endif
 constexpr int kPreSettleMs = AE_UDP_PRE_SETTLE_MS;
 constexpr int kPostSendHoldMs = AE_UDP_POST_SEND_HOLD_MS;
-constexpr std::uint32_t kMeasuredSends = 10;
+#  ifndef AE_UDP_MEASURED_SENDS
+#    define AE_UDP_MEASURED_SENDS 100
+#  endif
+constexpr std::uint32_t kMeasuredSends = AE_UDP_MEASURED_SENDS;
 constexpr std::uint64_t kPeriodUs = 60ULL * 1000000ULL;
 constexpr std::uint64_t kWarmupSleepUs = 8ULL * 1000000ULL;
 constexpr std::uint64_t kDoneSleepUs = 60ULL * 60ULL * 1000000ULL;
+constexpr int kColdBootFlashWindowS = 60;
 #else
 constexpr int kPreSettleMs = 50;
 constexpr int kPostSendHoldMs = 200;
@@ -379,6 +388,15 @@ void EnterDoneSleep() {
 }  // namespace
 
 extern "C" void RunUdpRtcIndexLoop() {
+#if defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
+  // Flash window after power-on / reset only — never after timer deep sleep.
+  if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
+    (void)esp_task_wdt_delete(xTaskGetCurrentTaskHandle());
+    for (int s = 0; s < kColdBootFlashWindowS; ++s) {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
+#endif
   for (;;) {
     // ------------------------------------------------------------------
     // One wake cycle: keep rails off → caches → GOT_IP → settle → send → sleep
