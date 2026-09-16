@@ -18,17 +18,25 @@
 #  include <freertos/FreeRTOS.h>
 #  include <esp_log.h>
 #  include <esp_task_wdt.h>
+#  include <esp_sleep.h>
 #endif
 
 #include "experiment_early_entry.h"
-#include "sleeping/led_power.h"
+#include "peripherals/adc.h"
+#include "peripherals/power.h"
+#include "sleeping/sleeping.h"
 
 extern void setup();
 extern void loop();
 
 #if defined ESP_PLATFORM
 extern "C" void app_main(void) {
-  ReleaseLedPowerHold();
+  peripherals_off();
+  ESP_ERROR_CHECK(
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL));
+  esp_deep_sleep_start();
+  peripherals_release_hold();
+  init_adc();
   ExperimentEarlyAppEntry();
 
   esp_task_wdt_config_t config_wdt = {

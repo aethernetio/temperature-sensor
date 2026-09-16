@@ -17,7 +17,7 @@
 
 #include "sleeping/sleeping.h"
 #include "user_config.h"
-#include "sleeping/led_power.h"
+#include "peripherals/power.h"
 
 #include "aether/all.h"
 
@@ -166,7 +166,7 @@ int DeepSleep(time_point, time_point hard_sleep_tp,
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
 #  endif
 
-  PowerOffLedForSleep();
+  peripherals_off(BOARD_HAS_ULP == 1);
   esp_deep_sleep_start();
 
   return 0;

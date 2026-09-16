@@ -148,10 +148,12 @@ else()
     set(BOARD "" CACHE STRING "Selected board - see user_config.h")
 
     #ESP32 CMake
-    idf_component_register(SRCS ${src_list} ${bme68x_srcs} ${sleeping_src} ${sensors_src}
+    idf_component_register(SRCS "peripherals/power.cpp" "peripherals/adc.cpp" ${src_list} ${bme68x_srcs} ${sleeping_src} ${sensors_src}
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/.."
       REQUIRES soc ulp
       PRIV_REQUIRES
+        idf::esp_adc
+        idf::esp_wifi
         idf::driver
         idf::esp_driver_i2c
         idf::esp_driver_tsens

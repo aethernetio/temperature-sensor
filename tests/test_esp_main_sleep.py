@@ -38,10 +38,16 @@ struct Sleeping {};
 static std::uint64_t timer;
 static int timer_error, sleep_error, sleep_calls;
 static bool powered_off;
+static bool peripherals_disabled;
+void peripherals_off(bool keep_sensors) {
+  assert(!keep_sensors);
+  peripherals_disabled = true;
+}
 void PowerOffSensors() { powered_off = true; }
 int esp_sleep_enable_timer_wakeup(std::uint64_t us) { timer = us; return timer_error; }
 int esp_deep_sleep_try_to_start() {
   assert(powered_off);
+  assert(peripherals_disabled);
   ++sleep_calls;
   if (sleep_error) return sleep_error;
   throw Sleeping{}; // Successful deep sleep never returns.
@@ -51,6 +57,7 @@ int main() {
   using namespace std::chrono;
   for (auto offset : {seconds{-300}, seconds{0}, seconds{30}}) {
     powered_off = false;
+    peripherals_disabled = false;
     auto deadline = system_clock::now() + offset;
     try { DeepSleep(deadline, deadline, 0); assert(false); } catch (Sleeping&) {}
     if (offset <= seconds{0}) assert(timer == 1000000);

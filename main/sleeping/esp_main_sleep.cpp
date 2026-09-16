@@ -21,7 +21,7 @@
 #include <algorithm>
 
 #include "aether/all.h"
-#include "sleeping/led_power.h"
+#include "peripherals/power.h"
 
 #if ESP_MAIN_SLEEP == 1
 
@@ -82,7 +82,7 @@ int DeepSleep(time_point soft_sleep_tp, time_point, std::int16_t) {
 #endif
 
   // Enter deep sleep
-  PowerOffLedForSleep();
+  peripherals_off(BOARD_HAS_ULP == 1);
   ret = esp_deep_sleep_try_to_start();
   if (ret != ESP_OK) {
     // Callers have finished their send/suspend flow and do not schedule a
