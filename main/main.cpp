@@ -32,6 +32,7 @@ extern "C" void app_main(void) {
     defined(AETHER_DIAG_UDP_RTC_INDEX) ||         \
     defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10) || \
     defined(AETHER_DIAG_UDP_VANILLA_100X_20S) ||  \
+    defined(AETHER_DIAG_WIFI_CONNECT_STAGE_100X) || \
     defined(AETHER_DIAG_SLEEP_POWER_BISECT)
   // Unreachable: ExperimentEarlyAppEntry never returns (deep sleep / UDP loop).
   for (;;) {

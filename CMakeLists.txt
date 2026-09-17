@@ -77,6 +77,8 @@ set(AETHER_DIAG_UDP_LOW_POWER_1MIN_10 "" CACHE STRING
     "Diagnostic: UDP RTC cache + BoardPowerDown, 10x 60s (set to 1)")
 set(AETHER_DIAG_UDP_VANILLA_100X_20S "" CACHE STRING
     "Diagnostic: vanilla Wi-Fi UDP 100x / 20s deep sleep (set to 1)")
+set(AETHER_DIAG_WIFI_CONNECT_STAGE_100X "" CACHE STRING
+    "Diagnostic: cold Wi-Fi connect stage 100x / 2s sleep (set to 1)")
 set(AE_SLEEP_BISECT_VARIANT "" CACHE STRING
     "Sleep power bisect variant id (e.g. M0_MINIMAL)")
 set(AE_UDP_SERVER_HOST "" CACHE STRING
@@ -220,6 +222,12 @@ elseif(AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1")
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.udp_low_power")
+  set(CMAKE_SUPPRESS_REGENERATION ON)
+elseif(AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1")
+  # USB Serial/JTAG for post-run dump; no ULP app.
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.wifi_connect_stage")
   set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1")
   # Product prepared HOT path uses the measured low-power sdkconfig stack.

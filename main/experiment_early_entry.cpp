@@ -24,6 +24,7 @@
      defined(AETHER_DIAG_UDP_RTC_INDEX) || \
      defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10) || \
      defined(AETHER_DIAG_UDP_VANILLA_100X_20S) || \
+     defined(AETHER_DIAG_WIFI_CONNECT_STAGE_100X) || \
      defined(AETHER_DIAG_SLEEP_POWER_BISECT))
 
 #  include <esp_sleep.h>
@@ -38,6 +39,9 @@
 #  if defined(AETHER_DIAG_UDP_VANILLA_100X_20S)
 #    include "udp_vanilla_100x_20s.h"
 #  endif
+#  if defined(AETHER_DIAG_WIFI_CONNECT_STAGE_100X)
+#    include "wifi_connect_stage_100x.h"
+#  endif
 #  if defined(AETHER_DIAG_SLEEP_POWER_BISECT)
 #    include "sleep_power_bisect.h"
 #  endif
@@ -49,7 +53,9 @@ ExperimentEarlyEntrySnapshot g_early{};
 }
 
 extern "C" void ExperimentEarlyAppEntry() {
-#if defined(AETHER_DIAG_UDP_VANILLA_100X_20S)
+#if defined(AETHER_DIAG_WIFI_CONNECT_STAGE_100X)
+  RunWifiConnectStage100x();
+#elif defined(AETHER_DIAG_UDP_VANILLA_100X_20S)
   RunUdpVanilla100x20s();
 #elif defined(AETHER_DIAG_UDP_RTC_INDEX) || \
     defined(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)

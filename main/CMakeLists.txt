@@ -27,6 +27,11 @@ elseif(AETHER_DIAG_SLEEP_POWER_BISECT)
     "experiment_early_entry.cpp"
     "sleep_power_bisect.cpp"
   )
+elseif(AETHER_DIAG_WIFI_CONNECT_STAGE_100X)
+  list(APPEND src_list
+    "experiment_early_entry.cpp"
+    "wifi_connect_stage_100x.cpp"
+  )
 elseif(AETHER_DIAG_UDP_VANILLA_100X_20S)
   list(APPEND src_list
     "experiment_early_entry.cpp"
@@ -183,6 +188,7 @@ if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND
    NOT AETHER_DIAG_UDP_RTC_INDEX AND
    NOT AETHER_DIAG_UDP_LOW_POWER_1MIN_10 AND
    NOT AETHER_DIAG_UDP_VANILLA_100X_20S AND
+   NOT AETHER_DIAG_WIFI_CONNECT_STAGE_100X AND
    NOT AETHER_DIAG_SLEEP_POWER_BISECT)
   list(APPEND bme68x_srcs
     "../third-party/BME68x_SensorAPI/bme68x.c"
@@ -235,8 +241,9 @@ else()
     endif()
     if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" OR
        AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1" OR
-       AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1")
-      message(STATUS "UDP diag: adding nvs_flash esp_wifi to REQUIRES")
+       AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1" OR
+       AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1")
+      message(STATUS "UDP/WiFi diag: adding nvs_flash esp_wifi to REQUIRES")
       list(APPEND _main_requires nvs_flash esp_wifi)
     endif()
     if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1")
@@ -267,7 +274,8 @@ else()
     set(TARGET_NAME "${COMPONENT_LIB}")
     if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" OR
        AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1" OR
-       AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1")
+       AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1" OR
+       AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1")
       # Ensure Wi-Fi headers/libs even if REQUIRES expansion was incomplete.
       target_link_libraries(${TARGET_NAME} PUBLIC idf::esp_wifi idf::nvs_flash idf::lwip)
     endif()
@@ -293,6 +301,7 @@ else()
        NOT AETHER_DIAG_UDP_RTC_INDEX AND
        NOT AETHER_DIAG_UDP_LOW_POWER_1MIN_10 AND
        NOT AETHER_DIAG_UDP_VANILLA_100X_20S AND
+       NOT AETHER_DIAG_WIFI_CONNECT_STAGE_100X AND
        NOT AETHER_DIAG_SLEEP_POWER_BISECT)
       include(../cmake/CPM.cmake)
       # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
@@ -331,6 +340,7 @@ else()
       if(NOT AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" AND
          NOT AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1" AND
          NOT AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1" AND
+         NOT AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1" AND
          NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1" AND
          NOT AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1")
         ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
@@ -387,6 +397,7 @@ set(AETHER_DIAG_UDP_RTC_INDEX "" CACHE STRING "Diagnostic: WiFi+UDP RTC index sl
 set(AETHER_DIAG_SLEEP_POWER_BISECT "" CACHE STRING "Diagnostic: Thermometer2 sleep current factor bisect (set to 1)")
 set(AETHER_DIAG_UDP_LOW_POWER_1MIN_10 "" CACHE STRING "Diagnostic: UDP RTC + powerdown 10x60s (set to 1)")
 set(AETHER_DIAG_UDP_VANILLA_100X_20S "" CACHE STRING "Diagnostic: vanilla Wi-Fi UDP 100x / 20s sleep (set to 1)")
+set(AETHER_DIAG_WIFI_CONNECT_STAGE_100X "" CACHE STRING "Diagnostic: cold Wi-Fi connect stage 100x / 2s (set to 1)")
 set(AE_COMBINED_APPLY_MIN_PD "" CACHE STRING "Combined UDP: ApplyMinPowerDomains before sleep (0/1)")
 set(AE_COMBINED_LONG_SLEEP_AFTER_FIRST "" CACHE STRING "Combined UDP: 10min sleep after first measured send (0/1)")
 set(AE_SLEEP_BISECT_VARIANT "" CACHE STRING "Sleep power bisect variant id string")
@@ -485,6 +496,7 @@ ae_exp_define_if_set(AETHER_DIAG_UDP_RTC_INDEX)
 ae_exp_define_if_set(AETHER_DIAG_SLEEP_POWER_BISECT)
 ae_exp_define_if_set(AETHER_DIAG_UDP_LOW_POWER_1MIN_10)
 ae_exp_define_if_set(AETHER_DIAG_UDP_VANILLA_100X_20S)
+ae_exp_define_if_set(AETHER_DIAG_WIFI_CONNECT_STAGE_100X)
 ae_exp_define_if_set(AE_COMBINED_APPLY_MIN_PD)
 ae_exp_define_if_set(AE_COMBINED_LONG_SLEEP_AFTER_FIRST)
 ae_exp_define_if_set(AE_UDP_PRE_SETTLE_MS)
@@ -602,6 +614,7 @@ ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
    AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1" OR
    AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1" OR
    AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1" OR
+   AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1" OR
    (AE_EXP_PREPARED_POWER_FACTOR STREQUAL "1" AND
     NOT AE_EXP_ENCODE_OVERLAP_DIAG STREQUAL "1") OR
    AE_EXP_PRODUCT_ADAPTIVE_PROBE STREQUAL "1" OR
