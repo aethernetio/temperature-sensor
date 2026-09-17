@@ -75,6 +75,8 @@ set(AETHER_DIAG_SLEEP_POWER_BISECT "" CACHE STRING
     "Diagnostic: Thermometer2 deep-sleep current factor bisect (set to 1)")
 set(AETHER_DIAG_UDP_LOW_POWER_1MIN_10 "" CACHE STRING
     "Diagnostic: UDP RTC cache + BoardPowerDown, 10x 60s (set to 1)")
+set(AETHER_DIAG_UDP_VANILLA_100X_20S "" CACHE STRING
+    "Diagnostic: vanilla Wi-Fi UDP 100x / 20s deep sleep (set to 1)")
 set(AE_SLEEP_BISECT_VARIANT "" CACHE STRING
     "Sleep power bisect variant id (e.g. M0_MINIMAL)")
 set(AE_UDP_SERVER_HOST "" CACHE STRING
@@ -207,6 +209,13 @@ elseif(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1")
 elseif(AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1")
   # Silent console, no flash window. ULP HP stop API only (no ULP app).
   # Keep RTC mem powered for RTC_DATA_ATTR Wi-Fi/ARP cache.
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.udp_low_power")
+  set(CMAKE_SUPPRESS_REGENERATION ON)
+elseif(AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1")
+  # Silent console; same low-power overlay (no ULP app). No Wi-Fi RTC caches in FW.
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
