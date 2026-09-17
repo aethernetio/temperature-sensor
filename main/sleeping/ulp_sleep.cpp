@@ -43,11 +43,11 @@
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
-static void lp_core_init(void) {
+static void lp_core_init(uint32_t wakeup_timer_us) {
   esp_err_t ret = ESP_OK;
 
   ulp_lp_core_cfg_t cfg = {.wakeup_source = ULP_LP_CORE_WAKEUP_SOURCE_LP_TIMER,
-                           .lp_timer_sleep_duration_us = 1000000};
+                           .lp_timer_sleep_duration_us = wakeup_timer_us};
 
   ret = ulp_lp_core_load_binary(ulp_main_bin_start,
                                 (ulp_main_bin_end - ulp_main_bin_start));
@@ -116,7 +116,9 @@ extern "C" void PrepareUlpSensors(void) {
   if (esp_reset_reason() != ESP_RST_DEEPSLEEP || ulp_sample_count == 0 ||
       ulp_sample_in_progress != 0) {
     lp_i2c_init();
-    lp_core_init();
+    // The first timer wakeup must fit within the initial sample timeout,
+    // independently of the sampling interval used during deep sleep.
+    lp_core_init(1000000);
     const auto deadline = esp_timer_get_time() + 5000000;
     volatile uint32_t& completed_samples = ulp_sample_count;
     while (completed_samples == 0 && esp_timer_get_time() < deadline) {
@@ -143,7 +145,7 @@ int DeepSleep(time_point, time_point hard_sleep_tp,
   /* Initialize LP_I2C from the main processor */
   lp_i2c_init();
   /* Load LP Core binary and start the coprocessor */
-  lp_core_init();
+  lp_core_init(ULP_WAKEUP_TIMER_US);
 
   ulp_wakeup_temp_threshold = static_cast<uint32_t>(temperature_threshold);
 

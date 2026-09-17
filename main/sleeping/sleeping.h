@@ -20,6 +20,11 @@
 #include <chrono>
 #include <cstdint>
 
+#ifndef ULP_WAKEUP_TIMER_US
+// ULP sampling interval during deep sleep, in microseconds.
+#define ULP_WAKEUP_TIMER_US 25000000
+#endif
+
 using time_point = std::chrono::time_point<std::chrono::system_clock>;
 
 int DeepSleep(time_point soft_sleep_tp, time_point hard_sleep_tp,
