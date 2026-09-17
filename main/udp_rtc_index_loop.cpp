@@ -109,12 +109,16 @@ constexpr int kArpResolveTimeoutMs = 500;
 constexpr int kArpLearnTimeoutMs = 1500;  // one-shot learn during post-send hold
 constexpr TickType_t kGotIpTimeoutTicks = pdMS_TO_TICKS(10000);
 
-// --- Bisect: enable caches one-by-one (exactly one new true per flash) ---
-constexpr bool kCacheChannel = true;    // step 1
-constexpr bool kCacheStaticIp = true;   // step 2: ip + netmask + gw (still wait GOT_IP)
-constexpr bool kCacheBssid = true;      // step 3: pin AP BSSID
-constexpr bool kCachePeerArp = true;    // step 4: static ARP for AE_UDP_SERVER_HOST
-constexpr bool kCacheGwArp = true;      // step 5: static ARP for gateway
+// --- Wi-Fi RTC caches (channel / BSSID / static IP / ARP). Default ON. ---
+// AE_UDP_WIFI_CACHE=0 disables all five for no-cache comparison runs.
+#  ifndef AE_UDP_WIFI_CACHE
+#    define AE_UDP_WIFI_CACHE 1
+#  endif
+constexpr bool kCacheChannel = (AE_UDP_WIFI_CACHE != 0);    // step 1
+constexpr bool kCacheStaticIp = (AE_UDP_WIFI_CACHE != 0);   // step 2
+constexpr bool kCacheBssid = (AE_UDP_WIFI_CACHE != 0);      // step 3
+constexpr bool kCachePeerArp = (AE_UDP_WIFI_CACHE != 0);    // step 4
+constexpr bool kCacheGwArp = (AE_UDP_WIFI_CACHE != 0);      // step 5
 
 RTC_DATA_ATTR std::uint32_t g_index = 0;
 RTC_DATA_ATTR std::uint8_t g_have_channel = 0;
