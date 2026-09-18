@@ -20,7 +20,6 @@
 #  include <esp_task_wdt.h>
 #endif
 
-#include "experiment_early_entry.h"
 #include "peripherals/adc.h"
 #include "peripherals/power.h"
 
@@ -31,7 +30,6 @@ extern void loop();
 extern "C" void app_main(void) {
   peripherals_release_hold();
   init_adc();
-  ExperimentEarlyAppEntry();
 
   esp_task_wdt_config_t config_wdt = {
       /*.timeout_ms = */ 60000,
