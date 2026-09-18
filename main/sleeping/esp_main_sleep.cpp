@@ -15,16 +15,20 @@
  */
 
 #include "sleeping/sleeping.h"
+#include "sensors/sensors.h"
 
 #include <chrono>
+#include <algorithm>
 
 #include "aether/all.h"
+#include "peripherals/power.h"
 
 #if ESP_MAIN_SLEEP == 1
 
 #  include <esp_sleep.h>
 #  include <esp_timer.h>
 #  include <esp_log.h>
+#  include <esp_system.h>
 #  include <hal/uart_types.h>
 #  include <soc/gpio_num.h>
 
@@ -48,11 +52,18 @@
 static const char* TAG = "ESP_MAIN_SLEEP";
 
 int DeepSleep(time_point soft_sleep_tp, time_point, std::int16_t) {
-  auto time_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                     soft_sleep_tp - std::chrono::system_clock::now())
-                     .count();
+  // A deadline can expire while sending or waiting for permission to suspend.
+  // Wake shortly to process overdue work, rather than requesting a zero timer.
+  const auto remaining_us = std::chrono::duration_cast<std::chrono::microseconds>(
+      soft_sleep_tp - std::chrono::system_clock::now()).count();
+  const auto time_us = static_cast<std::uint64_t>(
+      std::max<std::int64_t>(remaining_us, 1000000));
 
-  esp_sleep_enable_timer_wakeup(time_us);
+  esp_err_t ret = esp_sleep_enable_timer_wakeup(time_us);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Cannot configure sleep timer: %s; restarting", esp_err_to_name(ret));
+    esp_restart();
+  }
   ESP_LOGI(TAG, "Timer wakeup enabled: %llu us", time_us);
 
   ESP_LOGI(TAG, "Entering deep sleep...");
@@ -64,10 +75,20 @@ int DeepSleep(time_point soft_sleep_tp, time_point, std::int16_t) {
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
 #  endif
 
+  // Only the main-CPU sensor path powers down here. ULP owns the rail when
+  // it is responsible for measurements during main-CPU sleep.
+#if BOARD_HAS_STCC4 == 1 && BOARD_HAS_PWR_ON == 1 && BOARD_HAS_ULP == 0
+  PowerOffSensors();
+#endif
+
   // Enter deep sleep
-  esp_err_t ret = esp_deep_sleep_try_to_start();
+  peripherals_off(BOARD_HAS_ULP == 1);
+  ret = esp_deep_sleep_try_to_start();
   if (ret != ESP_OK) {
-    ESP_LOGE(TAG, "Deep sleep failed: %s", esp_err_to_name(ret));
+    // Callers have finished their send/suspend flow and do not schedule a
+    // retry after this function returns. Restart to resume normal startup.
+    ESP_LOGE(TAG, "Deep sleep failed: %s; restarting", esp_err_to_name(ret));
+    esp_restart();
   }
 
   return ret;  // Should be never reached
