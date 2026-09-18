@@ -145,7 +145,10 @@ int DeepSleep(time_point, time_point hard_sleep_tp,
   /* Initialize LP_I2C from the main processor */
   lp_i2c_init();
   /* Load LP Core binary and start the coprocessor */
-  lp_core_init(ULP_WAKEUP_TIMER_US);
+  static_assert(ULP_WAKEUP_TIMER_MS > 0 &&
+                ULP_WAKEUP_TIMER_MS <= UINT32_MAX / 1000,
+                "ULP interval must fit the ESP-IDF microsecond timer");
+  lp_core_init(static_cast<uint32_t>(ULP_WAKEUP_TIMER_MS) * 1000U);
 
   ulp_wakeup_temp_threshold = static_cast<uint32_t>(temperature_threshold);
 

@@ -94,12 +94,12 @@ static std::unique_ptr<ae::AetherApp> aether_app;
 static ae::Client::ptr client;
 static std::unique_ptr<ae::P2pStream> message_stream;
 
-#ifndef AETHER_PREPARED_HOT_SLEEP_SECONDS
-#  define AETHER_PREPARED_HOT_SLEEP_SECONDS 30
+#ifndef AETHER_PREPARED_HOT_SLEEP_MS
+#  define AETHER_PREPARED_HOT_SLEEP_MS 100000
 #endif
 
-static constexpr auto kPreparedHotSleepSeconds =
-    std::chrono::seconds{AETHER_PREPARED_HOT_SLEEP_SECONDS};
+static constexpr auto kPreparedHotSleep =
+    std::chrono::milliseconds{AETHER_PREPARED_HOT_SLEEP_MS};
 
 static constexpr std::size_t kPreparedNonceReserve =
 #ifdef AETHER_PREPARED_NONCE_RESERVE
@@ -132,7 +132,7 @@ void setup() {
 
       if (hot_status == temp_sensor::prepared_send::HotSendStatus::kSent) {
         auto sleep_until =
-            std::chrono::system_clock::now() + kPreparedHotSleepSeconds;
+            std::chrono::system_clock::now() + kPreparedHotSleep;
         DeepSleep(sleep_until, sleep_until, 3000);
         return;
       }
