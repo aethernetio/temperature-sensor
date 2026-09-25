@@ -17,11 +17,13 @@
 
 #include "sleeping/sleeping.h"
 #include "user_config.h"
+#include "peripherals/power.h"
 
 #include "aether/all.h"
 
 #if ULP_SLEEP == 1
 #  include <iostream>
+#  include <inttypes.h>
 
 #  include <freertos/FreeRTOS.h>
 #  include <freertos/task.h>
@@ -29,6 +31,8 @@
 #  include <esp_log.h>
 #  include <esp_sleep.h>
 #  include <esp_timer.h>
+#  include <esp_system.h>
+#  include "sensors/sensors.h"
 
 #  include <ulp_lp_core.h>
 #  include <lp_core_i2c.h>
@@ -39,11 +43,11 @@
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
-static void lp_core_init(void) {
+static void lp_core_init(uint32_t wakeup_timer_us) {
   esp_err_t ret = ESP_OK;
 
   ulp_lp_core_cfg_t cfg = {.wakeup_source = ULP_LP_CORE_WAKEUP_SOURCE_LP_TIMER,
-                           .lp_timer_sleep_duration_us = 1000000};
+                           .lp_timer_sleep_duration_us = wakeup_timer_us};
 
   ret = ulp_lp_core_load_binary(ulp_main_bin_start,
                                 (ulp_main_bin_end - ulp_main_bin_start));
@@ -51,6 +55,13 @@ static void lp_core_init(void) {
     std::cout << ae::Format("LP Core load failed!\n");
     abort();
   }
+
+  // Configure shared memory before running the LP core. No wakeups are
+  // requested while the main CPU is acquiring its initial sample.
+  ulp_wakeup_temp_threshold = INT16_MAX;
+  ulp_wakeup_co2_threshold = UINT32_MAX;
+  ulp_wakeup_gas_threshold = UINT32_MAX;
+  ulp_can_start = 1;
 
   ret = ulp_lp_core_run(&cfg);
   if (ret != ESP_OK) {
@@ -94,17 +105,52 @@ static void lp_i2c_init(void) {
   std::cout << ae::Format("LP I2C initialized successfully!\n");
 }
 
+extern "C" void PrepareUlpSensors(void) {
+  static bool prepared = false;
+  if (prepared) {
+    return;
+  }
+
+  // Freeze retained results before accessing them or reloading the binary.
+  ulp_lp_core_stop();
+  if (esp_reset_reason() != ESP_RST_DEEPSLEEP || ulp_sample_count == 0 ||
+      ulp_sample_in_progress != 0) {
+    lp_i2c_init();
+    // The first timer wakeup must fit within the initial sample timeout,
+    // independently of the sampling interval used during deep sleep.
+    lp_core_init(1000000);
+    const auto deadline = esp_timer_get_time() + 5000000;
+    volatile uint32_t& completed_samples = ulp_sample_count;
+    while (completed_samples == 0 && esp_timer_get_time() < deadline) {
+      vTaskDelay(1);
+    }
+    ulp_lp_core_stop();
+    if (ulp_sample_count == 0) {
+      ESP_LOGE("ULP", "No sensor sample within 5 seconds");
+      abort();
+    }
+  }
+#if BOARD_HAS_STCC4 == 1
+  if (ulp_stcc4_error != ESP_OK) {
+    ESP_LOGE("ULP", "STCC4 measurement failed: stage=%" PRIu32 ", error=%" PRIu32,
+             ulp_stcc4_stage, ulp_stcc4_error);
+    abort();
+  }
+#endif
+  prepared = true;
+}
+
 int DeepSleep(time_point, time_point hard_sleep_tp,
               std::int16_t temperature_threshold) {
   /* Initialize LP_I2C from the main processor */
   lp_i2c_init();
   /* Load LP Core binary and start the coprocessor */
-  lp_core_init();
-
-  vTaskDelay(pdMS_TO_TICKS(1));
+  static_assert(ULP_WAKEUP_TIMER_MS > 0 &&
+                ULP_WAKEUP_TIMER_MS <= UINT32_MAX / 1000,
+                "ULP interval must fit the ESP-IDF microsecond timer");
+  lp_core_init(static_cast<uint32_t>(ULP_WAKEUP_TIMER_MS) * 1000U);
 
   ulp_wakeup_temp_threshold = static_cast<uint32_t>(temperature_threshold);
-  ulp_can_start = 1;
 
   // sleep either until hard sleep or ulp wakeup
   auto time_us = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -112,6 +158,7 @@ int DeepSleep(time_point, time_point hard_sleep_tp,
                      .count();
   esp_sleep_enable_timer_wakeup(time_us);
   esp_sleep_enable_ulp_wakeup();
+  ulp_wakeup_enabled = 1;
 
   std::cout << ae::Format("Timer wakeup enabled: {} us\n", time_us);
 
@@ -124,6 +171,7 @@ int DeepSleep(time_point, time_point hard_sleep_tp,
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
 #  endif
 
+  peripherals_off(BOARD_HAS_ULP == 1);
   esp_deep_sleep_start();
 
   return 0;

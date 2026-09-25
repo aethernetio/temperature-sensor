@@ -1,9 +1,6 @@
 ## Build Instructions
 ### Init dependencies
-It uses git submodules to manage dependencies.
-```
-git submodule update --init --remote ./aether-client-cpp
-```
+`aether-client-cpp` is fetched automatically by [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake) during the CMake configure step (branch `prepared-packet-v0`).
 
 ### For desktop
 For desktop a regular cmake project is used.

@@ -17,6 +17,7 @@ cmake_minimum_required(VERSION 3.16.0)
 list(APPEND src_list
   "main.cpp"
   "controller.cpp"
+  "prepared_send/prepared_send.cpp"
 )
 
 list(APPEND bme68x_srcs
@@ -47,7 +48,8 @@ if(NOT CM_PLATFORM)
 
   include(../cmake/CPM.cmake)
 
-  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+  # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git")
 
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
   set(TARGET_NAME ${PROJECT_NAME})
@@ -61,14 +63,17 @@ else()
     set(BOARD "" CACHE STRING "Selected board - see user_config.h")
 
     #ESP32 CMake
-    idf_component_register(SRCS ${src_list} ${bme68x_srcs} ${sleeping_src} ${sensors_src}
+    idf_component_register(SRCS "peripherals/power.cpp" "peripherals/adc.cpp" ${src_list} ${bme68x_srcs} ${sleeping_src} ${sensors_src}
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/.."
       REQUIRES soc ulp
       PRIV_REQUIRES
+        idf::esp_adc
+        idf::esp_wifi
         idf::driver
         idf::esp_driver_i2c
         idf::esp_driver_tsens
         idf::esp_driver_gpio
+        idf::esp_driver_usb_serial_jtag
         idf::esp_http_server
         idf::esp_event
         idf::esp_timer
@@ -77,7 +82,8 @@ else()
 
     set(TARGET_NAME "${COMPONENT_LIB}")
     include(../cmake/CPM.cmake)
-    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+    # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
+    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
 
     target_link_libraries(${TARGET_NAME} PRIVATE aether)
 
@@ -91,17 +97,13 @@ else()
       target_compile_definitions(${TARGET_NAME} PRIVATE "BOARD=${BOARD}")
     endif()
 
-    # Define the path to the board configuration file in the build folder
-    set(ULP_BOARD_FILE "${CMAKE_BINARY_DIR}/ulp_board_config.cmake")
-
-    # Write the value of the BOARD variable to this file
+    # ulp_add_project() configures a separate ExternalProject, so it does not
+    # inherit ordinary CMake variables from this component. Forward BOARD via
+    # ESP-IDF's arguments for CMake subprojects.
     if(NOT "${BOARD}" STREQUAL "")
-      file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"${BOARD}\")\n")
-    else()
-      file(WRITE "${ULP_BOARD_FILE}" "set(BOARD \"\")\n")
+      idf_build_set_property(EXTRA_CMAKE_ARGS "-DBOARD=${BOARD}" APPEND)
     endif()
 
-    # We call the project addition as usual
     ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
     
   else()
@@ -113,3 +115,26 @@ endif()
 if (NOT "${SERVICE_UID}" STREQUAL "")
   target_compile_definitions(${TARGET_NAME} PRIVATE "SERVICE_UID=\"${SERVICE_UID}\"")
 endif()
+
+# Thermometer prepared-send settings (override via -D...).
+if(NOT DEFINED AETHER_PREPARED_NONCE_RESERVE)
+  set(AETHER_PREPARED_NONCE_RESERVE 10 CACHE STRING "Prepared nonce reserve count")
+endif()
+if(NOT DEFINED AETHER_PREPARED_HOT_SLEEP_MS)
+  set(AETHER_PREPARED_HOT_SLEEP_MS 100000 CACHE STRING "Deep sleep milliseconds after send")
+endif()
+if(NOT DEFINED AETHER_PREPARED_POST_SEND_HOLD_MS)
+  set(AETHER_PREPARED_POST_SEND_HOLD_MS 300 CACHE STRING "Post-send TX hold ms on prepared path")
+endif()
+if(NOT DEFINED AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS)
+  set(AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS 15000 CACHE STRING "Prepared WiFi connect timeout ms")
+endif()
+if(NOT DEFINED AETHER_PREPARED_HOT_WIFI_MAX_RETRY)
+  set(AETHER_PREPARED_HOT_WIFI_MAX_RETRY 10 CACHE STRING "Prepared WiFi max association retries")
+endif()
+target_compile_definitions(${TARGET_NAME} PRIVATE
+  "AETHER_PREPARED_NONCE_RESERVE=${AETHER_PREPARED_NONCE_RESERVE}"
+  "AETHER_PREPARED_HOT_SLEEP_MS=${AETHER_PREPARED_HOT_SLEEP_MS}"
+  "AETHER_PREPARED_POST_SEND_HOLD_MS=${AETHER_PREPARED_POST_SEND_HOLD_MS}"
+  "AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS=${AETHER_PREPARED_HOT_WIFI_TIMEOUT_MS}"
+  "AETHER_PREPARED_HOT_WIFI_MAX_RETRY=${AETHER_PREPARED_HOT_WIFI_MAX_RETRY}")

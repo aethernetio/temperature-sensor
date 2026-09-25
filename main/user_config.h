@@ -24,6 +24,11 @@
 #if !defined IS_ULP_COCPU
 #  include "aether/config_consts.h"
 
+// EventHandler may wrap SmallFunction instances whose default alignment is
+// max_align_t. Keep the outer storage equally aligned (not just pointer-aligned)
+// so GCC 15 does not reject the nested callback in ActionsQueue.
+#  define AE_EVENT_HANDLER_ALIGN alignof(std::max_align_t)
+
 #  define AE_CRYPTO_ASYNC AE_HYDRO_CRYPTO_PK
 #  define AE_CRYPTO_SYNC AE_HYDRO_CRYPTO_SK
 #  define AE_SIGNATURE AE_HYDRO_SIGNATURE
