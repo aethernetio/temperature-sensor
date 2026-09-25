@@ -14,19 +14,15 @@
  * limitations under the License.
  */
 
-#ifndef SLEEPING_SLEEPING_H_
-#define SLEEPING_SLEEPING_H_
+#ifndef PERIPHERALS_POWER_H_
+#define PERIPHERALS_POWER_H_
 
-#include <chrono>
-#include <cstdint>
+// Release retained LED and I2C pads before initialization after wake-up.
+void peripherals_release_hold();
 
-#ifndef ULP_WAKEUP_TIMER_MS
-// ULP sampling interval during deep sleep, in milliseconds.
-#define ULP_WAKEUP_TIMER_MS 25000
-#endif
+// Preserve the sensor rail only when ULP needs it during normal sleep.
+void peripherals_off(bool keep_sensors = false);
+// No automatic wake-up: restart with reset or a power cycle.
+[[noreturn]] void battery_low_deep_sleep();
 
-using time_point = std::chrono::time_point<std::chrono::system_clock>;
-
-int DeepSleep(time_point soft_sleep_tp, time_point hard_sleep_tp,
-              std::int16_t temperature_threshold);
-#endif  // SLEEPING_SLEEPING_H_
+#endif  // PERIPHERALS_POWER_H_

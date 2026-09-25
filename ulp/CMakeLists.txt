@@ -16,6 +16,17 @@ cmake_minimum_required(VERSION 3.16)
 
 set(ULP_APP_NAME ulp_main)
 
+# ESP-IDF 6.x no longer makes all of its CMake helpers available to custom
+# ULP projects implicitly. This defines check_expected_tool_version() and the
+# other helpers used by IDFULPProject.cmake. IDF_PATH is explicitly passed to
+# this ExternalProject, so do not let a stale host environment select another
+# ESP-IDF installation while configuring it.
+set(_ulp_idf_path "${IDF_PATH}")
+list(GET _ulp_idf_path 0 _ulp_idf_path)
+set(IDF_PATH "${_ulp_idf_path}")
+set(ENV{IDF_PATH} "${_ulp_idf_path}")
+include(${_ulp_idf_path}/tools/cmake/idf.cmake)
+
 project(${ULP_APP_NAME})
 
 list(APPEND main_src
@@ -52,31 +63,13 @@ ulp_add_build_binary_targets(${ULP_APP_NAME})
 target_include_directories(${ULP_APP_NAME} PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../main")
 
 include(../cmake/CPM.cmake)
-CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
 
-# not link but only setup include directory for aether/config_consts.h
-target_include_directories(${ULP_APP_NAME} PUBLIC "${aether-client-cpp_SOURCE_DIR}")
-
-target_compile_definitions(${ULP_APP_NAME} PRIVATE "ULP_MODE=1")
-
-# Calculate where the build folder of the main project is located
-# ExternalProject is usually built inside build/ulp_main-prefix/src/ulp_main-build
-# We need to go up to the root of the build folder
-set(MAIN_BUILD_DIR "${CMAKE_BINARY_DIR}/../../..")
-set(ULP_BOARD_FILE "${MAIN_BUILD_DIR}/ulp_board_config.cmake")
-
-# If the configuration file exists, connect it
-if(EXISTS "${ULP_BOARD_FILE}")
-    include("${ULP_BOARD_FILE}")
-endif()
-
-# Checking if the BOARD variable value appears after including
 if(NOT "${BOARD}" STREQUAL "")
     message(STATUS "--------------------------------------------------")
-    message(STATUS "ULP Project SUCCESS! Board loaded from file: ${BOARD}")
+    message(STATUS "ULP Project SUCCESS! Board: ${BOARD}")
     message(STATUS "--------------------------------------------------")
-    
-    # Checking if the BOARD variable has been included
+
     add_compile_definitions(BOARD=${BOARD})
 else()
     message(WARNING "ULP Project: BOARD is not defined!")

@@ -20,7 +20,6 @@
 #  error "Illegal CPU! It must be an ESP32C6."
 #endif
 
-#include "hal/i2c_types.h"
 #include "soc/gpio_num.h"
 
 #ifndef BOARD_HAS_ULP
