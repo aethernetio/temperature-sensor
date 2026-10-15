@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -411,6 +412,48 @@ def _patch_hot_sdkconfig_ulp_off(sdk_path: Path) -> None:
     sdk_path.write_text(text, encoding="utf-8")
 
 
+def firmware_bin_meta() -> dict:
+    bin_path = BUILD / "temperature_sensor.bin"
+    out: dict = {"path": str(bin_path), "exists": bin_path.is_file()}
+    if bin_path.is_file():
+        data = bin_path.read_bytes()
+        out["size_bytes"] = len(data)
+        out["sha256"] = hashlib.sha256(data).hexdigest()
+    _, sha = git_meta()
+    out["git_sha"] = sha
+    return out
+
+
+def parse_serial_diagnostics(lines: list[str]) -> dict:
+    blob = "\n".join(lines)
+    full_w = RE_FULL_READY_TX.search(blob)
+    prep = RE_PREP_EXPORT.search(blob)
+    hot_arm = RE_HOT_ARMED.search(blob)
+    sid = RE_PREPARED_SID.search(blob)
+    order_ok = False
+    if full_w and prep:
+        order_ok = blob.find(full_w.group(0)) < blob.find(prep.group(0))
+    return {
+        "full_ready_write_seen": bool(full_w),
+        "prepared_export_seen": bool(prep),
+        "prepared_export_order_ok": order_ok,
+        "prepared_reserve": int(prep.group(1)) if prep else None,
+        "prepared_remaining": int(prep.group(2)) if prep else None,
+        "prepared_target_sid": sid.group(1) if sid else "",
+        "hot_measure_armed_seen": bool(hot_arm),
+    }
+
+
+def target_tcp_match_from_rx(rx: TcpReceiverProc, prepared_sid: str) -> tuple[bool, list[str]]:
+    with rx.lock:
+        tail = "\n".join(list(rx.lines)[-80:])
+    m = RE_RECEIVER_TCP_SIDS.search(tail)
+    sids = m.group(1).split(",") if m else []
+    if not prepared_sid or not sids:
+        return False, sids
+    return prepared_sid.strip() in [s.strip() for s in sids], sids
+
+
 def build_firmware(service_uid: str, *, hot_attempts: int = MEASURED, period_ms: int = 2000) -> None:
     BUILD.mkdir(parents=True, exist_ok=True)
     ssid, _password = wifi_creds()
@@ -429,8 +472,10 @@ def build_firmware(service_uid: str, *, hot_attempts: int = MEASURED, period_ms:
         f"-D AETHER_POWER_BENCH_HOT_SLEEP_MS={period_ms} "
         f"-D AETHER_PREPARED_HOT_RESERVE=128 "
         f"-D BENCH_CLIENT_ID=aether_hot_tcp_bench_v1 "
-        f"-B '{b}'"
     )
+    if hot_attempts <= 5:
+        defs += " -D AE_EXP_BISECT_CONSOLE=1 "
+    defs += f"-B '{b}'"
     extra = f"""
 if (-not (Test-Path '{b}/CMakeCache.txt')) {{
   idf.py {defs} set-target esp32c6
@@ -953,16 +998,19 @@ def main() -> int:
             serial_lines.append(f"SERIAL_ERR={exc!r}")
 
     serial_thread: threading.Thread | None = None
-    if args.smoke_only:
-        serial_thread = threading.Thread(target=serial_reader, daemon=True)
-        serial_thread.start()
 
     try:
         print("=== FLASH (not measuring) ===", flush=True)
         sb.try_flash_with_retries(ppk, BUILD, cold_wait_s=45.0)
+        fw_meta = firmware_bin_meta()
+        print(f"FIRMWARE_BIN_SHA256={fw_meta.get('sha256', '')}", flush=True)
         ppk.ppk.stop_measuring()
         ppk.set_off()
         time.sleep(0.5)
+        if args.smoke_only:
+            time.sleep(2.0)
+            serial_thread = threading.Thread(target=serial_reader, daemon=True)
+            serial_thread.start()
 
         def one_run(
             raw_bin: Path,
@@ -986,16 +1034,26 @@ def main() -> int:
                 time.sleep(0.5)
             t_cap = time.time()
             max_wake = 45.0
-            deadline = t_cap + COLD_BOOT_S + 120.0 + hot_n * (max_wake + PERIOD_S) + 30.0
-            while time.time() < deadline:
+            full_deadline = t_cap + COLD_BOOT_S + 300.0
+            total_deadline = t_cap + COLD_BOOT_S + 300.0 + hot_n * (max_wake + PERIOD_S) + 45.0
+            full_seen = False
+            while time.time() < total_deadline:
                 if with_ppk:
                     cap.drain()
                     seg = cap.segmenter
-                    if cap.segmenter.measured_windows >= hot_n:
-                        break
-                else:
-                    if len(rx.events) >= hot_n:
-                        break
+                if rx.full_ready_runs:
+                    full_seen = True
+                run_ids = {e["run_id"] for e in rx.events if e["run_id"]}
+                hot_count = 0
+                if run_ids:
+                    rid = max(run_ids)
+                    hot_count = len(rx.rx_map(rid))
+                if not full_seen and time.time() > full_deadline:
+                    break
+                if full_seen and hot_count >= hot_n:
+                    break
+                if with_ppk and full_seen and seg and seg.measured_windows >= hot_n:
+                    break
                 time.sleep(0.05 if not with_ppk else 0.002)
             time.sleep(wait_after_hot_s)
             if with_ppk:
@@ -1025,6 +1083,18 @@ def main() -> int:
             rep, rc = analyze_run(
                 rx, raw_bin, hot_n=hot_n, label=label, measured_start_s=measured_start_s, seg=seg
             )
+            ser = parse_serial_diagnostics(serial_lines)
+            rep["firmware"] = fw_meta
+            rep["serial"] = ser
+            match, tcp_sids = target_tcp_match_from_rx(rx, ser.get("prepared_target_sid", ""))
+            rep["receiver_tcp_sids"] = tcp_sids
+            rep["TARGET_TCP_MATCH"] = "yes" if match else "no"
+            rep["energy_confirmed"] = bool(
+                rep.get("full_ready")
+                and rep.get("clipped_windows", 1) == 0
+                and rep.get("valid_windows", 0) >= hot_n
+            )
+            rep["smoke_state"] = "PASS" if rc == 0 else "FAIL"
             out_json = RESULTS / "aether_hot_smoke_fixed.json"
         else:
             raw1 = LOCAL_RAW / "run1.bin"

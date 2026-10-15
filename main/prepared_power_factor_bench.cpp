@@ -554,9 +554,8 @@ void OnClientReady(ae::Client::ptr client_ptr) {
     }
   }
 #endif
-  auto handle = client->message_stream_manager().CreatePort(kServiceUid);
   g_stream = std::make_unique<ae::P2pStream>(*g_app, client, kServiceUid,
-                                             std::move(handle));
+                                             ae::P2pPortHandle{});
   g_stream_sub =
       g_stream->stream_update_event().Subscribe([]() { MaybeStartStreamWork(); });
   MaybeStartStreamWork();
@@ -574,6 +573,8 @@ void StartFullBoot() {
                      .result_event()
                      .Subscribe([](ae::Result<ae::Client::ptr, int> res) {
                        if (!res) {
+                         printf("FULL_PREP_SELECT_CLIENT_FAIL ec=%d\n",
+                                res.error());
                          g_app->Exit(1);
                          return;
                        }
