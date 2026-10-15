@@ -1234,13 +1234,20 @@ void PrintPreparedRouteDiagnostics() {
     return;
   }
   auto const msg = g_prepared_send_message_block.Resolve();
-  auto const addr_text = ae::Format("{}", msg.endpoint.address);
-  auto const proto = static_cast<int>(msg.endpoint.protocol);
-  printf("PREPARED_DEST_UID=%s\n", ae::Format("{}", msg.destination_uid).c_str());
-  printf("PREPARED_TARGET_SID=%s\n", ae::Format("{}", msg.server_id).c_str());
-  printf("PREPARED_TARGET_ENDPOINT=%s:%u protocol=%d\n", addr_text.c_str(),
-         static_cast<unsigned>(msg.endpoint.port), proto);
-  printf("PREPARED_MESSAGE_LEFT=%u\n", static_cast<unsigned>(msg.message_left));
+  auto const proto = static_cast<int>(msg->endpoint.protocol);
+  char endpoint_ip[48] = "?";
+  if (msg->endpoint.address.Index() == ae::AddrVersion::kIpV4) {
+    auto const v = msg->endpoint.address.Get<ae::IpV4Addr>().ipv4_value;
+    auto const* octets = reinterpret_cast<std::uint8_t const*>(&v);
+    std::snprintf(endpoint_ip, sizeof(endpoint_ip), "%u.%u.%u.%u", octets[0],
+                  octets[1], octets[2], octets[3]);
+  }
+  printf("PREPARED_DEST_UID=%s\n", ae::Format("{}", msg->destination_uid).c_str());
+  printf("PREPARED_TARGET_SID=%s\n", ae::Format("{}", msg->server_id).c_str());
+  printf("PREPARED_TARGET_ENDPOINT=%s:%u protocol=%d\n", endpoint_ip,
+         static_cast<unsigned>(msg->endpoint.port), proto);
+  printf("PREPARED_MESSAGE_LEFT=%u\n",
+         static_cast<unsigned>(msg->message_left));
 }
 
 ae::DataBuffer MakeBenchPayload(std::string_view kind, int sequence) {

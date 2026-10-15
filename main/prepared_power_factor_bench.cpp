@@ -197,6 +197,9 @@ ae::DataBuffer ToDataBuffer(std::uint8_t const* data, std::size_t size) {
   return ae::DataBuffer{data, data + size};
 }
 
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+[[maybe_unused]]
+#endif
 [[noreturn]] void RestartTo(Phase phase) {
   g_rtc.phase = static_cast<std::uint8_t>(phase);
   StoreRtc();
@@ -540,7 +543,7 @@ void MaybeStartStreamWork() {
 void OnClientReady(ae::Client::ptr client_ptr) {
   g_client = std::move(client_ptr);
   auto client = g_client.Load();
-  auto cloud = client->cloud().Load();
+  (void)client->cloud().Load();
 #if !defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
   if (cloud) {
     for (auto& [sid, cs] : cloud->servers()) {
