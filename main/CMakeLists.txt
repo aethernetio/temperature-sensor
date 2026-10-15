@@ -14,6 +14,25 @@
 
 cmake_minimum_required(VERSION 3.16.0)
 
+# Firmware uses C++ API only; C bindings pull SmallFunction paths that fail on RISC-V GCC.
+function(ae_esp_strip_aether_c_api target_name)
+  if(NOT TARGET ${target_name})
+    return()
+  endif()
+  get_target_property(_src ${target_name} SOURCES)
+  if(NOT _src)
+    return()
+  endif()
+  set(_filtered "")
+  foreach(_f IN LISTS _src)
+    if(_f MATCHES ".*/aether_c/aether_capi\\.cpp$" OR _f MATCHES ".*/aether_c/c_uid\\.cpp$")
+      continue()
+    endif()
+    list(APPEND _filtered "${_f}")
+  endforeach()
+  set_property(TARGET ${target_name} PROPERTY SOURCES "${_filtered}")
+endfunction()
+
 list(APPEND src_list
   "main.cpp"
 )
@@ -197,7 +216,8 @@ if(NOT AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN AND
    NOT AETHER_DIAG_UDP_LOW_POWER_1MIN_10 AND
    NOT AETHER_DIAG_UDP_VANILLA_100X_20S AND
    NOT AETHER_DIAG_WIFI_CONNECT_STAGE_100X AND
-   NOT AETHER_DIAG_SLEEP_POWER_BISECT)
+   NOT AETHER_DIAG_SLEEP_POWER_BISECT AND
+   NOT AETHER_DIAG_AETHER_HOT_100X_2S_PPK)
   list(APPEND bme68x_srcs
     "../third-party/BME68x_SensorAPI/bme68x.c"
   )
@@ -250,7 +270,8 @@ else()
     if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" OR
        AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1" OR
        AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1" OR
-       AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1")
+       AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1" OR
+       AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1")
       message(STATUS "UDP/WiFi diag: adding nvs_flash esp_wifi to REQUIRES")
       list(APPEND _main_requires nvs_flash esp_wifi)
     endif()
@@ -280,10 +301,13 @@ else()
       PRIV_REQUIRES ${_main_priv_requires})
 
     set(TARGET_NAME "${COMPONENT_LIB}")
+    target_include_directories(${TARGET_NAME} PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/shims")
     if(AETHER_DIAG_UDP_RTC_INDEX STREQUAL "1" OR
        AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1" OR
        AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1" OR
-       AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1")
+       AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1" OR
+       AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1")
       # Ensure Wi-Fi headers/libs even if REQUIRES expansion was incomplete.
       target_link_libraries(${TARGET_NAME} PUBLIC idf::esp_wifi idf::nvs_flash idf::lwip)
     endif()
@@ -314,6 +338,9 @@ else()
       include(../cmake/CPM.cmake)
       # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
       CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
+      if(AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1")
+        ae_esp_strip_aether_c_api(aether)
+      endif()
 
       target_link_libraries(${TARGET_NAME} PRIVATE aether)
       idf_build_get_property(_idf_path IDF_PATH)

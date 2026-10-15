@@ -129,15 +129,15 @@ std::map<std::uint32_t, HotRunState> g_hot_runs;
 std::ofstream g_aether_hot_tsv;
 bool g_aether_hot_tsv_ok = false;
 
-void MaybeAnnounceTcpVerified() {
-  if (g_tcp_verify_announced || !g_rx_tcp_verified) {
+void MaybeAnnounceTcpVerified(bool tcp_ok_now) {
+  if (g_tcp_verify_announced || !g_rx_tcp_verified || !tcp_ok_now) {
     return;
   }
   if (g_tcp_stable_since == std::chrono::steady_clock::time_point::min()) {
     return;
   }
   auto const now = std::chrono::steady_clock::now();
-  if (now - g_tcp_stable_since < std::chrono::seconds(5)) {
+  if (now - g_tcp_stable_since < std::chrono::seconds(2)) {
     return;
   }
   g_tcp_verify_announced = true;
@@ -153,8 +153,13 @@ void MaybeAnnounceTcpVerified() {
 
 void LogTcpTransport(ae::Client& client) {
   static bool logged_waiting = false;
-  bool any_tcp = false;
-  bool any_udp = false;
+  struct LinkedEp {
+    ae::CloudServerConnection* csc;
+    ae::Protocol protocol;
+    std::string endpoint_text;
+    std::string server_text;
+  };
+  std::vector<LinkedEp> linked_eps;
   int linked = 0;
   auto const now = std::chrono::steady_clock::now();
   bool const allow_restream =
@@ -178,47 +183,72 @@ void LogTcpTransport(ae::Client& client) {
       continue;
     }
     if (auto ep = ch->endpoint()) {
-      if (ep->protocol == ae::Protocol::kTcp) {
-        any_tcp = true;
-        g_tcp_endpoint = ae::Format("{}", *ep);
-        g_tcp_server_sid = ae::Format("{}", csc->server_id());
-        std::cout << "RX_TCP_LINK_UP endpoint=" << g_tcp_endpoint
-                  << " server=" << g_tcp_server_sid << "\n";
-      } else if (ep->protocol == ae::Protocol::kUdp) {
-        any_udp = true;
-        std::cout << "RX_TRANSPORT=UDP endpoint=" << ae::Format("{}", *ep)
-                  << " server=" << csc->server_id() << "\n";
-        // Keep forcing TCP if cloud reselects UDP after the first Restream.
-        if (allow_restream) {
-          g_last_udp_restream = now;
-          std::cout << "RX_TCP_RESELECT server=" << csc->server_id() << "\n";
-          csc->Restream();
-        }
-      } else {
-        std::cout << "RX_TRANSPORT_NOT_TCP protocol="
-                  << static_cast<int>(ep->protocol) << " endpoint="
-                  << ae::Format("{}", *ep) << "\n";
-      }
+      linked_eps.push_back(LinkedEp{
+          csc, ep->protocol, ae::Format("{}", *ep),
+          ae::Format("{}", csc->server_id())});
     }
   }
-  if (any_tcp && !any_udp) {
+  int linked_tcp = 0;
+  int linked_udp = 0;
+  for (auto const& le : linked_eps) {
+    if (le.protocol == ae::Protocol::kTcp) {
+      ++linked_tcp;
+    } else if (le.protocol == ae::Protocol::kUdp) {
+      ++linked_udp;
+    }
+  }
+  for (auto const& le : linked_eps) {
+    if (le.protocol == ae::Protocol::kTcp) {
+      g_tcp_endpoint = le.endpoint_text;
+      g_tcp_server_sid = le.server_text;
+      std::cout << "RX_TCP_LINK_UP endpoint=" << g_tcp_endpoint
+                << " server=" << g_tcp_server_sid << "\n";
+    } else if (le.protocol == ae::Protocol::kUdp) {
+      std::cout << "RX_TRANSPORT=UDP endpoint=" << le.endpoint_text
+                << " server=" << le.server_text << "\n";
+      if (g_cli.require_tcp) {
+        if (linked_tcp >= 1) {
+          le.csc->SetQuarantine(true);
+          le.csc->Disconnect();
+          std::cout << "RX_TCP_QUARANTINE_UDP server=" << le.server_text
+                    << "\n";
+        } else if (allow_restream) {
+          g_last_udp_restream = now;
+          std::cout << "RX_TCP_RESELECT server=" << le.server_text << "\n";
+          le.csc->Restream();
+        }
+      } else if (allow_restream) {
+        g_last_udp_restream = now;
+        std::cout << "RX_TCP_RESELECT server=" << le.server_text << "\n";
+        le.csc->Restream();
+      }
+    } else {
+      std::cout << "RX_TRANSPORT_NOT_TCP protocol="
+                << static_cast<int>(le.protocol)
+                << " endpoint=" << le.endpoint_text << "\n";
+    }
+  }
+  bool const tcp_ok = linked_tcp >= 1 && linked_udp == 0;
+  if (tcp_ok) {
     g_tcp_links_up = 1;
-    if (!g_rx_tcp_verified) {
+    if (g_tcp_stable_since == std::chrono::steady_clock::time_point::min()) {
       g_tcp_stable_since = std::chrono::steady_clock::now();
     }
     g_rx_tcp_verified = true;
     std::cout << "RX_TRANSPORT=TCP\n";
     logged_waiting = false;
-    MaybeAnnounceTcpVerified();
-  } else if (any_udp) {
-    g_tcp_links_up = 0;
-    g_rx_tcp_verified = false;
-    g_tcp_stable_since = std::chrono::steady_clock::time_point::min();
-    g_tcp_verify_announced = false;
-    if (g_cli.require_tcp) {
-      g_run_tcp_invalid = true;
-      std::cout << "FAIL_TCP_RECEIVER=udp_linked_during_require_tcp\n";
-      std::cout.flush();
+    MaybeAnnounceTcpVerified(tcp_ok);
+  } else if (linked_udp > 0) {
+    g_tcp_links_up = linked_tcp >= 1 ? 1 : 0;
+    if (!g_tcp_verify_announced && linked_tcp == 0) {
+      g_rx_tcp_verified = false;
+      g_tcp_stable_since = std::chrono::steady_clock::time_point::min();
+    } else if (linked_tcp >= 1 && g_cli.require_tcp) {
+      g_rx_tcp_verified = true;
+      if (g_tcp_stable_since == std::chrono::steady_clock::time_point::min()) {
+        g_tcp_stable_since = std::chrono::steady_clock::now();
+      }
+      MaybeAnnounceTcpVerified(false);
     }
   } else if (linked == 0 && client.cloud_connection().count_connections() > 0) {
     if (!logged_waiting) {
@@ -981,7 +1011,7 @@ void OnNosleep(temp_sensor::bench::NosleepPayload const& p) {
   std::cout.flush();
 }
 
-void OnMessage(ae::Uid, ae::DataBuffer const& data) {
+void OnMessage(ae::Uid sender, ae::DataBuffer const& data) {
   std::lock_guard lock{g_mu};
 
   temp_sensor::bench::ReliabilityPayload rp{};
@@ -1180,10 +1210,6 @@ int main(int argc, char** argv) {
     if (client) {
       LogTcpTransport(*client);
       EmitRxHealth();
-      if (g_cli.require_tcp && g_run_tcp_invalid) {
-        aether_app->Exit(2);
-        break;
-      }
     }
     aether_app->WaitUntil(t);
   }

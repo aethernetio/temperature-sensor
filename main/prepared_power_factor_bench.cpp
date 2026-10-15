@@ -16,8 +16,6 @@
 #include "aether/config.h"
 #include "aether/env.h"
 #include "bench_payload.h"
-#include "examples/probe_receiver/power_factor_config.h"
-#include "examples/probe_receiver/probe_protocol.h"
 #include "experiment_early_entry.h"
 #include "power_bench/power_bench_options.h"
 #include "power_bench/power_bench_runtime.h"
@@ -50,7 +48,11 @@ extern "C" std::uint64_t esp_rtc_get_time_us(void);
 namespace temp_sensor {
 namespace {
 
+#if !defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+#  include "examples/probe_receiver/power_factor_config.h"
+#  include "examples/probe_receiver/probe_protocol.h"
 namespace probe = ae::probe;
+#endif
 
 #ifndef AE_POWER_BENCH_VARIANT
 #  define AE_POWER_BENCH_VARIANT 0
@@ -370,7 +372,9 @@ void ConstructAether() {
         }
         auto loaded_reg = ap.Load();
         assert(loaded_reg && "AdapterRegistry load failed");
+#if !defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
         loaded_reg->Clear();
+#endif
         loaded_reg->Add(ae::WifiAdapter::ptr::Create(
             ae::CreateWith{ctx.domain()}, ctx.aether(), ctx.poller(),
             ctx.dns_resolver(), kWifiInit));
@@ -475,6 +479,7 @@ void MaybeStartStreamWork() {
     return;
   }
 #endif
+#if !defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullSummary)) {
     probe::BenchSummary sum{};
     sum.session = g_rtc.session;
@@ -491,12 +496,14 @@ void MaybeStartStreamWork() {
       WritePayload(buf, n);
     }
   }
+#endif
 }
 
 void OnClientReady(ae::Client::ptr client_ptr) {
   g_client = std::move(client_ptr);
   auto client = g_client.Load();
   auto cloud = client->cloud().Load();
+#if !defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
   if (cloud) {
     for (auto& [sid, cs] : cloud->servers()) {
       auto server = cs.server.Load();
@@ -505,6 +512,7 @@ void OnClientReady(ae::Client::ptr client_ptr) {
       }
     }
   }
+#endif
   auto handle = client->message_stream_manager().CreatePort(kServiceUid);
   g_stream = std::make_unique<ae::P2pStream>(*g_app, client, kServiceUid,
                                              std::move(handle));
@@ -532,6 +540,7 @@ void StartFullBoot() {
                      });
 }
 
+#if !defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
 std::size_t BuildHotPayload(std::uint8_t flags, std::uint8_t* out,
                             std::size_t cap) {
   probe::BenchData msg{};
@@ -541,6 +550,7 @@ std::size_t BuildHotPayload(std::uint8_t flags, std::uint8_t* out,
   msg.flags = flags;
   return probe::Pack(msg, out, cap);
 }
+#endif
 
 void RunHotOnce() {
   if (!prepared_send::PreparedWifiRtcCacheIsValid(g_rtc_wifi_cache)) {
