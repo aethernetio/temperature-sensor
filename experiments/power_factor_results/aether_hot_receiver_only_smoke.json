@@ -1,0 +1,7 @@
+{
+  "phase": "receiver_only",
+  "receiver_uid": "5aade50f-00d9-4624-b097-e203cdcf1e38",
+  "tcp_verified": true,
+  "ppk_touched": false,
+  "esp_flashed": false
+}

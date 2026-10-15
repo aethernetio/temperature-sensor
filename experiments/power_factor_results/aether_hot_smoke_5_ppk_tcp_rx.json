@@ -1,0 +1,45 @@
+{
+  "label": "smoke",
+  "branch": "diag/aether-hot-100x-2s-ppk-tcp-rx",
+  "sha": "a9a5a20113f2e98d931da5d13f3f3f47ae4d9c26",
+  "receiver_uid": "5aade50f-00d9-4624-b097-e203cdcf1e38",
+  "tcp_verified": true,
+  "full_ready": false,
+  "run_id": 0,
+  "hot_attempts": 5,
+  "hot_rx": 0,
+  "missing_sequences": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "measured_windows_detected": 6,
+  "valid_windows": 5,
+  "stats": {
+    "duration_ms": {
+      "n": 5,
+      "mean": 9000.0,
+      "median": 9000.0,
+      "p50": 9000.0,
+      "p90": 9000.0,
+      "p95": 9000.0,
+      "min": 9000.0,
+      "max": 9000.0,
+      "stddev": 0.0
+    },
+    "charge_mC": {
+      "n": 5,
+      "mean": 455.6366794736946,
+      "median": 452.86570558148037,
+      "p50": 452.86570558148037,
+      "p90": 470.6892683631536,
+      "p95": 473.2864843471863,
+      "min": 439.6381507849593,
+      "max": 475.883700331219,
+      "stddev": 14.165583317058553
+    }
+  },
+  "raw_ppk_local": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\aether_hot_100x_2s_ppk_tcp_rx_raw"
+}

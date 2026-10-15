@@ -1,0 +1,69 @@
+RECEIVER_COMPILER_REQUESTED=MSVC
+MSVC_CL_PATH=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.50.35717\bin\Hostx64\x64\cl.exe
+CMAKE_PATH=C:\Program Files\CMake\bin\cmake.exe
+NINJA_PATH=C:\msys64\ucrt64\bin\ninja.exe
+MSVC_CL_VERSION=Microsoft (R) C/C++ Optimizing Compiler Version 19.50.35717 for x64
+MSVC_ARCH=x64
+CONFIGURE_CMD=cmake -S C:\Users\nickc\Projects\temperature-sensor-prepared\temperature_receiver -B C:\Users\nickc\Projects\temperature-sensor-prepared\temperature_receiver\build-aether-hot-tcp-rx-msvc -DUSER_CONFIG=C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/user_config.h -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.50.35717\bin\Hostx64\x64\cl.exe -DCMAKE_CXX_COMPILER=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.50.35717\bin\Hostx64\x64\cl.exe
+-- CPM: Adding package aether-client-cpp@0 (157aadbec8e7b852d0f89274307ff7cb8103e5f7)
+-- Get aether git version 157aadbec8e7b852d0f89274307ff7cb8103e5f7
+-- Aether head on
+	157aadbe:HEAD, origin/exp/esp32c6-wifi-lifecycle-diag:Remove generic Wi-Fi BSSID/channel cache from Aether.
+
+-- Aether build options:
+   AE_ROOT_PORJECT=Off
+   AE_DISTILLATION=OFF
+   AE_FILTRATION=ON
+   AE_INSTALL=OFF
+   AE_BUILD_TOOLS=OFF
+   AE_BUILD_EXAMPLES=OFF
+   AE_BUILD_TESTS=OFF
+   AE_BUILD_ANDROID_SMOKE=OFF
+   AE_ADDRESS_SANITIZE=OFF
+   AE_NO_STRIP_ALL=OFF
+   UTM_ID=0
+   USER_CONFIG=C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/user_config.h
+   FS_INIT=
+   AE_REG_CLOUD_ADDR=
+
+-- CPM: Adding package libbcrypt@ (master at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/libbcrypt/2ef5)
+-- CPM: Adding package libhydrogen@ (bbca575 at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/libhydrogen/fea4)
+-- CPM: Adding package libsodium@ (master at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/libsodium/98e3)
+-- GCE-Math version 1.18.0
+-- CPM: Adding package gcem@ (master at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/gcem/87fb)
+-- CPM: Adding package ae-numeric@0 (edbdc0bef6e6b4140f52e3f841cb1b0e53a686e7 at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/ae-numeric/b9a3)
+-- CPM: Adding package aether-miscpp@ (main at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/aether-miscpp/c27d)
+-- CPM: Adding package aether-tele@0 (7424eb5bdd49e78bd73aa1e453594d3660c111c4 at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/aether-tele/8517)
+-- etl | Version string determined with git describe: 20.44.2-128-NOTFOUND
+-- etl | Determined ETL version 20.44.2 from the git tag
+-- CPM: Adding package etl@20.44.2 (20.44.2 at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/etl/e086)
+-- System           : Windows-10.0.26200
+-- System name      : Windows
+-- System ver       : 10.0.26200
+-- 
+-- Library ver      : 0.11.0
+-- Build date       : 2026-10-15
+-- Build year       : 2026
+-- 
+-- CPM: stdexec: Adding package icm@1.5.0 (v1.5.0 at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/icm/4314)
+-- CPM: Adding package stdexec@ (main at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/stdexec/ff1b)
+-- Aether build for CMAKE_SYSTEM_NAME: Windows
+-- CPM: Adding package c-ares@ (main at C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc/_deps/aether-client-cpp-build/cpm.cache/c-ares/0fc8)
+-- Configuring done (2.3s)
+-- Generating done (0.3s)
+-- Build files have been written to: C:/Users/nickc/Projects/temperature-sensor-prepared/temperature_receiver/build-aether-hot-tcp-rx-msvc
+
+
+RECEIVER_COMPILER_ID=
+RECEIVER_COMPILER_PATH=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.50.35717\bin\Hostx64\x64\cl.exe
+RECEIVER_BUILD_TYPE=Release
+RECEIVER_GENERATOR=Ninja
+[0/2] Re-checking globbed directories...
+[1/3] Building CXX object CMakeFiles\aether_hot_tcp_receiver.dir\main.cpp.obj
+[2/3] Linking CXX executable aether_hot_tcp_receiver.exe
+
+
+RX_EXE=C:\Users\nickc\Projects\temperature-sensor-prepared\temperature_receiver\build-aether-hot-tcp-rx-msvc\aether_hot_tcp_receiver.exe
+RX_EXE_SIZE=1622528
+RX_BUILD=PASS
+SmallFunction_patched=no
