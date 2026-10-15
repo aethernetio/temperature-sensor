@@ -134,6 +134,14 @@ elseif(AE_EXP_CACHED_FULL_HOT_1MIN)
     "power_bench/power_bench_options.cpp"
     "power_bench/power_bench_runtime.cpp"
   )
+elseif(AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1")
+  list(APPEND src_list
+    "prepared_power_factor_bench.cpp"
+    "experiment_early_entry.cpp"
+    "prepared_send/prepared_send.cpp"
+    "power_bench/power_bench_options.cpp"
+    "power_bench/power_bench_runtime.cpp"
+  )
 elseif(AE_EXP_FULL_1MIN_10)
   list(APPEND src_list
     "full_1min_10_bench.cpp"
@@ -392,6 +400,8 @@ set(AE_EXP_PREPARED_POWER_FACTOR "" CACHE STRING "Prepared-send power factor stu
 set(AE_EXP_PREPARED_FINAL_1MIN_100 "" CACHE STRING "Final 1-min 100-HOT energy run (set to 1)")
 set(AE_EXP_FULL_1MIN_10 "" CACHE STRING "10 FULL Æther sends at 1-min cadence (set to 1)")
 set(AE_EXP_CACHED_FULL_HOT_1MIN "" CACHE STRING "Warmup FULL then 1 cached FULL + 10 HOT at 1 min (set to 1)")
+set(AETHER_DIAG_AETHER_HOT_100X_2S_PPK "" CACHE STRING "Æther HOT 100x/2s PPK + TCP C++ receiver diag (set to 1)")
+set(AETHER_PREPARED_HOT_RESERVE "128" CACHE STRING "Prepared nonce reserve for Æther HOT diag")
 set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN "" CACHE STRING "Diagnostic: early-entry 10 min deep sleep only (set to 1)")
 set(AETHER_DIAG_UDP_RTC_INDEX "" CACHE STRING "Diagnostic: WiFi+UDP RTC index sleep loop (set to 1)")
 set(AETHER_DIAG_SLEEP_POWER_BISECT "" CACHE STRING "Diagnostic: Thermometer2 sleep current factor bisect (set to 1)")
@@ -492,6 +502,11 @@ ae_exp_define_if_set(AE_EXP_PREPARED_POWER_FACTOR)
 ae_exp_define_if_set(AE_EXP_PREPARED_FINAL_1MIN_100)
 ae_exp_define_if_set(AE_EXP_FULL_1MIN_10)
 ae_exp_define_if_set(AE_EXP_CACHED_FULL_HOT_1MIN)
+if(AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1")
+  target_compile_definitions(${TARGET_NAME} PRIVATE
+    "AETHER_DIAG_AETHER_HOT_CACHED_100X_2S=1"
+    "AETHER_PREPARED_HOT_RESERVE=${AETHER_PREPARED_HOT_RESERVE}")
+endif()
 ae_exp_define_if_set(AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN)
 ae_exp_define_if_set(AETHER_DIAG_UDP_RTC_INDEX)
 ae_exp_define_if_set(AETHER_DIAG_SLEEP_POWER_BISECT)
@@ -611,6 +626,7 @@ ae_exp_define_if_set(AE_EXP_BISECT_SMOKE)
    AE_EXP_PREPARED_BOOT_WIFI_VAL100 STREQUAL "1" OR
    AE_EXP_PREPARED_FINAL_1MIN_100 STREQUAL "1" OR
    AE_EXP_CACHED_FULL_HOT_1MIN STREQUAL "1" OR
+   AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1" OR
    AE_EXP_FULL_1MIN_10 STREQUAL "1" OR
    AETHER_DIAG_DEEP_SLEEP_ONLY_10MIN STREQUAL "1" OR
    AETHER_DIAG_SLEEP_POWER_BISECT STREQUAL "1" OR

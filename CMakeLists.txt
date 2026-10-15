@@ -79,6 +79,8 @@ set(AETHER_DIAG_UDP_VANILLA_100X_20S "" CACHE STRING
     "Diagnostic: vanilla Wi-Fi UDP 100x / 20s deep sleep (set to 1)")
 set(AETHER_DIAG_WIFI_CONNECT_STAGE_100X "" CACHE STRING
     "Diagnostic: cold Wi-Fi connect stage 100x / 2s sleep (set to 1)")
+set(AETHER_DIAG_AETHER_HOT_100X_2S_PPK "" CACHE STRING
+    "Æther prepared HOT 100x/2s PPK + TCP C++ receiver (set to 1)")
 set(AE_SLEEP_BISECT_VARIANT "" CACHE STRING
     "Sleep power bisect variant id (e.g. M0_MINIMAL)")
 set(AE_UDP_SERVER_HOST "" CACHE STRING
@@ -182,6 +184,12 @@ elseif(AE_EXP_PREPARED_FINAL_1MIN_100 STREQUAL "1")
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
   set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AE_EXP_CACHED_FULL_HOT_1MIN STREQUAL "1")
+  list(APPEND SDKCONFIG_DEFAULTS
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
+  set(CMAKE_SUPPRESS_REGENERATION ON)
+elseif(AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"

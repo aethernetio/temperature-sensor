@@ -34,10 +34,17 @@
 #  include <esp_wifi.h>
 #  include <freertos/FreeRTOS.h>
 #  include <freertos/task.h>
+#  include <driver/gpio.h>
 #  include <nvs_flash.h>
 #  include <soc/soc_caps.h>
 
 extern "C" std::uint64_t esp_rtc_get_time_us(void);
+#endif
+
+#ifndef AETHER_PREPARED_HOT_RESERVE
+#  if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+#    define AETHER_PREPARED_HOT_RESERVE 128
+#  endif
 #endif
 
 namespace temp_sensor {
@@ -74,9 +81,16 @@ static constexpr std::uint32_t kSleepUs =
 static constexpr std::uint32_t kSleepUs =
     static_cast<std::uint32_t>(ae::power_bench::kHotSleepMs) * 1000u;
 #endif
-#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
+    defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
 static constexpr std::uint8_t kFlagFullType = 0x80;
 static constexpr std::uint64_t kPeriodUs = static_cast<std::uint64_t>(kSleepUs);
+#endif
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+static constexpr std::uint32_t kPreparedReserve =
+    static_cast<std::uint32_t>(AETHER_PREPARED_HOT_RESERVE);
+static constexpr int kColdBootFlashWindowS = 60;
+static std::uint8_t g_prev_hot_status{0};
 #endif
 #if defined(AETHER_POWER_BENCH_HOT_ATTEMPTS)
 static constexpr std::uint16_t kHotAttempts =
@@ -203,7 +217,78 @@ ae::DataBuffer ToDataBuffer(std::uint8_t const* data, std::size_t size) {
   }
 }
 
-#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+void ConfigOutputLevelHold(gpio_num_t pin, int level) {
+  (void)gpio_hold_dis(pin);
+  gpio_config_t cfg = {};
+  cfg.pin_bit_mask = 1ULL << static_cast<unsigned>(pin);
+  cfg.mode = GPIO_MODE_OUTPUT;
+  cfg.pull_up_en = GPIO_PULLUP_DISABLE;
+  cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  cfg.intr_type = GPIO_INTR_DISABLE;
+  (void)gpio_config(&cfg);
+  (void)gpio_set_level(pin, level);
+  (void)gpio_hold_en(pin);
+}
+
+void ConfigDisableNoPull(gpio_num_t pin) {
+  (void)gpio_hold_dis(pin);
+  gpio_config_t cfg = {};
+  cfg.pin_bit_mask = 1ULL << static_cast<unsigned>(pin);
+  cfg.mode = GPIO_MODE_DISABLE;
+  cfg.pull_up_en = GPIO_PULLUP_DISABLE;
+  cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  cfg.intr_type = GPIO_INTR_DISABLE;
+  (void)gpio_config(&cfg);
+}
+
+void VerifiedPeripheralShutdownForDeepSleep() {
+  ConfigOutputLevelHold(GPIO_NUM_17, 0);
+  ConfigOutputLevelHold(GPIO_NUM_2, 1);
+  ConfigDisableNoPull(GPIO_NUM_18);
+  ConfigDisableNoPull(GPIO_NUM_6);
+  ConfigDisableNoPull(GPIO_NUM_7);
+}
+
+void PrepareThermometer2DeepSleep() {
+  VerifiedPeripheralShutdownForDeepSleep();
+}
+
+[[noreturn]] void AbortMeasuredHotRun() {
+  g_rtc.phase = static_cast<std::uint8_t>(Phase::kDone);
+  StoreRtc();
+  PrepareThermometer2DeepSleep();
+  esp_sleep_enable_timer_wakeup(3600ull * 1000000ull);
+  (void)esp_deep_sleep_try_to_start();
+  esp_deep_sleep_start();
+  for (;;) {
+  }
+}
+
+void ApplyUdpBaselineFastPathOverrides() {
+  g_cfg = prepared_send::FastPathConfigForProbeProfile(
+      ae::WifiProbeProfile::kP4ChannelIpArp, 50, 200);
+  g_cfg.auth = prepared_send::FastAuthMode::kWpa2;
+  g_cfg.post_mode = prepared_send::FastPostMode::kTxDoneCb;
+  g_cfg.tx_done_wait =
+      prepared_send::FastTxDoneWaitMode::kFirstSuccessNoObserve;
+  g_cfg.use_bssid = true;
+  g_cfg.ps_max_modem = true;
+  g_cfg.fixed_1m = true;
+  g_cfg.set_mac_retry_limit = true;
+  g_cfg.mac_short_retry = 3;
+  g_cfg.mac_long_retry = 3;
+  g_cfg.encode_during_association = false;
+  prepared_send::ApplyPowerBenchToFastPath(
+      &g_cfg, static_cast<std::uint8_t>(g_bench.teardown),
+      g_bench.pmf == power_bench::PmfPolicy::kOff,
+      static_cast<std::uint8_t>(g_bench.connected_ps), g_bench.listen_interval,
+      static_cast<std::uint8_t>(g_bench.phase_ps), false);
+}
+#endif
+
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
+    defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
 void MarkCycleStart() {
   g_rtc.cycle_start_rtc_us = esp_rtc_get_time_us();
   StoreRtc();
@@ -233,6 +318,9 @@ void MarkCycleStart() {
 }
 
 [[noreturn]] void DeepSleepHold() {
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+  PrepareThermometer2DeepSleep();
+#endif
   // Stay asleep after the last measured send so PPK does not see another wake.
   esp_sleep_enable_timer_wakeup(3600ull * 1000000ull);
   StoreRtc();
@@ -318,12 +406,34 @@ bool ExportPrepared(std::uint32_t reserve) {
          prepared_send::PreparedMessageLeft() == reserve;
 }
 
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+bool ExportPreparedForHotRun() {
+  return ExportPrepared(kPreparedReserve) &&
+         prepared_send::PreparedMessageLeft() >= kHotAttempts;
+}
+
+ae::DataBuffer BuildReliabilityPayload(temp_sensor::bench::ReliabilityMsgType kind,
+                                       std::uint32_t seq,
+                                       std::uint8_t prev_status) {
+  temp_sensor::bench::ReliabilityPayload p{};
+  p.type = static_cast<std::uint8_t>(kind);
+  p.run_id = g_rtc.session;
+  p.seq = seq;
+  p.prev_status = prev_status;
+  return temp_sensor::bench::EncodeReliability<ae::DataBuffer>(p);
+}
+#endif
+
 void MaybeStartStreamWork() {
   if (!g_stream || !g_stream->stream_info().is_writable || g_write_armed) {
     return;
   }
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullPrepare)) {
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+    if (ExportPreparedForHotRun()) {
+#else
     if (ExportPrepared(kHotAttempts)) {
+#endif
       g_rtc.phase = static_cast<std::uint8_t>(Phase::kFullArm);
       StoreRtc();
       ReleaseApp();
@@ -333,6 +443,11 @@ void MaybeStartStreamWork() {
     return;
   }
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullArm)) {
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+    auto payload = BuildReliabilityPayload(
+        temp_sensor::bench::ReliabilityMsgType::kFullReady, 0, 0);
+    WritePayload(payload.data(), payload.size());
+#else
     probe::BenchArm arm{};
     arm.session = g_rtc.session;
     arm.variant_id = g_rtc.variant_id;
@@ -342,6 +457,7 @@ void MaybeStartStreamWork() {
     if (n > 0) {
       WritePayload(buf, n);
     }
+#endif
     return;
   }
 #if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
@@ -429,7 +545,11 @@ std::size_t BuildHotPayload(std::uint8_t flags, std::uint8_t* out,
 void RunHotOnce() {
   if (!prepared_send::PreparedWifiRtcCacheIsValid(g_rtc_wifi_cache)) {
     ++g_rtc.bad_wakes;
+    ++g_rtc.wifi_fail;
     StoreRtc();
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+    AbortMeasuredHotRun();
+#endif
     return;
   }
   g_wifi_snapshot =
@@ -438,11 +558,24 @@ void RunHotOnce() {
       prepared_send::PreparedMessageLeft() == 0) {
     ++g_rtc.bad_wakes;
     StoreRtc();
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+    AbortMeasuredHotRun();
+#endif
     return;
   }
 
   ++g_rtc.hot_attempts;
   ++g_rtc.seq;
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+  if (g_rtc.hot_attempts > kHotAttempts) {
+    AbortMeasuredHotRun();
+  }
+  auto payload = BuildReliabilityPayload(
+      temp_sensor::bench::ReliabilityMsgType::kHot,
+      static_cast<std::uint32_t>(g_rtc.seq), g_prev_hot_status);
+  auto const result = prepared_send::SendPreparedOnceWithFastPath(
+      g_cfg, std::move(payload), &g_wifi_snapshot);
+#else
   std::uint8_t buf[probe::kMaxProbeMessageSize]{};
   auto const n = BuildHotPayload(0, buf, sizeof(buf));
   if (n == 0) {
@@ -451,6 +584,7 @@ void RunHotOnce() {
 
   auto const result = prepared_send::SendPreparedOnceWithFastPath(
       g_cfg, ToDataBuffer(buf, n), &g_wifi_snapshot);
+#endif
 
   std::uint8_t flags = 0;
   if (result.sendto_ok != 0) {
@@ -468,6 +602,16 @@ void RunHotOnce() {
   if (result.status == prepared_send::HotSendStatus::kSentTxUnconfirmed) {
     ++g_rtc.tx_unconfirmed;
   }
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+  g_prev_hot_status = static_cast<std::uint8_t>(result.status);
+  if (result.status == prepared_send::HotSendStatus::kEncodeFailed) {
+    AbortMeasuredHotRun();
+  }
+  if (!prepared_send::HasPreparedSendBlock() ||
+      prepared_send::PreparedMessageLeft() == 0) {
+    AbortMeasuredHotRun();
+  }
+#endif
 #if defined(AE_EXP_ENCODE_OVERLAP_DIAG) && AE_EXP_ENCODE_OVERLAP_DIAG
   std::printf(
       "OVLP_HOT seq=%u st=%d sendto=%u txdone=%u wifi_fail=%u\n",
@@ -498,9 +642,15 @@ void PrepareOnBoot() {
     defined(AE_EXP_CACHED_FULL_HOT_1MIN)
   g_bench.encode_during_association = true;
 #endif
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+  g_bench.encode_during_association = false;
+#endif
   (void)power_bench::ApplyRuntimeOptions(g_bench);
   power_bench::ApplyPhyCalibrationPolicy(g_bench);
   g_cfg = power_bench::MakeApFastPath(WIFI_SSID, g_bench);
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+  ApplyUdpBaselineFastPathOverrides();
+#endif
 
   auto const reset = static_cast<esp_reset_reason_t>(g_early.reset_reason);
   bool const valid = ValidRtc(g_rtc);
@@ -544,6 +694,13 @@ void setup() {
   using namespace temp_sensor;  // NOLINT
   nvs_flash_init();
   g_idle = false;
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+  if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
+    for (int s = 0; s < kColdBootFlashWindowS; ++s) {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
+#endif
   PrepareOnBoot();
 
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullPrepare) ||
@@ -579,7 +736,15 @@ void loop() {
           // ReleaseFullAetherWifiForHotPath).
           prepared_send::ReleaseFullAetherWifiForHotPath();
           vTaskDelay(pdMS_TO_TICKS(AE_POWER_BENCH_ARM_MS));
-#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+          g_rtc.phase = static_cast<std::uint8_t>(Phase::kHot);
+          g_rtc.seq = 0;
+          g_rtc.hot_armed = 1;
+          g_prev_hot_status = 0;
+          MarkCycleStart();
+          StoreRtc();
+          DeepSleepUntilNextPeriod();
+#elif defined(AE_EXP_CACHED_FULL_HOT_1MIN)
           g_rtc.phase = static_cast<std::uint8_t>(Phase::kMeasuredFull);
           StoreRtc();
           DeepSleepUntilNextPeriod();
@@ -615,7 +780,8 @@ void loop() {
 
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kHot)) {
     if (g_rtc.hot_attempts >= kHotAttempts) {
-#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
+    defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
       g_rtc.phase = static_cast<std::uint8_t>(Phase::kDone);
       StoreRtc();
       DeepSleepHold();
@@ -634,7 +800,8 @@ void loop() {
     if (g_rtc.hot_armed == 0) {
       g_rtc.hot_armed = 1;
       StoreRtc();
-#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
+    defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
       DeepSleepUntilNextPeriod();
 #else
       DeepSleepHot();
@@ -645,22 +812,28 @@ void loop() {
         ++g_rtc.bad_wakes;
       }
       StoreRtc();
-#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
+    defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
       DeepSleepUntilNextPeriod();
 #else
       DeepSleepHot();
 #endif
     }
-#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
+    defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
     MarkCycleStart();
 #endif
     RunHotOnce();
-#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN) || \
+    defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
     if (g_rtc.hot_attempts >= kHotAttempts) {
       g_rtc.phase = static_cast<std::uint8_t>(Phase::kDone);
       StoreRtc();
       DeepSleepHold();
     }
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+    PrepareThermometer2DeepSleep();
+#endif
     DeepSleepUntilNextPeriod();
 #else
     DeepSleepHot();

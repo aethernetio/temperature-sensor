@@ -9,11 +9,13 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -101,6 +103,53 @@ int g_tcp_links_up = 0;
 bool g_rx_tcp_verified = false;
 std::chrono::steady_clock::time_point g_last_udp_restream =
     std::chrono::steady_clock::time_point::min();
+std::chrono::steady_clock::time_point g_tcp_stable_since =
+    std::chrono::steady_clock::time_point::min();
+bool g_tcp_verify_announced = false;
+bool g_run_tcp_invalid = false;
+std::string g_tcp_endpoint;
+std::string g_tcp_server_sid;
+
+struct RxCli {
+  bool require_tcp = false;
+  int expected_hot = 100;
+  std::filesystem::path session_dir;
+  std::filesystem::path tsv_out;
+} g_cli;
+
+struct HotRunState {
+  bool full_ready = false;
+  std::set<std::uint32_t> hot_seq;
+  int duplicate_count = 0;
+  int out_of_order = 0;
+  std::uint32_t max_seq = 0;
+};
+
+std::map<std::uint32_t, HotRunState> g_hot_runs;
+std::ofstream g_aether_hot_tsv;
+bool g_aether_hot_tsv_ok = false;
+
+void MaybeAnnounceTcpVerified() {
+  if (g_tcp_verify_announced || !g_rx_tcp_verified) {
+    return;
+  }
+  if (g_tcp_stable_since == std::chrono::steady_clock::time_point::min()) {
+    return;
+  }
+  auto const now = std::chrono::steady_clock::now();
+  if (now - g_tcp_stable_since < std::chrono::seconds(5)) {
+    return;
+  }
+  g_tcp_verify_announced = true;
+  std::cout << "RX_TCP_VERIFIED=yes\n";
+  if (!g_tcp_server_sid.empty()) {
+    std::cout << "RX_TCP_SERVER_SID=" << g_tcp_server_sid << "\n";
+  }
+  if (!g_tcp_endpoint.empty()) {
+    std::cout << "RX_TCP_ENDPOINT=" << g_tcp_endpoint << "\n";
+  }
+  std::cout.flush();
+}
 
 void LogTcpTransport(ae::Client& client) {
   static bool logged_waiting = false;
@@ -131,8 +180,10 @@ void LogTcpTransport(ae::Client& client) {
     if (auto ep = ch->endpoint()) {
       if (ep->protocol == ae::Protocol::kTcp) {
         any_tcp = true;
-        std::cout << "RX_TCP_LINK_UP endpoint=" << ae::Format("{}", *ep)
-                  << " server=" << csc->server_id() << "\n";
+        g_tcp_endpoint = ae::Format("{}", *ep);
+        g_tcp_server_sid = ae::Format("{}", csc->server_id());
+        std::cout << "RX_TCP_LINK_UP endpoint=" << g_tcp_endpoint
+                  << " server=" << g_tcp_server_sid << "\n";
       } else if (ep->protocol == ae::Protocol::kUdp) {
         any_udp = true;
         std::cout << "RX_TRANSPORT=UDP endpoint=" << ae::Format("{}", *ep)
@@ -152,12 +203,23 @@ void LogTcpTransport(ae::Client& client) {
   }
   if (any_tcp && !any_udp) {
     g_tcp_links_up = 1;
+    if (!g_rx_tcp_verified) {
+      g_tcp_stable_since = std::chrono::steady_clock::now();
+    }
     g_rx_tcp_verified = true;
     std::cout << "RX_TRANSPORT=TCP\n";
     logged_waiting = false;
+    MaybeAnnounceTcpVerified();
   } else if (any_udp) {
     g_tcp_links_up = 0;
     g_rx_tcp_verified = false;
+    g_tcp_stable_since = std::chrono::steady_clock::time_point::min();
+    g_tcp_verify_announced = false;
+    if (g_cli.require_tcp) {
+      g_run_tcp_invalid = true;
+      std::cout << "FAIL_TCP_RECEIVER=udp_linked_during_require_tcp\n";
+      std::cout.flush();
+    }
   } else if (linked == 0 && client.cloud_connection().count_connections() > 0) {
     if (!logged_waiting) {
       std::cout << "RX_TCP_LINK_DOWN waiting_for_tcp\n";
@@ -924,79 +986,67 @@ void OnMessage(ae::Uid, ae::DataBuffer const& data) {
 
   temp_sensor::bench::ReliabilityPayload rp{};
   if (temp_sensor::bench::DecodeReliability(data, rp)) {
-    static std::uint32_t run_id = 1;
-    static std::uint32_t current_seq = 0;
-    static std::uint64_t received = 0;
-    static std::uint64_t lost = 0;
-    static std::uint64_t duplicates = 0;
-    static bool have_seq = false;
-    static std::ofstream tsv;
-    static bool tsv_ok = false;
+    auto const wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::system_clock::now().time_since_epoch())
+                             .count();
+    auto& run = g_hot_runs[rp.run_id];
+    auto const kind =
+        static_cast<temp_sensor::bench::ReliabilityMsgType>(rp.type);
+    bool duplicate = false;
+    bool out_of_order = false;
 
-    if (!tsv_ok) {
-      auto const session_root = ResolveSessionRoot();
-      auto const path = session_root / "reliability_rx.tsv";
-      tsv.open(path, std::ios::app);
-      if (tsv) {
-        tsv << "wall_ms\trun_id\tpayload_run\tseq\treceived\tlost\tdup\n";
-        tsv_ok = true;
-      }
-    }
-
-    auto print_line = [&]() {
-      double loss_pct = 0.0;
-      auto const denom = received + lost;
-      if (denom > 0) {
-        loss_pct = (100.0 * static_cast<double>(lost)) /
-                   static_cast<double>(denom);
-      }
-      std::cout << "RUN=" << run_id << " seq=" << rp.seq << " recv=" << received
-                << " lost=" << lost << " loss=" << std::fixed
-                << std::setprecision(2) << loss_pct << "%"
-                << " dup=" << duplicates << "\n";
+    if (kind == temp_sensor::bench::ReliabilityMsgType::kFullReady) {
+      run.full_ready = true;
+      std::cout << "AETHER_FULL_READY run_id=" << rp.run_id << " seq=" << rp.seq
+                << "\n";
       std::cout.flush();
-      if (tsv_ok) {
-        auto const ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::system_clock::now().time_since_epoch())
-                            .count();
-        tsv << ms << '\t' << run_id << '\t' << rp.run_id << '\t' << rp.seq
-            << '\t' << received << '\t' << lost << '\t' << duplicates << '\n';
-        tsv.flush();
+    } else if (kind == temp_sensor::bench::ReliabilityMsgType::kHot) {
+      if (run.hot_seq.count(rp.seq) != 0) {
+        duplicate = true;
+        ++run.duplicate_count;
+      } else {
+        if (run.max_seq != 0 && rp.seq + 1 < run.max_seq) {
+          out_of_order = true;
+          ++run.out_of_order;
+        }
+        run.hot_seq.insert(rp.seq);
+        if (rp.seq > run.max_seq) {
+          run.max_seq = rp.seq;
+        }
+        ++g_hot_recv;
       }
-      if (received > 0 && (received % 50) == 0) {
-        std::cout << "=== SUMMARY === run=" << run_id
-                  << " last_seq=" << current_seq << " received=" << received
-                  << " lost=" << lost << " loss_percent=" << std::fixed
-                  << std::setprecision(2) << loss_pct
-                  << " duplicates=" << duplicates << "\n";
-        std::cout.flush();
-      }
-    };
+      std::cout << "AETHER_HOT_RX wall_ms=" << wall_ms << " run_id=" << rp.run_id
+                << " seq=" << rp.seq << " duplicate=" << (duplicate ? 1 : 0)
+                << " out_of_order=" << (out_of_order ? 1 : 0)
+                << " payload_size=" << data.size() << "\n";
+      std::cout.flush();
+    } else if (kind == temp_sensor::bench::ReliabilityMsgType::kFinal) {
+      std::cout << "AETHER_FINAL run_id=" << rp.run_id << " seq=" << rp.seq
+                << "\n";
+      std::cout.flush();
+    }
 
-    if (!have_seq || rp.seq < current_seq) {
-      if (have_seq) {
-        ++run_id;
-        std::cout << "=== NEW RUN DETECTED === previous_seq=" << current_seq
-                  << " new_seq=" << rp.seq << " run=" << run_id << "\n";
-        std::cout.flush();
+    if (!g_aether_hot_tsv_ok) {
+      auto const path = g_cli.tsv_out.empty()
+                            ? ResolveSessionRoot() / "aether_hot_tcp_receiver.tsv"
+                            : g_cli.tsv_out;
+      g_aether_hot_tsv.open(path, std::ios::app);
+      if (g_aether_hot_tsv) {
+        g_aether_hot_tsv
+            << "wall_timestamp_ms\tsender_uid\trun_id\tsequence\tkind\t"
+               "duplicate\tout_of_order\tpayload_size\tprev_status\n";
+        g_aether_hot_tsv_ok = true;
       }
-      have_seq = true;
-      current_seq = rp.seq;
-      received = 1;
-      lost = 0;
-      duplicates = 0;
-      print_line();
-      return;
     }
-    if (rp.seq == current_seq) {
-      ++duplicates;
-      print_line();
-      return;
+    if (g_aether_hot_tsv_ok) {
+      g_aether_hot_tsv << wall_ms << '\t' << ae::Format("{}", sender) << '\t'
+                       << rp.run_id << '\t' << rp.seq << '\t'
+                       << static_cast<int>(rp.type) << '\t'
+                       << (duplicate ? 1 : 0) << '\t' << (out_of_order ? 1 : 0)
+                       << '\t' << data.size() << '\t'
+                       << static_cast<int>(rp.prev_status) << '\n';
+      g_aether_hot_tsv.flush();
     }
-    lost += static_cast<std::uint64_t>(rp.seq - current_seq - 1);
-    ++received;
-    current_seq = rp.seq;
-    print_line();
     return;
   }
 
@@ -1052,13 +1102,41 @@ std::filesystem::path ResolveSessionRoot() {
   return std::filesystem::current_path();
 }
 
+bool ParseCli(int argc, char** argv) {
+  for (int i = 1; i < argc; ++i) {
+    std::string const arg = argv[i];
+    if (arg == "--require-tcp") {
+      g_cli.require_tcp = true;
+    } else if (arg == "--expected" && i + 1 < argc) {
+      g_cli.expected_hot = std::atoi(argv[++i]);
+    } else if (arg == "--state-dir" && i + 1 < argc) {
+      g_cli.session_dir = argv[++i];
+    } else if (arg == "--tsv" && i + 1 < argc) {
+      g_cli.tsv_out = argv[++i];
+    } else if (arg == "--help" || arg == "-h") {
+      std::cout << "Usage: aether_hot_tcp_receiver [--state-dir PATH] "
+                   "[--require-tcp] [--expected N] [--tsv PATH]\n";
+      return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
   std::cout.setf(std::ios::unitbuf);
 #if defined(_WIN32)
   setvbuf(stdout, nullptr, _IONBF, 0);
 #endif
+  if (!ParseCli(argc, argv)) {
+    return 0;
+  }
+  if (!g_cli.session_dir.empty()) {
+#if defined(_WIN32)
+    _putenv_s("AE_RECEIVER_SESSION_DIR", g_cli.session_dir.string().c_str());
+#endif
+  }
   auto const session_root = ResolveSessionRoot();
   std::filesystem::create_directories(session_root / "state");
   std::filesystem::current_path(session_root);
@@ -1102,8 +1180,26 @@ int main() {
     if (client) {
       LogTcpTransport(*client);
       EmitRxHealth();
+      if (g_cli.require_tcp && g_run_tcp_invalid) {
+        aether_app->Exit(2);
+        break;
+      }
     }
     aether_app->WaitUntil(t);
   }
+  if (g_cli.require_tcp && !g_tcp_verify_announced) {
+    std::cout << "FAIL_TCP_RECEIVER=not_verified\n";
+    std::cout.flush();
+    return 2;
+  }
+  for (auto const& [run_id, st] : g_hot_runs) {
+    int const rx = static_cast<int>(st.hot_seq.size());
+    std::cout << "AETHER_HOT_SUMMARY run_id=" << run_id
+              << " full_ready=" << (st.full_ready ? 1 : 0)
+              << " hot_rx=" << rx << "/" << g_cli.expected_hot
+              << " duplicates=" << st.duplicate_count
+              << " out_of_order=" << st.out_of_order << "\n";
+  }
+  std::cout.flush();
   return aether_app->ExitCode();
 }

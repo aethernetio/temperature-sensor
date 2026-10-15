@@ -284,7 +284,7 @@ void setup() {
 
     temp_sensor::bench::ReliabilityPayload p{};
     p.type = static_cast<std::uint8_t>(
-        temp_sensor::bench::ReliabilityMsgType::kFull);
+        temp_sensor::bench::ReliabilityMsgType::kFullReady);
     p.run_id = run_id;
     p.seq = static_cast<std::uint32_t>(i);
 

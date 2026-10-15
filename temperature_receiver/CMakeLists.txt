@@ -25,5 +25,13 @@ target_compile_definitions(temperature_receiver PRIVATE
   "USER_CONFIG=\"${USER_CONFIG}\"")
 target_link_libraries(temperature_receiver PRIVATE aether)
 
+add_executable(aether_hot_tcp_receiver main.cpp)
+target_include_directories(aether_hot_tcp_receiver PRIVATE
+  "${CMAKE_CURRENT_LIST_DIR}/../main")
+target_compile_definitions(aether_hot_tcp_receiver PRIVATE
+  "USER_CONFIG=\"${USER_CONFIG}\""
+  "AE_AETHER_HOT_TCP_RECEIVER=1")
+target_link_libraries(aether_hot_tcp_receiver PRIVATE aether)
+
 # Keep aether state under ./state next to the binary cwd.
 # FileSystemStdStorage always uses relative "state/" directory.

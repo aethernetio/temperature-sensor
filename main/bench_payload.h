@@ -848,20 +848,25 @@ inline bool DecodeNosleep(Buffer const& data, NosleepPayload& out) {
 static constexpr std::uint8_t kReliabilityMagic = 0xDB;
 
 enum class ReliabilityMsgType : std::uint8_t {
-  kFull = 1,
+  kFullReady = 1,
   kHot = 2,
+  kFinal = 3,
 };
+
+static constexpr std::uint8_t kReliabilityVersion = 1;
 
 #pragma pack(push, 1)
 struct ReliabilityPayload {
   std::uint8_t magic{kReliabilityMagic};
+  std::uint8_t version{kReliabilityVersion};
   std::uint8_t type{0};
+  std::uint8_t prev_status{0};
   std::uint32_t run_id{0};
   std::uint32_t seq{0};
 };
 #pragma pack(pop)
 
-static_assert(sizeof(ReliabilityPayload) == 10, "reliability payload size");
+static_assert(sizeof(ReliabilityPayload) == 12, "reliability payload size");
 
 template <typename Buffer>
 inline Buffer EncodeReliability(ReliabilityPayload const& p) {
@@ -872,10 +877,17 @@ inline Buffer EncodeReliability(ReliabilityPayload const& p) {
 
 template <typename Buffer>
 inline bool DecodeReliability(Buffer const& data, ReliabilityPayload& out) {
-  if (data.size() < sizeof(ReliabilityPayload)) {
+  if (data.size() < 10) {
     return false;
   }
-  std::memcpy(&out, data.data(), sizeof(ReliabilityPayload));
+  if (data.size() >= sizeof(ReliabilityPayload)) {
+    std::memcpy(&out, data.data(), sizeof(ReliabilityPayload));
+    return out.magic == kReliabilityMagic;
+  }
+  // Legacy 10-byte layout (no version/prev_status).
+  out = ReliabilityPayload{};
+  std::memcpy(&out.magic, data.data(), 10);
+  out.version = 0;
   return out.magic == kReliabilityMagic;
 }
 
