@@ -1233,14 +1233,14 @@ void PrintPreparedRouteDiagnostics() {
     printf("PREPARED_ROUTE_DIAG invalid_block\n");
     return;
   }
-  auto const* msg = g_prepared_send_message_block.Resolve();
-  auto const addr_text = ae::Format("{}", msg->endpoint.address);
-  auto const proto = static_cast<int>(msg->endpoint.protocol);
-  printf("PREPARED_DEST_UID=%s\n", ae::Format("{}", msg->destination_uid).c_str());
-  printf("PREPARED_TARGET_SID=%s\n", ae::Format("{}", msg->server_id).c_str());
+  auto const msg = g_prepared_send_message_block.Resolve();
+  auto const addr_text = ae::Format("{}", msg.endpoint.address);
+  auto const proto = static_cast<int>(msg.endpoint.protocol);
+  printf("PREPARED_DEST_UID=%s\n", ae::Format("{}", msg.destination_uid).c_str());
+  printf("PREPARED_TARGET_SID=%s\n", ae::Format("{}", msg.server_id).c_str());
   printf("PREPARED_TARGET_ENDPOINT=%s:%u protocol=%d\n", addr_text.c_str(),
-         static_cast<unsigned>(msg->endpoint.port), proto);
-  printf("PREPARED_MESSAGE_LEFT=%u\n", msg->message_left);
+         static_cast<unsigned>(msg.endpoint.port), proto);
+  printf("PREPARED_MESSAGE_LEFT=%u\n", static_cast<unsigned>(msg.message_left));
 }
 
 ae::DataBuffer MakeBenchPayload(std::string_view kind, int sequence) {

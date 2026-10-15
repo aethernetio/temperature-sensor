@@ -427,14 +427,17 @@ bool ExportPreparedForHotRun() {
 }
 
 void CompleteHotFullPrepareAfterWriteSuccess() {
-  printf("FULL_READY_WRITE_SUCCESS run_id=%u\n", g_rtc.session);
+  printf("FULL_READY_WRITE_SUCCESS run_id=%lu\n",
+         static_cast<unsigned long>(g_rtc.session));
   if (!ExportPreparedForHotRun()) {
-    printf("PREPARED_EXPORT_FAIL run_id=%u\n", g_rtc.session);
+    printf("PREPARED_EXPORT_FAIL run_id=%lu\n",
+           static_cast<unsigned long>(g_rtc.session));
     AbortMeasuredHotRun();
   }
   auto const left = prepared_send::PreparedMessageLeft();
-  printf("PREPARED_EXPORT_SUCCESS reserve=%u remaining=%u\n",
-         static_cast<unsigned>(kPreparedReserve), left);
+  printf("PREPARED_EXPORT_SUCCESS reserve=%u remaining=%lu\n",
+         static_cast<unsigned>(kPreparedReserve),
+         static_cast<unsigned long>(left));
   prepared_send::PrintPreparedRouteDiagnostics();
   g_prepared_exported = true;
   g_app->aether().Save();
@@ -446,7 +449,8 @@ void CompleteHotFullPrepareAfterWriteSuccess() {
   ReleaseApp();
   prepared_send::ReleaseFullAetherWifiForHotPath();
   vTaskDelay(pdMS_TO_TICKS(AE_POWER_BENCH_ARM_MS));
-  printf("HOT_MEASURE_ARMED run_id=%u\n", g_rtc.session);
+  printf("HOT_MEASURE_ARMED run_id=%lu\n",
+         static_cast<unsigned long>(g_rtc.session));
   MarkCycleStart();
   DeepSleepUntilNextPeriod();
 }
