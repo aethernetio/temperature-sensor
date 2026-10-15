@@ -1,0 +1,119 @@
+{
+  "repo": "temperature-sensor-prepared",
+  "branch": "diag/udp-100x-2s-ppk-fullcapture",
+  "sha": "61f991862e9c9cc8b5ebcadb460057d4710bb8c6",
+  "start_branch": "diag/udp-100x-2s-ppk-fullcapture",
+  "start_sha": "61f991862e9c9cc8b5ebcadb460057d4710bb8c6",
+  "destination": "192.168.68.65:9000",
+  "config": {
+    "wifi_cache": 1,
+    "period_s": 2,
+    "attempts": 100,
+    "pre_settle_ms": 50,
+    "post_hold_ms": 200,
+    "voltage_mV": 3000
+  },
+  "ppk": {
+    "continuous_capture": true,
+    "raw_sample_integration": true,
+    "segmentation_depends_on_udp": false,
+    "warmup_windows": 1,
+    "measured_windows_detected": 100,
+    "valid_windows": 100,
+    "invalid_windows": 0
+  },
+  "PPK_RUN": "PASS",
+  "udp": {
+    "attempts": 100,
+    "rx_unique": 100,
+    "missing": [],
+    "duplicates": {},
+    "rx_pct": 100.0
+  },
+  "send_time": {
+    "n": 100,
+    "mean": 987.200000000002,
+    "median": 760.0000000000193,
+    "p50": 760.0000000000193,
+    "p90": 842.0000000000045,
+    "p95": 2771.500000000009,
+    "min": 250.0,
+    "max": 9000.0,
+    "stddev": 996.7351552428408
+  },
+  "send_charge": {
+    "n": 100,
+    "mean": 76.7136384004921,
+    "median": 53.64722275661936,
+    "p50": 53.64722275661936,
+    "p90": 63.58400607503359,
+    "p95": 249.45359070489718,
+    "min": 2.275993000662989,
+    "max": 912.0409755133578,
+    "stddev": 103.26174655488362
+  },
+  "send_energy": {
+    "n": 100,
+    "mean": 230.1409152014763,
+    "median": 160.94166826985804,
+    "p50": 160.94166826985804,
+    "p90": 190.75201822510078,
+    "p95": 748.3607721146916,
+    "min": 6.827979001988966,
+    "max": 2736.1229265400734,
+    "stddev": 309.7852396646508
+  },
+  "interval_from_ppk": {
+    "start_to_start": {
+      "n": 99,
+      "mean": 2.2287878787878785,
+      "median": 2.0,
+      "p50": 2.0,
+      "p90": 2.0,
+      "p95": 4.001,
+      "min": 1.9899999999999523,
+      "max": 9.0,
+      "stddev": 0.9622807438869693
+    },
+    "sleep_duration": {
+      "n": 99,
+      "mean": 1.234141414141412,
+      "median": 1.2399999999999807,
+      "p50": 1.2399999999999807,
+      "p90": 1.25,
+      "p95": 1.2599999999999938,
+      "min": 0.0,
+      "max": 1.7900000000000063,
+      "stddev": 0.1707965139741872
+    }
+  },
+  "rx_success": {
+    "n": 100,
+    "median_ms": 760.0000000000193,
+    "median_mC": 53.64722275661936,
+    "p95_mC": 249.45359070489718
+  },
+  "rx_lost": {
+    "n": 0,
+    "median_ms": null,
+    "median_mC": null,
+    "p95_mC": null
+  },
+  "delivery_confirmation": {
+    "PPK_RUN_RX": 100,
+    "RUN_A_RX": 100,
+    "RUN_B_RX": 99,
+    "aggregate_rx": 299,
+    "note": "RUN_B missing seq 78; delivery uses reflash between runs"
+  },
+  "artifacts": {
+    "csv": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\udp_100x_2s_ppk_fullcapture_sends.csv",
+    "json": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\udp_100x_2s_ppk_fullcapture.json",
+    "report": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\UDP_100X_2S_PPK_CACHED_FULLCAPTURE.md",
+    "raw_capture_local": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\udp_100x_2s_ppk_fullcapture_raw\\final_uA_f32.bin",
+    "raw_windows_local": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\udp_100x_2s_ppk_fullcapture_raw\\windows"
+  },
+  "BUILD": "PASS",
+  "FLASH": "PASS",
+  "RUN": "PASS"
+}

@@ -89,6 +89,8 @@ set(AE_UDP_PRE_SETTLE_MS "" CACHE STRING
     "Pre-send settle ms after GOT_IP (UDP low-power combined)")
 set(AE_UDP_POST_SEND_HOLD_MS "" CACHE STRING
     "Post-send hold ms (UDP low-power combined)")
+set(AE_UDP_PERIOD_S "" CACHE STRING
+    "Timer period seconds between wake cycles (UDP low-power combined, default 60)")
 if(AE_EXP_FULL_AETHER_AETHERNETIO STREQUAL "1")
   # Exclusive minimal defaults — do NOT append silent/fastest/wpa2 overlays.
   set(SDKCONFIG_DEFAULTS

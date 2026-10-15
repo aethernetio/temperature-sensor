@@ -95,8 +95,12 @@ constexpr int kPostSendHoldMs = AE_UDP_POST_SEND_HOLD_MS;
 #  ifndef AE_UDP_MEASURED_SENDS
 #    define AE_UDP_MEASURED_SENDS 100
 #  endif
+#  ifndef AE_UDP_PERIOD_S
+#    define AE_UDP_PERIOD_S 60
+#  endif
 constexpr std::uint32_t kMeasuredSends = AE_UDP_MEASURED_SENDS;
-constexpr std::uint64_t kPeriodUs = 60ULL * 1000000ULL;
+constexpr std::uint64_t kPeriodUs =
+    static_cast<std::uint64_t>(AE_UDP_PERIOD_S) * 1000000ULL;
 constexpr std::uint64_t kWarmupSleepUs = 8ULL * 1000000ULL;
 constexpr std::uint64_t kDoneSleepUs = 60ULL * 60ULL * 1000000ULL;
 constexpr int kColdBootFlashWindowS = 60;
