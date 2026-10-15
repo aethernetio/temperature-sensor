@@ -129,6 +129,14 @@ std::map<std::uint32_t, HotRunState> g_hot_runs;
 std::ofstream g_aether_hot_tsv;
 bool g_aether_hot_tsv_ok = false;
 
+std::set<std::string> g_rx_link_announced;
+std::set<std::string> g_receiver_tcp_sids;
+
+ae::Subscription g_select_client_sub;
+ae::Subscription g_servers_update_sub;
+ae::Subscription g_new_port_sub;
+std::vector<ae::Subscription> g_stream_out_subs;
+
 void MaybeAnnounceTcpVerified(bool tcp_ok_now) {
   if (g_tcp_verify_announced || !g_rx_tcp_verified || !tcp_ok_now) {
     return;
@@ -189,46 +197,42 @@ void LogTcpTransport(ae::Client& client) {
     }
   }
   int linked_tcp = 0;
-  int linked_udp = 0;
   for (auto const& le : linked_eps) {
+    char const* proto_name = "OTHER";
     if (le.protocol == ae::Protocol::kTcp) {
+      proto_name = "TCP";
       ++linked_tcp;
+      g_receiver_tcp_sids.insert(le.server_text);
     } else if (le.protocol == ae::Protocol::kUdp) {
-      ++linked_udp;
+      proto_name = "UDP";
     }
-  }
-  for (auto const& le : linked_eps) {
+    std::string const link_key =
+        le.server_text + "|" + proto_name + "|" + le.endpoint_text;
+    if (g_rx_link_announced.insert(link_key).second) {
+      std::cout << "RX_LINK server=" << le.server_text << " protocol=" << proto_name
+                << " endpoint=" << le.endpoint_text << "\n";
+    }
     if (le.protocol == ae::Protocol::kTcp) {
       g_tcp_endpoint = le.endpoint_text;
       g_tcp_server_sid = le.server_text;
-      std::cout << "RX_TCP_LINK_UP endpoint=" << g_tcp_endpoint
-                << " server=" << g_tcp_server_sid << "\n";
-    } else if (le.protocol == ae::Protocol::kUdp) {
-      std::cout << "RX_TRANSPORT=UDP endpoint=" << le.endpoint_text
-                << " server=" << le.server_text << "\n";
-      if (g_cli.require_tcp) {
-        if (linked_tcp >= 1) {
-          le.csc->SetQuarantine(true);
-          le.csc->Disconnect();
-          std::cout << "RX_TCP_QUARANTINE_UDP server=" << le.server_text
-                    << "\n";
-        } else if (allow_restream) {
-          g_last_udp_restream = now;
-          std::cout << "RX_TCP_RESELECT server=" << le.server_text << "\n";
-          le.csc->Restream();
-        }
-      } else if (allow_restream) {
-        g_last_udp_restream = now;
-        std::cout << "RX_TCP_RESELECT server=" << le.server_text << "\n";
-        le.csc->Restream();
-      }
-    } else {
-      std::cout << "RX_TRANSPORT_NOT_TCP protocol="
-                << static_cast<int>(le.protocol)
-                << " endpoint=" << le.endpoint_text << "\n";
+    } else if (le.protocol == ae::Protocol::kUdp && g_cli.require_tcp &&
+               allow_restream) {
+      g_last_udp_restream = now;
+      std::cout << "RX_TCP_RESELECT server=" << le.server_text << "\n";
+      le.csc->Restream();
     }
   }
-  bool const tcp_ok = linked_tcp >= 1 && linked_udp == 0;
+  if (!g_receiver_tcp_sids.empty()) {
+    std::string sids;
+    for (auto const& sid : g_receiver_tcp_sids) {
+      if (!sids.empty()) {
+        sids += ",";
+      }
+      sids += sid;
+    }
+    std::cout << "RECEIVER_TCP_SIDS=" << sids << "\n";
+  }
+  bool const tcp_ok = linked_tcp >= 1;
   if (tcp_ok) {
     g_tcp_links_up = 1;
     if (g_tcp_stable_since == std::chrono::steady_clock::time_point::min()) {
@@ -237,25 +241,15 @@ void LogTcpTransport(ae::Client& client) {
     g_rx_tcp_verified = true;
     std::cout << "RX_TRANSPORT=TCP\n";
     logged_waiting = false;
-    MaybeAnnounceTcpVerified(tcp_ok);
-  } else if (linked_udp > 0) {
-    g_tcp_links_up = linked_tcp >= 1 ? 1 : 0;
-    if (!g_tcp_verify_announced && linked_tcp == 0) {
-      g_rx_tcp_verified = false;
-      g_tcp_stable_since = std::chrono::steady_clock::time_point::min();
-    } else if (linked_tcp >= 1 && g_cli.require_tcp) {
-      g_rx_tcp_verified = true;
-      if (g_tcp_stable_since == std::chrono::steady_clock::time_point::min()) {
-        g_tcp_stable_since = std::chrono::steady_clock::now();
-      }
-      MaybeAnnounceTcpVerified(false);
-    }
+    MaybeAnnounceTcpVerified(true);
   } else if (linked == 0 && client.cloud_connection().count_connections() > 0) {
     if (!logged_waiting) {
       std::cout << "RX_TCP_LINK_DOWN waiting_for_tcp\n";
       logged_waiting = true;
     }
     g_tcp_links_up = 0;
+    g_rx_tcp_verified = false;
+    g_tcp_stable_since = std::chrono::steady_clock::time_point::min();
   }
   std::cout.flush();
 }
@@ -1025,6 +1019,13 @@ void OnMessage(ae::Uid sender, ae::DataBuffer const& data) {
     bool duplicate = false;
     bool out_of_order = false;
 
+    std::uint32_t magic_hex = 0;
+    if (data.size() >= sizeof(magic_hex)) {
+      std::memcpy(&magic_hex, data.data(), sizeof(magic_hex));
+    }
+    std::cout << "RX_PAYLOAD sender=" << ae::Format("{}", sender)
+              << " size=" << data.size() << " magic=" << std::hex << magic_hex
+              << std::dec << "\n";
     if (kind == temp_sensor::bench::ReliabilityMsgType::kFullReady) {
       run.full_ready = true;
       std::cout << "AETHER_FULL_READY run_id=" << rp.run_id << " seq=" << rp.seq
@@ -1173,10 +1174,10 @@ int main(int argc, char** argv) {
 
   auto aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
   ae::Client::ptr client;
-  aether_app->aether()
-      ->SelectClient(kParentUid, kClientName)
-      .result_event()
-      .Subscribe([&](ae::Result<ae::Client::ptr, int> const& res) {
+  g_select_client_sub = ae::Subscription{aether_app->aether()
+                                             ->SelectClient(kParentUid, kClientName)
+                                             .result_event()
+                                             .Subscribe([&](ae::Result<ae::Client::ptr, int> const& res) {
         if (!res) {
           std::cerr << "SelectClient failed\n";
           aether_app->Exit(1);
@@ -1192,18 +1193,23 @@ int main(int argc, char** argv) {
             ->ConfigureRxTimings(ae::RequestPolicy::All{})
             .ForAllPriorities(ae::RxTimingConf::Every(1s).WithWindow(1s));
         LogTcpTransport(*client);
-        client->cloud_connection().servers_update_event().Subscribe(
-            [client]() { LogTcpTransport(*client); });
-        client->message_stream_manager().new_port_event().Subscribe(
+        g_servers_update_sub = ae::Subscription{
+            client->cloud_connection().servers_update_event().Subscribe(
+                [client]() { LogTcpTransport(*client); })};
+        g_new_port_sub = ae::Subscription{
+            client->message_stream_manager().new_port_event().Subscribe(
             [&](ae::P2pPortHandle handle) {
               auto sender = handle.destination();
+              std::cout << "RX_NEW_PORT sender=" << ae::Format("{}", sender)
+                        << "\n";
+              std::cout.flush();
               auto stream = std::make_unique<ae::P2pStream>(
                   *aether_app, client.Load(), sender, std::move(handle));
-              stream->out_data_event().Subscribe(
-                  [sender](auto const& d) { OnMessage(sender, d); });
+              g_stream_out_subs.push_back(ae::Subscription{stream->out_data_event().Subscribe(
+                  [sender](auto const& d) { OnMessage(sender, d); })});
               g_streams.push_back(std::move(stream));
-            });
-      });
+            })};
+      })};
 
   while (!aether_app->IsExited()) {
     auto t = aether_app->Update(ae::Now());

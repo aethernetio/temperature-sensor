@@ -346,6 +346,9 @@ bool ExportPreparedSendBlock(ae::Client::ptr const& client, ae::Uid destination,
 bool HasPreparedSendBlock();
 std::uint32_t PreparedMessageLeft();
 
+// Bench-only: logs destination SID/endpoint/message_left (no keys or nonces).
+void PrintPreparedRouteDiagnostics();
+
 struct WiFiBaseStation {
   uint8_t target_bssid[6];
   uint8_t target_channel;

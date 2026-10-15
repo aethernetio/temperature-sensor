@@ -260,6 +260,12 @@ else()
   if(CM_PLATFORM STREQUAL "ESP32")
     set(WIFI_SSID "" CACHE STRING "WiFi SSID")
     set(WIFI_PASSWORD "" CACHE STRING "WiFi Password")
+    if("${WIFI_SSID}" STREQUAL "" AND DEFINED ENV{AETHER_WIFI_SSID})
+      set(WIFI_SSID "$ENV{AETHER_WIFI_SSID}")
+    endif()
+    if("${WIFI_PASSWORD}" STREQUAL "" AND DEFINED ENV{AETHER_WIFI_PASSWORD})
+      set(WIFI_PASSWORD "$ENV{AETHER_WIFI_PASSWORD}")
+    endif()
     set(BOARD "" CACHE STRING "Selected board - see user_config.h")
 
     #ESP32 CMake

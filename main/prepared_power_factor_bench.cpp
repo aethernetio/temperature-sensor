@@ -245,8 +245,9 @@ void ConfigDisableNoPull(gpio_num_t pin) {
 }
 
 void VerifiedPeripheralShutdownForDeepSleep() {
-  ConfigOutputLevelHold(GPIO_NUM_17, 0);
-  ConfigOutputLevelHold(GPIO_NUM_2, 1);
+  // Thermometer 2 validated ~7 uA sleep (diag/thermometer2-sleep-power-bisect).
+  ConfigOutputLevelHold(GPIO_NUM_2, 0);  // PWR_ON off
+  ConfigOutputLevelHold(GPIO_NUM_17, 0);  // LED rail off
   ConfigDisableNoPull(GPIO_NUM_18);
   ConfigDisableNoPull(GPIO_NUM_6);
   ConfigDisableNoPull(GPIO_NUM_7);
@@ -382,7 +383,16 @@ void ConstructAether() {
       }));
 }
 
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+static bool g_prepared_exported = false;
+#endif
+
 void WritePayload(std::uint8_t const* data, std::size_t size) {
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+  if (g_prepared_exported) {
+    AbortMeasuredHotRun();
+  }
+#endif
   if (!g_stream || !g_stream->stream_info().is_writable) {
     return;
   }
@@ -416,6 +426,31 @@ bool ExportPreparedForHotRun() {
          prepared_send::PreparedMessageLeft() >= kHotAttempts;
 }
 
+void CompleteHotFullPrepareAfterWriteSuccess() {
+  printf("FULL_READY_WRITE_SUCCESS run_id=%u\n", g_rtc.session);
+  if (!ExportPreparedForHotRun()) {
+    printf("PREPARED_EXPORT_FAIL run_id=%u\n", g_rtc.session);
+    AbortMeasuredHotRun();
+  }
+  auto const left = prepared_send::PreparedMessageLeft();
+  printf("PREPARED_EXPORT_SUCCESS reserve=%u remaining=%u\n",
+         static_cast<unsigned>(kPreparedReserve), left);
+  prepared_send::PrintPreparedRouteDiagnostics();
+  g_prepared_exported = true;
+  g_app->aether().Save();
+  g_rtc.phase = static_cast<std::uint8_t>(Phase::kHot);
+  g_rtc.seq = 0;
+  g_rtc.hot_armed = 1;
+  g_prev_hot_status = 0;
+  StoreRtc();
+  ReleaseApp();
+  prepared_send::ReleaseFullAetherWifiForHotPath();
+  vTaskDelay(pdMS_TO_TICKS(AE_POWER_BENCH_ARM_MS));
+  printf("HOT_MEASURE_ARMED run_id=%u\n", g_rtc.session);
+  MarkCycleStart();
+  DeepSleepUntilNextPeriod();
+}
+
 ae::DataBuffer BuildReliabilityPayload(temp_sensor::bench::ReliabilityMsgType kind,
                                        std::uint32_t seq,
                                        std::uint8_t prev_status) {
@@ -434,10 +469,12 @@ void MaybeStartStreamWork() {
   }
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullPrepare)) {
 #if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
-    if (ExportPreparedForHotRun()) {
+    auto payload = BuildReliabilityPayload(
+        temp_sensor::bench::ReliabilityMsgType::kFullReady, 0, 0);
+    WritePayload(payload.data(), payload.size());
+    return;
 #else
     if (ExportPrepared(kHotAttempts)) {
-#endif
       g_rtc.phase = static_cast<std::uint8_t>(Phase::kFullArm);
       StoreRtc();
       ReleaseApp();
@@ -445,13 +482,10 @@ void MaybeStartStreamWork() {
       RestartTo(Phase::kFullArm);
     }
     return;
+#endif
   }
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullArm)) {
-#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
-    auto payload = BuildReliabilityPayload(
-        temp_sensor::bench::ReliabilityMsgType::kFullReady, 0, 0);
-    WritePayload(payload.data(), payload.size());
-#else
+#if !defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
     probe::BenchArm arm{};
     arm.session = g_rtc.session;
     arm.variant_id = g_rtc.variant_id;
@@ -714,7 +748,9 @@ void setup() {
   PrepareOnBoot();
 
   if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullPrepare) ||
+#if !defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
       g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullArm) ||
+#endif
 #if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
       g_rtc.phase == static_cast<std::uint8_t>(Phase::kMeasuredFull) ||
 #endif
@@ -739,6 +775,12 @@ void loop() {
     if (!g_app->IsExited()) {
       (void)g_app->Update(ae::Now());
       if (g_write_armed && g_write_ok) {
+#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
+        if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullPrepare)) {
+          CompleteHotFullPrepareAfterWriteSuccess();
+          return;
+        }
+#endif
         ReleaseApp();
         if (g_rtc.phase == static_cast<std::uint8_t>(Phase::kFullArm)) {
           // Match product adaptive: tear down Aether Wi-Fi, arm-wait, then
@@ -746,15 +788,7 @@ void loop() {
           // ReleaseFullAetherWifiForHotPath).
           prepared_send::ReleaseFullAetherWifiForHotPath();
           vTaskDelay(pdMS_TO_TICKS(AE_POWER_BENCH_ARM_MS));
-#if defined(AETHER_DIAG_AETHER_HOT_CACHED_100X_2S)
-          g_rtc.phase = static_cast<std::uint8_t>(Phase::kHot);
-          g_rtc.seq = 0;
-          g_rtc.hot_armed = 1;
-          g_prev_hot_status = 0;
-          MarkCycleStart();
-          StoreRtc();
-          DeepSleepUntilNextPeriod();
-#elif defined(AE_EXP_CACHED_FULL_HOT_1MIN)
+#if defined(AE_EXP_CACHED_FULL_HOT_1MIN)
           g_rtc.phase = static_cast<std::uint8_t>(Phase::kMeasuredFull);
           StoreRtc();
           DeepSleepUntilNextPeriod();
