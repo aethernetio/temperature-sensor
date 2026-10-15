@@ -392,6 +392,31 @@ def rx_exe_path() -> Path:
     return _resolve_rx_exe(RX_BUILD)
 
 
+def _patch_hot_sdkconfig_smoke_console(sdk_path: Path) -> None:
+    """Smoke (5 HOT) needs USB console for FULL/export serial markers."""
+    if not sdk_path.is_file():
+        return
+    text = sdk_path.read_text(encoding="utf-8", errors="replace")
+    repls = (
+        ("CONFIG_ESP_CONSOLE_NONE=y", "# CONFIG_ESP_CONSOLE_NONE is not set"),
+        (
+            "# CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG is not set",
+            "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
+        ),
+        ("CONFIG_LOG_DEFAULT_LEVEL_NONE=y", "# CONFIG_LOG_DEFAULT_LEVEL_NONE is not set"),
+        (
+            "# CONFIG_LOG_DEFAULT_LEVEL_INFO is not set",
+            "CONFIG_LOG_DEFAULT_LEVEL_INFO=y",
+        ),
+        ("CONFIG_LOG_DEFAULT_LEVEL=0", "CONFIG_LOG_DEFAULT_LEVEL=3"),
+        ("CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y", "CONFIG_BOOTLOADER_LOG_LEVEL_INFO=y"),
+        ("CONFIG_BOOTLOADER_LOG_LEVEL=0", "CONFIG_BOOTLOADER_LOG_LEVEL=3"),
+    )
+    for old, new in repls:
+        text = text.replace(old, new)
+    sdk_path.write_text(text, encoding="utf-8")
+
+
 def _patch_hot_sdkconfig_ulp_off(sdk_path: Path) -> None:
     """Isolate build sdkconfig from repo-root sdkconfig (ULP on for product firmware)."""
     if not sdk_path.is_file():
@@ -517,6 +542,8 @@ if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
             redact_secrets(f"esp set-target/reconfigure failed code={r.returncode}")
         )
     _patch_hot_sdkconfig_ulp_off(BUILD / "sdkconfig")
+    if hot_attempts <= 5:
+        _patch_hot_sdkconfig_smoke_console(BUILD / "sdkconfig")
     build_ps = f"""
 idf.py {defs} reconfigure
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}

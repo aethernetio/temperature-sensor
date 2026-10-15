@@ -1,0 +1,70 @@
+{
+  "label": "smoke",
+  "branch": "diag/aether-hot-e2e-fix-100x-2s",
+  "sha": "e7e1016b8bdba4c075d1365d0333ddb390e7f1fb",
+  "receiver_uid": "5aade50f-00d9-4624-b097-e203cdcf1e38",
+  "tcp_verified": true,
+  "full_ready": false,
+  "run_id": 0,
+  "hot_attempts": 5,
+  "hot_rx": 0,
+  "missing_sequences": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "measured_windows_detected": 5,
+  "valid_windows": 0,
+  "clipped_windows": 5,
+  "force_closed_windows": 6,
+  "stats": {
+    "duration_ms": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p50": null,
+      "p90": null,
+      "p95": null,
+      "min": null,
+      "max": null,
+      "stddev": null
+    },
+    "charge_mC": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p50": null,
+      "p90": null,
+      "p95": null,
+      "min": null,
+      "max": null,
+      "stddev": null
+    }
+  },
+  "raw_ppk_local": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\aether_hot_100x_2s_ppk_tcp_rx_raw",
+  "firmware": {
+    "path": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\build-aether-hot-100x-2s-ppk\\temperature_sensor.bin",
+    "exists": true,
+    "size_bytes": 1485648,
+    "sha256": "eed7e0e8b5f0f8be9593fe5bd611032204800a85374cec70d7162220f331c8ee",
+    "git_sha": "e7e1016b8bdba4c075d1365d0333ddb390e7f1fb"
+  },
+  "serial": {
+    "full_ready_write_seen": false,
+    "prepared_export_seen": false,
+    "prepared_export_order_ok": false,
+    "prepared_reserve": null,
+    "prepared_remaining": null,
+    "prepared_target_sid": "",
+    "hot_measure_armed_seen": false
+  },
+  "receiver_tcp_sids": [
+    "20",
+    "21"
+  ],
+  "TARGET_TCP_MATCH": "no",
+  "energy_confirmed": false,
+  "smoke_state": "FAIL"
+}
