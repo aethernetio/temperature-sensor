@@ -192,8 +192,12 @@ elseif(AE_EXP_CACHED_FULL_HOT_1MIN STREQUAL "1")
 elseif(AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS
        "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
-       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
-       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
+       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.aether_hot_100x_2s_ppk")
+  if(NOT AE_EXP_BISECT_CONSOLE STREQUAL "1")
+    list(APPEND SDKCONFIG_DEFAULTS
+         "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.silent"
+         "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.prepared_low_power")
+  endif()
   set(CMAKE_SUPPRESS_REGENERATION ON)
 elseif(AE_EXP_FULL_1MIN_10 STREQUAL "1")
   list(APPEND SDKCONFIG_DEFAULTS

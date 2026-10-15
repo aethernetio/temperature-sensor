@@ -951,6 +951,11 @@ def main() -> int:
     ap.add_argument("--skip-firmware-build", action="store_true")
     ap.add_argument("--smoke-only", action="store_true")
     ap.add_argument("--skip-ppk", action="store_true")
+    ap.add_argument(
+        "--skip-erase",
+        action="store_true",
+        help="Skip chip erase before flash (use when NVS already clean)",
+    )
     args = ap.parse_args()
     if args.skip_build:
         args.skip_receiver_build = True
@@ -1041,11 +1046,20 @@ def main() -> int:
 
     try:
         print("=== ERASE + FLASH (not measuring) ===", flush=True)
+        ppk.ppk.stop_measuring()
+        ppk.set_off()
+        time.sleep(2.0)
         ppk.power_cycle()
         erase_port = sb.wait_espressif_com(timeout_s=45.0)
-        if erase_port:
+        if erase_port and not args.skip_erase:
             print(f"ERASE_FLASH port={erase_port}", flush=True)
-            erase_flash_chip(erase_port)
+            try:
+                erase_flash_chip(erase_port)
+            except RuntimeError as exc:
+                print(f"ERASE_FLASH_WARN={exc}", flush=True)
+            ppk.ppk.stop_measuring()
+            ppk.set_off()
+            time.sleep(5.0)
         sb.try_flash_with_retries(ppk, BUILD, cold_wait_s=45.0)
         fw_meta = firmware_bin_meta()
         print(f"FIRMWARE_BIN_SHA256={fw_meta.get('sha256', '')}", flush=True)
