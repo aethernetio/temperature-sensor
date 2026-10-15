@@ -17,3 +17,4 @@ experiments/power_best_config/*.pid
 experiments/power_best_config/*.log
 
 experiments/__pycache__/
+experiments/local_aether_wifi.env

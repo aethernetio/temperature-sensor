@@ -24,7 +24,12 @@ ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
 import run_thermometer2_sleep_bisect as sb  # noqa: E402
-from ppk_stream_cycle_segmenter import CycleWindow, SegmenterConfig, StreamingCycleSegmenter  # noqa: E402
+from ppk_stream_cycle_segmenter import (
+    CloseReason,
+    CycleWindow,
+    SegmenterConfig,
+    StreamingCycleSegmenter,
+)  # noqa: E402
 
 BUILD = ROOT / "build-udp-100x-2s-ppk"
 RESULTS = HERE / "power_factor_results"
@@ -300,6 +305,13 @@ def integrate_window(raw_bin: Path, w: CycleWindow) -> dict:
     if len(t) < 100:
         valid = False
         invalid_reason = invalid_reason or "too_few_samples"
+    close_reason = getattr(w, "close_reason", CloseReason.SLEEP_EDGE)
+    if close_reason == CloseReason.FORCE_LIMIT:
+        valid = False
+        invalid_reason = invalid_reason or "force_limit_clip"
+    elif close_reason == CloseReason.FINALIZE:
+        valid = False
+        invalid_reason = invalid_reason or "finalize_no_sleep_edge"
     duration_s = w.wake_end_s - w.wake_start_s
     charge_mC = 0.0
     peak_mA = 0.0
@@ -335,6 +347,7 @@ def integrate_window(raw_bin: Path, w: CycleWindow) -> dict:
         "acquisition_gap": w.max_gap_samples >= GAP_INVALID_SAMPLES,
         "valid": valid,
         "invalid_reason": invalid_reason,
+        "close_reason": str(close_reason.value),
         "raw_window_path": str(win_path),
         "guard_start_sample": g0,
     }

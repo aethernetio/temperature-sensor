@@ -16,6 +16,12 @@ class Phase(Enum):
     IN_WAKE = auto()
 
 
+class CloseReason(str, Enum):
+    SLEEP_EDGE = "sleep_edge"
+    FORCE_LIMIT = "force_limit"
+    FINALIZE = "finalize"
+
+
 @dataclass
 class CycleWindow:
     sequence: int  # 0 = warmup, 1..100 measured
@@ -24,6 +30,7 @@ class CycleWindow:
     wake_start_s: float
     wake_end_s: float
     max_gap_samples: int = 0
+    close_reason: CloseReason = CloseReason.SLEEP_EDGE
 
 
 @dataclass
@@ -31,6 +38,7 @@ class SegmenterConfig:
     fs_hz: float = 100_000.0
     block_samples: int = 1000  # 10 ms @ 100 kHz
     cold_boot_ignore_s: float = 60.0
+    measured_start_s: float | None = None
     wake_sample_ua: float = 3000.0
     sleep_sample_ua: float = 2000.0
     wake_frac: float = 0.85
@@ -40,6 +48,11 @@ class SegmenterConfig:
     max_wake_s: float = 9.0
     max_measured: int = 100
     gap_invalid_samples: int = 500  # 5 ms missing @ 100 kHz
+
+    def effective_measured_start_s(self) -> float:
+        if self.measured_start_s is not None:
+            return max(self.cold_boot_ignore_s, self.measured_start_s)
+        return self.cold_boot_ignore_s
 
 
 @dataclass
@@ -63,16 +76,19 @@ class StreamingCycleSegmenter:
     next_sequence: int = 0  # 0 warmup, then 1..100
     max_gap_in_wake: int = 0
     last_sample_index: int = -1
+    force_closed_count: int = 0
 
     def _block_time_s(self) -> float:
         return (self.block_index * self.cfg.block_samples) / self.cfg.fs_hz
 
-    def _emit_window(self, end_sample: int, end_s: float) -> None:
+    def _emit_window(self, end_sample: int, end_s: float, reason: CloseReason) -> None:
         if self.wake_start_sample >= end_sample:
             return
         seq = self.next_sequence
         if seq > self.cfg.max_measured:
             return
+        if reason == CloseReason.FORCE_LIMIT:
+            self.force_closed_count += 1
         w = CycleWindow(
             sequence=seq,
             wake_start_sample=self.wake_start_sample,
@@ -80,6 +96,7 @@ class StreamingCycleSegmenter:
             wake_start_s=self.wake_start_s,
             wake_end_s=end_s,
             max_gap_samples=self.max_gap_in_wake,
+            close_reason=reason,
         )
         self.windows_closed.append(w)
         if self.on_window:
@@ -99,9 +116,9 @@ class StreamingCycleSegmenter:
     def _process_block(self, block: list[float]) -> None:
         t_block_end = self._block_time_s()
         if self.phase == Phase.IGNORE_COLD_BOOT:
-            if t_block_end >= self.cfg.cold_boot_ignore_s:
-                self.phase = Phase.WAIT_WAKE
-            return
+            if t_block_end < self.cfg.effective_measured_start_s():
+                return
+            self.phase = Phase.WAIT_WAKE
 
         hi_frac, lo_frac = self._block_fracs(block)
         if hi_frac >= self.cfg.wake_frac:
@@ -129,10 +146,18 @@ class StreamingCycleSegmenter:
         if self.phase == Phase.IN_WAKE:
             now_s = self.total_samples / self.cfg.fs_hz
             force = (now_s - self.wake_start_s) >= self.cfg.max_wake_s
-            if force or self.low_run >= self.cfg.sleep_stable_blocks:
+            if force:
                 end_sample = self.total_samples
                 end_s = end_sample / self.cfg.fs_hz
-                self._emit_window(end_sample, end_s)
+                self._emit_window(end_sample, end_s, CloseReason.FORCE_LIMIT)
+                self.phase = Phase.WAIT_WAKE
+                self.in_wake = False
+                self.high_run = 0
+                self.low_run = 0
+            elif self.low_run >= self.cfg.sleep_stable_blocks:
+                end_sample = self.total_samples
+                end_s = end_sample / self.cfg.fs_hz
+                self._emit_window(end_sample, end_s, CloseReason.SLEEP_EDGE)
                 self.phase = Phase.WAIT_WAKE
                 self.in_wake = False
                 self.high_run = 0
@@ -158,7 +183,7 @@ class StreamingCycleSegmenter:
     def finalize(self) -> None:
         if self.phase == Phase.IN_WAKE and self.next_sequence <= self.cfg.max_measured:
             end_sample = self.total_samples
-            self._emit_window(end_sample, end_sample / self.cfg.fs_hz)
+            self._emit_window(end_sample, end_sample / self.cfg.fs_hz, CloseReason.FINALIZE)
 
     @property
     def measured_windows(self) -> int:
@@ -167,3 +192,22 @@ class StreamingCycleSegmenter:
     @property
     def total_windows_including_warmup(self) -> int:
         return len(self.windows_closed)
+
+    @property
+    def clipped_windows(self) -> int:
+        return sum(
+            1
+            for w in self.windows_closed
+            if 1 <= w.sequence <= self.cfg.max_measured
+            and w.close_reason == CloseReason.FORCE_LIMIT
+        )
+
+
+def aether_hot_segmenter_config(*, hot_n: int, measured_start_s: float | None = None) -> SegmenterConfig:
+    return SegmenterConfig(
+        fs_hz=100_000.0,
+        cold_boot_ignore_s=60.0,
+        measured_start_s=measured_start_s,
+        max_wake_s=45.0,
+        max_measured=hot_n,
+    )

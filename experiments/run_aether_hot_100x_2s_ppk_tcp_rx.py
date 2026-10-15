@@ -22,7 +22,13 @@ ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
 import run_thermometer2_sleep_bisect as sb  # noqa: E402
-from ppk_stream_cycle_segmenter import CycleWindow, SegmenterConfig, StreamingCycleSegmenter  # noqa: E402
+from ppk_stream_cycle_segmenter import (  # noqa: E402
+    CloseReason,
+    CycleWindow,
+    SegmenterConfig,
+    StreamingCycleSegmenter,
+    aether_hot_segmenter_config,
+)
 from run_udp_100x_2s_ppk_fullcapture import (  # noqa: E402
     COLD_BOOT_S,
     FS_HZ,
@@ -65,13 +71,48 @@ RE_HOT_RX = re.compile(
 RE_FULL_READY = re.compile(r"AETHER_FULL_READY run_id=(\d+)")
 RE_TCP_OK = re.compile(r"RX_TCP_VERIFIED=yes")
 RE_FAIL_TCP = re.compile(r"FAIL_TCP_RECEIVER=")
+RE_PREPARED_SID = re.compile(r"PREPARED_TARGET_SID=([^\s]+)")
+RE_RECEIVER_TCP_SIDS = re.compile(r"RECEIVER_TCP_SIDS=([^\s]+)")
+RE_HOT_ARMED = re.compile(r"HOT_MEASURE_ARMED run_id=(\d+)")
+RE_FULL_READY_TX = re.compile(r"FULL_READY_WRITE_SUCCESS run_id=(\d+)")
+RE_PREP_EXPORT = re.compile(r"PREPARED_EXPORT_SUCCESS reserve=(\d+) remaining=(\d+)")
 
 AETHER_PIN_SHA = "157aadbec8e7b852d0f89274307ff7cb8103e5f7"
 PINNED_AETHER_LOCAL = Path(r"C:/Users/nickc/Projects/aether-client-cpp-prepared-packet-v0")
 
 
+def _load_local_wifi_env_file() -> None:
+    path = HERE / "local_aether_wifi.env"
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip('"').strip("'")
+        if key and val and key not in os.environ:
+            os.environ[key] = val
+
+
 def wifi_creds() -> tuple[str, str]:
-    return "chirkov", "kcdjepWz51"
+    _load_local_wifi_env_file()
+    ssid = os.environ.get("AETHER_WIFI_SSID", "").strip()
+    password = os.environ.get("AETHER_WIFI_PASSWORD", "").strip()
+    if not ssid or not password:
+        raise RuntimeError(
+            "Set AETHER_WIFI_SSID and AETHER_WIFI_PASSWORD in the environment, "
+            "or provide experiments/local_aether_wifi.env (gitignored)."
+        )
+    return ssid, password
+
+
+def redact_secrets(text: str) -> str:
+    pwd = os.environ.get("AETHER_WIFI_PASSWORD", "")
+    if pwd:
+        text = text.replace(pwd, "***REDACTED***")
+    return text
 
 
 def git_meta() -> tuple[str, str]:
@@ -372,7 +413,7 @@ def _patch_hot_sdkconfig_ulp_off(sdk_path: Path) -> None:
 
 def build_firmware(service_uid: str, *, hot_attempts: int = MEASURED, period_ms: int = 2000) -> None:
     BUILD.mkdir(parents=True, exist_ok=True)
-    ssid, password = wifi_creds()
+    ssid, _password = wifi_creds()
     b = BUILD.as_posix()
     sdk_cfg = (BUILD / "sdkconfig").as_posix()
     defs = (
@@ -381,7 +422,6 @@ def build_firmware(service_uid: str, *, hot_attempts: int = MEASURED, period_ms:
         f"-D AETHER_DIAG_AETHER_HOT_100X_2S_PPK=1 "
         f"-D BOARD=0 "
         f"-D WIFI_SSID={ssid} "
-        f"-D WIFI_PASSWORD={password} "
         f"-D SERVICE_UID={service_uid} "
         f"-D AE_POWER_BENCH_VARIANT=400 "
         f"-D AE_POWER_BENCH_ARM_MS=20000 "
@@ -399,18 +439,22 @@ if (-not (Test-Path '{b}/CMakeCache.txt')) {{
 idf.py {defs} reconfigure
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
 """
-    r = sb.run(sb.idf_cmd(extra), cwd=str(ROOT))
+    idf_env = os.environ.copy()
+    wifi_creds()  # validate env present; password only via AETHER_WIFI_PASSWORD for CMake
+    r = sb.run(sb.idf_cmd(extra), cwd=str(ROOT), env=idf_env)
     if r.returncode != 0:
-        raise RuntimeError(f"esp set-target/reconfigure failed code={r.returncode}")
+        raise RuntimeError(
+            redact_secrets(f"esp set-target/reconfigure failed code={r.returncode}")
+        )
     _patch_hot_sdkconfig_ulp_off(BUILD / "sdkconfig")
     build_ps = f"""
 idf.py {defs} reconfigure
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
 idf.py {defs} build
 """
-    r = sb.run(sb.idf_cmd(build_ps), cwd=str(ROOT))
+    r = sb.run(sb.idf_cmd(build_ps), cwd=str(ROOT), env=idf_env)
     if r.returncode != 0:
-        raise RuntimeError(f"esp build failed code={r.returncode}")
+        raise RuntimeError(redact_secrets(f"esp build failed code={r.returncode}"))
 
 
 class TcpReceiverProc:
@@ -531,19 +575,27 @@ class TcpReceiverProc:
 
 
 class ContinuousPpkCapture:
-    def __init__(self, ppk: sb.PpkSession, raw_bin: Path, meta_path: Path) -> None:
+    def __init__(
+        self,
+        ppk: sb.PpkSession,
+        raw_bin: Path,
+        meta_path: Path,
+        *,
+        hot_n: int,
+        measured_start_s: float | None = None,
+    ) -> None:
         self.ppk = ppk
         self.raw_bin = raw_bin
         self.meta_path = meta_path
         self.bin_f = raw_bin.open("wb")
         self.wall_start = 0.0
-        self.sample_count = 0
-        self.cfg = SegmenterConfig(fs_hz=FS_HZ, cold_boot_ignore_s=COLD_BOOT_S, max_measured=MEASURED)
+        self.power_on_wall = 0.0
+        self.cfg = aether_hot_segmenter_config(hot_n=hot_n, measured_start_s=measured_start_s)
         self.segmenter = StreamingCycleSegmenter(self.cfg)
+        self.sample_count = 0
 
     def start(self) -> None:
         self.wall_start = time.time()
-        self.ppk.set_on()
         self.ppk.ppk.start_measuring()
 
     def stop(self) -> None:
@@ -553,7 +605,12 @@ class ContinuousPpkCapture:
         meta = {
             "fs_hz": FS_HZ,
             "wall_start_utc": datetime.fromtimestamp(self.wall_start, tz=timezone.utc).isoformat(),
+            "power_on_wall_utc": datetime.fromtimestamp(self.power_on_wall, tz=timezone.utc).isoformat(),
+            "measured_start_s": self.cfg.measured_start_s,
+            "max_wake_s": self.cfg.max_wake_s,
             "sample_count": self.sample_count,
+            "force_closed_windows": self.segmenter.force_closed_count,
+            "clipped_windows": self.segmenter.clipped_windows,
             "voltage_mV": VOLTAGE_MV,
             "raw_bin": str(self.raw_bin),
         }
@@ -572,27 +629,52 @@ class ContinuousPpkCapture:
         self.segmenter.feed_chunk(arr)
 
 
+def resegment_aether_offline(
+    raw_bin: Path, *, hot_n: int, measured_start_s: float | None
+) -> tuple[int, list[CycleWindow], StreamingCycleSegmenter]:
+    u = np.fromfile(raw_bin, dtype=np.float32)
+    seg = StreamingCycleSegmenter(
+        aether_hot_segmenter_config(hot_n=hot_n, measured_start_s=measured_start_s)
+    )
+    chunk = 100_000
+    for i in range(0, len(u), chunk):
+        seg.feed_chunk(u[i : i + chunk])
+    seg.finalize()
+    measured = len([w for w in seg.windows_closed if 1 <= w.sequence <= hot_n])
+    return measured, seg.windows_closed, seg
+
+
 def run_ppk_capture(
-    ppk: sb.PpkSession, label: str, raw_bin: Path, *, hot_n: int = MEASURED
+    ppk: sb.PpkSession,
+    label: str,
+    raw_bin: Path,
+    *,
+    hot_n: int = MEASURED,
+    measured_start_s: float | None = None,
+    trailing_sleep_s: float = 30.0,
 ) -> StreamingCycleSegmenter:
     meta = raw_bin.with_suffix(".json")
-    cap = ContinuousPpkCapture(ppk, raw_bin, meta)
-    cap.segmenter = StreamingCycleSegmenter(
-        SegmenterConfig(fs_hz=FS_HZ, cold_boot_ignore_s=COLD_BOOT_S, max_measured=hot_n)
+    cap = ContinuousPpkCapture(
+        ppk, raw_bin, meta, hot_n=hot_n, measured_start_s=measured_start_s
     )
     cap.start()
+    cap.power_on_wall = time.time()
+    ppk.power_cycle()
     t0 = time.time()
-    deadline = t0 + COLD_BOOT_S + hot_n * 6 + 180
+    max_wake = cap.cfg.max_wake_s
+    deadline = t0 + COLD_BOOT_S + 120.0 + hot_n * (max_wake + PERIOD_S) + trailing_sleep_s
     while time.time() < deadline:
         cap.drain()
         if cap.segmenter.measured_windows >= hot_n:
-            time.sleep(2.0)
+            time.sleep(trailing_sleep_s)
             cap.drain()
             break
         time.sleep(0.002)
     cap.stop()
     print(
-        f"CAPTURE {label} measured={cap.segmenter.measured_windows} samples={cap.sample_count}",
+        f"CAPTURE {label} measured={cap.segmenter.measured_windows} "
+        f"clipped={cap.segmenter.clipped_windows} force={cap.segmenter.force_closed_count} "
+        f"samples={cap.sample_count}",
         flush=True,
     )
     return cap.segmenter
@@ -662,6 +744,44 @@ def write_csv(rows: list[dict], run_id: int) -> None:
             )
 
 
+def delivery_report(rx: TcpReceiverProc, hot_n: int) -> dict:
+    run_ids = sorted({e["run_id"] for e in rx.events}) or [0]
+    run_id = run_ids[-1]
+    rx_map = rx.rx_map(run_id)
+    missing = [i for i in range(1, hot_n + 1) if i not in rx_map]
+    dups = sum(max(0, len({e["seq"] for e in rx.events if e["run_id"] == run_id and e["seq"] == s}) - 1) for s in range(1, hot_n + 1))
+    ooo = sum(1 for e in rx.events if e["run_id"] == run_id and e.get("out_of_order"))
+    return {
+        "run_id": run_id,
+        "full_ready": run_id in rx.full_ready_runs,
+        "hot_rx": len(rx_map),
+        "missing_sequences": missing,
+        "duplicates": dups,
+        "out_of_order": ooo,
+    }
+
+
+def wait_delivery_run(ppk: sb.PpkSession, rx: TcpReceiverProc, hot_n: int) -> None:
+    rx.events.clear()
+    rx.full_ready_runs.clear()
+    ppk.power_cycle()
+    deadline = time.time() + COLD_BOOT_S + 180.0 + hot_n * (PERIOD_S + 45.0)
+    while time.time() < deadline:
+        run_ids = {e["run_id"] for e in rx.events}
+        if not run_ids:
+            time.sleep(0.2)
+            continue
+        run_id = max(run_ids)
+        if run_id not in rx.full_ready_runs:
+            time.sleep(0.2)
+            continue
+        rx_map = rx.rx_map(run_id)
+        if len(rx_map) >= hot_n:
+            time.sleep(15.0)
+            return
+        time.sleep(0.2)
+
+
 def receiver_only_smoke(rx: TcpReceiverProc, *, hold_s: float = 15.0) -> int:
     """Receiver TCP + UID without PPK or ESP flash."""
     print("RECEIVER_ONLY_SMOKE=1 PPK_TOUCHED=no ESP_FLASHED=no", flush=True)
@@ -698,8 +818,16 @@ def analyze_run(
     *,
     hot_n: int,
     label: str,
+    measured_start_s: float | None = None,
+    seg: StreamingCycleSegmenter | None = None,
 ) -> tuple[dict, int]:
-    measured, windows = resegment_offline(raw_bin)
+    if seg is None:
+        measured, windows, seg = resegment_aether_offline(
+            raw_bin, hot_n=hot_n, measured_start_s=measured_start_s
+        )
+    else:
+        windows = seg.windows_closed
+        measured = seg.measured_windows
     run_ids = sorted({e["run_id"] for e in rx.events}) or [0]
     run_id = run_ids[-1] if run_ids else 0
     rx_map = rx.rx_map(run_id)
@@ -710,6 +838,9 @@ def analyze_run(
     d_mc = [r["charge_mC"] for r in rows if r.get("valid")]
     hot_rx = sum(1 for r in rows if r.get("receiver_received"))
     missing = [i for i in range(1, hot_n + 1) if i not in rx_map]
+    clipped = seg.clipped_windows if seg else sum(
+        1 for w in windows if 1 <= w.sequence <= hot_n and w.close_reason == CloseReason.FORCE_LIMIT
+    )
     rep = {
         "label": label,
         "branch": START_BRANCH,
@@ -723,6 +854,8 @@ def analyze_run(
         "missing_sequences": missing,
         "measured_windows_detected": measured,
         "valid_windows": sum(1 for r in rows if r.get("valid")),
+        "clipped_windows": clipped,
+        "force_closed_windows": seg.force_closed_count if seg else 0,
         "stats": {
             "duration_ms": agg_stats(d_ms),
             "charge_mC": agg_stats(d_mc),
@@ -734,6 +867,7 @@ def analyze_run(
         and not rx.fail_tcp
         and bool(rx.full_ready_runs)
         and measured >= hot_n
+        and clipped == 0
         and rep["valid_windows"] >= max(1, hot_n - 1)
     )
     return rep, 0 if ok else 1
@@ -796,43 +930,142 @@ def main() -> int:
 
     ppk = sb.PpkSession(VOLTAGE_MV)
     ppk.open()
-    try:
-        print("=== FLASH ===", flush=True)
-        sb.try_flash_with_retries(ppk, BUILD, cold_wait_s=45.0)
-        time.sleep(1.0)
-        port = sb.wait_espressif_com(timeout_s=25.0)
-        if port:
-            sb.hard_reset(port)
-        ppk.power_cycle()
-        port = sb.wait_espressif_com(timeout_s=50.0)
-        if port:
-            sb.hard_reset(port)
-        # Match firmware kColdBootFlashWindowS before FULL prepare on cold reset.
-        time.sleep(65.0)
+    serial_log_path = RESULTS / "aether_hot_smoke_serial.log"
+    serial_lines: list[str] = []
+    serial_stop = threading.Event()
 
-        raw_bin = LOCAL_RAW / ("smoke.bin" if args.smoke_only else "run1.bin")
-        run_ppk_capture(ppk, "PPK_RUN1", raw_bin, hot_n=hot_n)
-        label = "smoke" if args.smoke_only else "full"
-        rep, rc = analyze_run(rx, raw_bin, hot_n=hot_n, label=label)
-        out_json = (
-            RESULTS / "aether_hot_smoke_5_ppk_tcp_rx.json"
-            if args.smoke_only
-            else JSON_OUT
-        )
+    def serial_reader() -> None:
+        port = sb.wait_espressif_com(timeout_s=90.0)
+        if not port:
+            return
+        try:
+            import serial  # type: ignore
+
+            with serial.Serial(port, 115200, timeout=0.2) as ser:
+                while not serial_stop.is_set():
+                    raw = ser.readline()
+                    if not raw:
+                        continue
+                    line = raw.decode("utf-8", errors="replace").rstrip()
+                    serial_lines.append(line)
+                    print(f"ESP|{redact_secrets(line)}", flush=True)
+        except Exception as exc:
+            serial_lines.append(f"SERIAL_ERR={exc!r}")
+
+    serial_thread: threading.Thread | None = None
+    if args.smoke_only:
+        serial_thread = threading.Thread(target=serial_reader, daemon=True)
+        serial_thread.start()
+
+    try:
+        print("=== FLASH (not measuring) ===", flush=True)
+        sb.try_flash_with_retries(ppk, BUILD, cold_wait_s=45.0)
+        ppk.ppk.stop_measuring()
+        ppk.set_off()
+        time.sleep(0.5)
+
+        def one_run(
+            raw_bin: Path,
+            label: str,
+            *,
+            with_ppk: bool,
+            wait_after_hot_s: float = 15.0,
+        ) -> tuple[StreamingCycleSegmenter | None, float | None]:
+            measured_start_s: float | None = None
+            seg: StreamingCycleSegmenter | None = None
+            if with_ppk:
+                meta = raw_bin.with_suffix(".json")
+                cap = ContinuousPpkCapture(
+                    ppk, raw_bin, meta, hot_n=hot_n, measured_start_s=None
+                )
+                cap.start()
+                cap.power_on_wall = time.time()
+                ppk.power_cycle()
+            else:
+                ppk.power_cycle()
+                time.sleep(0.5)
+            t_cap = time.time()
+            max_wake = 45.0
+            deadline = t_cap + COLD_BOOT_S + 120.0 + hot_n * (max_wake + PERIOD_S) + 30.0
+            while time.time() < deadline:
+                if with_ppk:
+                    cap.drain()
+                    seg = cap.segmenter
+                    if cap.segmenter.measured_windows >= hot_n:
+                        break
+                else:
+                    if len(rx.events) >= hot_n:
+                        break
+                time.sleep(0.05 if not with_ppk else 0.002)
+            time.sleep(wait_after_hot_s)
+            if with_ppk:
+                cap.drain()
+                cap.stop()
+                seg = cap.segmenter
+            serial_blob = "\n".join(serial_lines)
+            m = RE_HOT_ARMED.search(serial_blob)
+            if m and with_ppk and cap.wall_start > 0:
+                hot_wall = time.time() - wait_after_hot_s
+                for line in reversed(serial_lines):
+                    if RE_HOT_ARMED.search(line):
+                        break
+                measured_start_s = max(COLD_BOOT_S, hot_wall - cap.wall_start - 1.0)
+            return seg, measured_start_s
+
+        if args.smoke_only:
+            raw_bin = LOCAL_RAW / "smoke.bin"
+            seg, measured_start_s = one_run(raw_bin, "smoke", with_ppk=True)
+            serial_stop.set()
+            if serial_thread:
+                serial_thread.join(timeout=5.0)
+            serial_log_path.write_text(
+                redact_secrets("\n".join(serial_lines)), encoding="utf-8"
+            )
+            label = "smoke"
+            rep, rc = analyze_run(
+                rx, raw_bin, hot_n=hot_n, label=label, measured_start_s=measured_start_s, seg=seg
+            )
+            out_json = RESULTS / "aether_hot_smoke_fixed.json"
+        else:
+            raw1 = LOCAL_RAW / "run1.bin"
+            seg1, ms1 = one_run(raw1, "run1", with_ppk=True)
+            rep1, _ = analyze_run(
+                rx, raw1, hot_n=hot_n, label="full", measured_start_s=ms1, seg=seg1
+            )
+            wait_delivery_run(ppk, rx, hot_n)
+            rep2 = delivery_report(rx, hot_n)
+            wait_delivery_run(ppk, rx, hot_n)
+            rep3 = delivery_report(rx, hot_n)
+            rep = {
+                "run1": rep1,
+                "run2": rep2,
+                "run3": rep3,
+                "branch": START_BRANCH,
+                "sha": START_SHA,
+                "CREDENTIAL_ROTATION_REQUIRED": "yes",
+            }
+            out_json = JSON_OUT
+            rc = 0 if (
+                rep1.get("clipped_windows", 1) == 0
+                and rep1.get("valid_windows", 0) >= 95
+                and rep1.get("hot_rx", 0) >= hot_n - 3
+                and rep2.get("hot_rx", 0) >= hot_n - 3
+                and rep3.get("hot_rx", 0) >= hot_n - 3
+            ) else 1
+
         out_json.write_text(json.dumps(rep, indent=2), encoding="utf-8")
         MD_OUT.write_text(
-            f"# Æther HOT 100x / 2s / PPK / TCP receiver\n\n"
-            f"- receiver_uid: `{rx.receiver_uid}`\n"
-            f"- TCP verified: {rx.tcp_verified}\n"
-            f"- PPK measured windows: {rep['measured_windows_detected']}\n"
-            f"- E2E HOT RX: {rep['hot_rx']}/{hot_n}\n"
-            f"- json: `{out_json}`\n",
+            redact_secrets(
+                f"# Æther HOT 100x / 2s / PPK / TCP receiver\n\n"
+                f"- json: `{out_json}`\n"
+            ),
             encoding="utf-8",
         )
-        print(json.dumps(rep, indent=2), flush=True)
+        print(redact_secrets(json.dumps(rep, indent=2)), flush=True)
         rx.stop()
         return rc
     finally:
+        serial_stop.set()
         ppk.close()
 
 
