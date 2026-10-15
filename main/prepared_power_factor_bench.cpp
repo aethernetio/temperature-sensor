@@ -725,12 +725,14 @@ void PrepareOnBoot() {
              phase == Phase::kMeasuredFull) {
     // Measured cached FULL after warmup ARM.
 #endif
-  } else if (valid && phase == Phase::kHot &&
-             (reset == ESP_RST_SW || reset == ESP_RST_POWERON)) {
+  } else if (valid && phase == Phase::kHot && reset == ESP_RST_SW) {
     // RestartTo(kHot) after BENCH_ARM uses esp_restart(); keep HOT RTC state.
   } else if (!valid) {
     InitRtc(Phase::kFullPrepare);
   } else if (cold && phase == Phase::kDone) {
+    InitRtc(Phase::kFullPrepare);
+  } else if (reset == ESP_RST_POWERON) {
+    // PPK cold power must not reuse stale RTC (skip FULL / HOT without export).
     InitRtc(Phase::kFullPrepare);
   }
 }

@@ -62,6 +62,8 @@ _RX_STATE_CANDIDATES = (
     HERE / "aether_hot_tcp_rx_session",
 )
 RX_STATE = next((p for p in _RX_STATE_CANDIDATES if p.is_dir()), HERE / "aether_hot_tcp_rx_session")
+FS_INIT_HEADER = HERE / "preprovision" / "sender_fs_157aadbe.h"
+BENCH_CLIENT_ID = "reliability_full_v1"
 
 START_BRANCH = ""
 START_SHA = ""
@@ -454,7 +456,29 @@ def target_tcp_match_from_rx(rx: TcpReceiverProc, prepared_sid: str) -> tuple[bo
     return prepared_sid.strip() in [s.strip() for s in sids], sids
 
 
+def erase_flash_chip(port: str) -> None:
+    cmd = [
+        str(sb.IDF_PYTHON),
+        "-m",
+        "esptool",
+        "--chip",
+        "esp32c6",
+        "-p",
+        port,
+        "-b",
+        "460800",
+        "erase_flash",
+    ]
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    r = subprocess.run(cmd, cwd=str(BUILD), env=env, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"erase_flash failed: {r.stderr or r.stdout}")
+
+
 def build_firmware(service_uid: str, *, hot_attempts: int = MEASURED, period_ms: int = 2000) -> None:
+    if not FS_INIT_HEADER.is_file():
+        raise RuntimeError(f"missing FS_INIT header: {FS_INIT_HEADER}")
     BUILD.mkdir(parents=True, exist_ok=True)
     ssid, _password = wifi_creds()
     b = BUILD.as_posix()
@@ -471,7 +495,8 @@ def build_firmware(service_uid: str, *, hot_attempts: int = MEASURED, period_ms:
         f"-D AETHER_POWER_BENCH_HOT_ATTEMPTS={hot_attempts} "
         f"-D AETHER_POWER_BENCH_HOT_SLEEP_MS={period_ms} "
         f"-D AETHER_PREPARED_HOT_RESERVE=128 "
-        f"-D BENCH_CLIENT_ID=aether_hot_tcp_bench_v1 "
+        f"-D BENCH_CLIENT_ID={BENCH_CLIENT_ID} "
+        f"-D FS_INIT={FS_INIT_HEADER.as_posix()} "
     )
     if hot_attempts <= 5:
         defs += " -D AE_EXP_BISECT_CONSOLE=1 "
@@ -980,27 +1005,47 @@ def main() -> int:
     serial_stop = threading.Event()
 
     def serial_reader() -> None:
-        port = sb.wait_espressif_com(timeout_s=90.0)
+        port: str | None = None
+        for _ in range(90):
+            if serial_stop.is_set():
+                return
+            port = sb.wait_espressif_com(timeout_s=2.0)
+            if port:
+                break
+            time.sleep(0.5)
         if not port:
+            serial_lines.append("SERIAL_ERR=no_espressif_com")
             return
-        try:
-            import serial  # type: ignore
+        for attempt in range(8):
+            if serial_stop.is_set():
+                return
+            try:
+                import serial  # type: ignore
 
-            with serial.Serial(port, 115200, timeout=0.2) as ser:
-                while not serial_stop.is_set():
-                    raw = ser.readline()
-                    if not raw:
-                        continue
-                    line = raw.decode("utf-8", errors="replace").rstrip()
-                    serial_lines.append(line)
-                    print(f"ESP|{redact_secrets(line)}", flush=True)
-        except Exception as exc:
-            serial_lines.append(f"SERIAL_ERR={exc!r}")
+                with serial.Serial(port, 115200, timeout=0.2) as ser:
+                    serial_lines.append(f"SERIAL_OPEN port={port}")
+                    while not serial_stop.is_set():
+                        raw = ser.readline()
+                        if not raw:
+                            continue
+                        line = raw.decode("utf-8", errors="replace").rstrip()
+                        serial_lines.append(line)
+                        print(f"ESP|{redact_secrets(line)}", flush=True)
+                return
+            except Exception as exc:
+                serial_lines.append(f"SERIAL_ERR={exc!r}")
+                time.sleep(1.0)
+                port = sb.wait_espressif_com(timeout_s=5.0) or port
 
     serial_thread: threading.Thread | None = None
 
     try:
-        print("=== FLASH (not measuring) ===", flush=True)
+        print("=== ERASE + FLASH (not measuring) ===", flush=True)
+        ppk.power_cycle()
+        erase_port = sb.wait_espressif_com(timeout_s=45.0)
+        if erase_port:
+            print(f"ERASE_FLASH port={erase_port}", flush=True)
+            erase_flash_chip(erase_port)
         sb.try_flash_with_retries(ppk, BUILD, cold_wait_s=45.0)
         fw_meta = firmware_bin_meta()
         print(f"FIRMWARE_BIN_SHA256={fw_meta.get('sha256', '')}", flush=True)
