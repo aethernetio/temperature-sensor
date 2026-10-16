@@ -67,6 +67,10 @@ static void PreConstructCleanup() {
   if (!g_had_aether_app) {
     return;
   }
+#if AE_EXP_PREPARED_MESSAGE_E2E
+  // Same-boot register → full cycle: keep ESP-IDF Wi-Fi/netif (historical E2E).
+  return;
+#endif
 #  if !AE_WIFI_USE_FULL_DEINIT
   esp_netif_deinit();
   esp_event_loop_delete_default();
