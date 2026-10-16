@@ -1,7 +1,8 @@
 {
   "stage": 1,
   "branch": "diag/thermometer2-aether-full-vanilla",
-  "git_head": "f517c40",
+  "git_head": "ffa8715",
+  "pushed": "yes",
   "firmware_sha256_smoke_build": "925de6c5a83857982550f1c9838d6c20049ab7bfe343429fe8e43b3fe8db3794",
   "build_dir": "build-thermometer2-aether-full-vanilla",
   "aether_git": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
@@ -32,6 +33,5 @@
   "PREPARED_USED": "no",
   "HOT_USED": "no",
   "WIFI_CACHE_USED": "no",
-  "OPTIMIZED_UDP_PROFILE_CHANGED": "no",
-  "pushed": "pending"
+  "OPTIMIZED_UDP_PROFILE_CHANGED": "no"
 }
