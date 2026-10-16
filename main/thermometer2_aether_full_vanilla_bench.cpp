@@ -85,8 +85,20 @@ struct RtcState {
   std::uint32_t crc;
 };
 
+struct CycleJournalEntry {
+  std::uint32_t run_id;
+  std::uint8_t got_ip;
+  std::uint8_t select_ok;
+  std::uint8_t write_called;
+  std::uint8_t write_status;
+  std::uint8_t fail_stage;
+  std::uint8_t pad;
+  std::uint32_t active_ms;
+};
+
 #if defined(ESP_PLATFORM)
 RTC_NOINIT_ATTR RtcState g_rtc{};
+RTC_NOINIT_ATTR CycleJournalEntry g_journal[100]{};
 
 static ae::WiFiInit MakeVanillaWifiInit() {
   ae::WiFiPowerSaveParam psp{};
@@ -115,6 +127,8 @@ FailStage g_fail = FailStage::kNone;
 std::int64_t g_active_t0_us = 0;
 std::int64_t g_deadline_us = 0;
 
+[[noreturn]] void IdleAfterCampaign();
+
 void StageLog(char const* line) {
 #if defined(AE_EXP_BENCH_STAGE) && AE_EXP_BENCH_STAGE
   std::printf("%s\n", line);
@@ -122,6 +136,33 @@ void StageLog(char const* line) {
 #else
   (void)line;
 #endif
+}
+
+extern "C" void ae_exp_on_wifi_sta_connected(std::uint8_t /*channel*/) {
+  StageLog("STA_CONNECTED");
+}
+
+extern "C" void ae_exp_on_wifi_got_ip(void) {
+  StageLog("GOT_IP");
+  g_got_ip_logged = true;
+}
+
+void DumpJournalAndIdle() {
+  std::printf("JOURNAL_DUMP count=%d\n", AE_THERM_FULL_MEASURE_CYCLES);
+  for (int i = 0; i < AE_THERM_FULL_MEASURE_CYCLES; ++i) {
+    auto const& e = g_journal[static_cast<std::size_t>(i)];
+    std::printf(
+        "JOURNAL_DUMP cycle=%d run_id=%lu got_ip=%u select_ok=%u write_called=%u "
+        "write_status=%u fail_stage=%u active_ms=%lu\n",
+        i + 1, static_cast<unsigned long>(e.run_id),
+        static_cast<unsigned>(e.got_ip), static_cast<unsigned>(e.select_ok),
+        static_cast<unsigned>(e.write_called),
+        static_cast<unsigned>(e.write_status),
+        static_cast<unsigned>(e.fail_stage),
+        static_cast<unsigned long>(e.active_ms));
+  }
+  std::fflush(stdout);
+  IdleAfterCampaign();
 }
 
 std::uint32_t Crc32(void const* data, std::size_t len) {
@@ -165,6 +206,37 @@ std::uint32_t MessageRunId() {
   return (g_rtc.session << 16) | (static_cast<std::uint32_t>(g_rtc.cycle) & 0xffffu);
 }
 
+void LogCycleJournal(std::uint16_t cycle_index) {
+  if (cycle_index < 1 || cycle_index > AE_THERM_FULL_MEASURE_CYCLES) {
+    return;
+  }
+  auto const idx = static_cast<std::size_t>(cycle_index - 1);
+  auto const active_ms = static_cast<std::uint32_t>(
+      (esp_timer_get_time() - g_active_t0_us) / 1000);
+  g_journal[idx] = CycleJournalEntry{
+      MessageRunId(),
+      static_cast<std::uint8_t>(g_got_ip_logged ? 1 : 0),
+      static_cast<std::uint8_t>(g_select_ok ? 1 : 0),
+      static_cast<std::uint8_t>(g_write_armed ? 1 : 0),
+      static_cast<std::uint8_t>(g_write_status),
+      static_cast<std::uint8_t>(g_fail),
+      0,
+      active_ms,
+  };
+  std::printf(
+      "JOURNAL cycle=%u run_id=%lu got_ip=%u select_ok=%u write_called=%u "
+      "write_status=%u fail_stage=%u active_ms=%lu\n",
+      static_cast<unsigned>(cycle_index),
+      static_cast<unsigned long>(MessageRunId()),
+      static_cast<unsigned>(g_got_ip_logged ? 1 : 0),
+      static_cast<unsigned>(g_select_ok ? 1 : 0),
+      static_cast<unsigned>(g_write_armed ? 1 : 0),
+      static_cast<unsigned>(g_write_status),
+      static_cast<unsigned>(g_fail),
+      static_cast<unsigned long>(active_ms));
+  std::fflush(stdout);
+}
+
 #if AE_DISTILLATION
 static void ReleaseWifiDriversBeforeAppReset() {
   if (!g_app || !g_app->aether() || !g_app->aether()->adapter_registry) {
@@ -192,22 +264,17 @@ void ReleaseApp() {
 }
 
 void ConstructAether() {
-  g_app = ae::AetherApp::Construct(ae::AetherAppContext{}.AdaptersFactory(
-      [&](ae::AetherAppContext const& ctx) {
-        auto ap = ae::AdapterRegistry::ptr{ctx.aether()->adapter_registry};
-        if (!ap.is_valid()) {
-          ap = ae::AdapterRegistry::ptr::Create(
-              ae::CreateWith{ctx.domain()}
-                  .with_id(ae::GlobalId::kAdapterRegistry)
-                  .with_flags(ae::ObjFlags::kUnloadedByDefault));
-        }
-        auto loaded_reg = ap.Load();
-        loaded_reg->Clear();
-        loaded_reg->Add(ae::WifiAdapter::ptr::Create(
-            ae::CreateWith{ctx.domain()}, ctx.aether(), ctx.poller(),
-            ctx.dns_resolver(), MakeVanillaWifiInit()));
-        return ap;
-      }));
+  g_app = ae::AetherApp::Construct(
+      ae::AetherAppContext{}
+#if AE_DISTILLATION
+          .AddAdapterFactory([&](ae::AetherAppContext const& ctx) {
+            return ae::WifiAdapter::ptr::Create(
+                ae::CreateWith{ctx.domain()}.with_id(ae::GlobalId::kWiFiAdapter),
+                ctx.aether(), ctx.poller(), ctx.dns_resolver(),
+                MakeVanillaWifiInit());
+          })
+#endif
+  );
 }
 
 template <typename Pred>
@@ -254,6 +321,7 @@ void MaybeWrite() {
   }
   temp_sensor::bench::ReliabilityPayload p{};
   p.type = static_cast<std::uint8_t>(temp_sensor::bench::ReliabilityMsgType::kFull);
+  // Receiver (157aadbe) treats Reliability type 1 as FULL (kFullReady alias).
   p.run_id = MessageRunId();
   p.seq = 0;
   auto payload = temp_sensor::bench::EncodeReliability<ae::DataBuffer>(p);
@@ -330,9 +398,10 @@ void StartCycle() {
 }
 
 void FinishCycleAndSleep() {
+  LogCycleJournal(g_rtc.cycle);
   g_cycle_active = false;
   if (g_app && g_app->aether()) {
-    AeExpSaveSetCaller(AeExpSaveCaller::kNone);
+    ae::AeExpSaveSetCaller(ae::AeExpSaveCaller::kNone);
     g_app->aether().Save();
     StageLog("STATE_SAVED");
   }
@@ -380,7 +449,7 @@ void setup() {
 
   if (g_rtc.cycle >= AE_THERM_FULL_MEASURE_CYCLES &&
       g_rtc.measure_armed != 0) {
-    IdleAfterCampaign();
+    DumpJournalAndIdle();
   }
 
   if (g_rtc.cycle == 0) {

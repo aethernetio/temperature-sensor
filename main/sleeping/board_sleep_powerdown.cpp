@@ -63,10 +63,10 @@ extern "C" void BoardPowerDownForDeepSleep(void) {
   (void)esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ULP);
 
 #  ifdef SENSOR_SDA_PIN
-  HoldInputHighZ(SENSOR_SDA_PIN);
+  HoldInputHighZ(static_cast<gpio_num_t>(SENSOR_SDA_PIN));
 #  endif
 #  ifdef SENSOR_SCL_PIN
-  HoldInputHighZ(SENSOR_SCL_PIN);
+  HoldInputHighZ(static_cast<gpio_num_t>(SENSOR_SCL_PIN));
 #  endif
 
 #  if defined(BOARD_HAS_PWR_ON) && BOARD_HAS_PWR_ON == 1 && \

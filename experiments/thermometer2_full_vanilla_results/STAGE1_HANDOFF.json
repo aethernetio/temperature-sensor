@@ -1,0 +1,37 @@
+{
+  "stage": 1,
+  "branch": "diag/thermometer2-aether-full-vanilla",
+  "git_head": "f517c40",
+  "firmware_sha256_smoke_build": "925de6c5a83857982550f1c9838d6c20049ab7bfe343429fe8e43b3fe8db3794",
+  "build_dir": "build-thermometer2-aether-full-vanilla",
+  "aether_git": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
+  "aether_local": "deps/aether-client-cpp-157aadbe-diag",
+  "aether_patch_files": [
+    "aether/adapters/wifi_adapter.cpp",
+    "aether/adapters/wifi_adapter.h",
+    "aether/wifi/esp_wifi_driver.cpp"
+  ],
+  "wifi_effective": {
+    "AE_EXP_WIFI_CANONICAL": 1,
+    "AE_EXP_WIFI_FEAT_AMPDU_OFF": 0,
+    "AE_EXP_WIFI_FEAT_SCAN_THRESHOLD": 0,
+    "AE_EXP_WIFI_FEAT_CONNECT_RETRY10": 0,
+    "AE_EXP_WIFI_FEAT_FAIL_DISCONNECT": 0,
+    "WIFI_PS": "WIFI_PS_NONE",
+    "DHCP": true,
+    "sdkconfig_ampdu_tx": true,
+    "sdkconfig_ampdu_rx": true,
+    "AETHER_PREPARED_HOT_compile_defs": "excluded when AE_EXP_THERMOMETER2_FULL_VANILLA=1"
+  },
+  "smoke_rx": null,
+  "full_rx_100": null,
+  "ppk_complete_windows_100": null,
+  "blockers": [
+    "No Espressif USB serial (VID_303A) detected; smoke/measure not run on bench"
+  ],
+  "PREPARED_USED": "no",
+  "HOT_USED": "no",
+  "WIFI_CACHE_USED": "no",
+  "OPTIMIZED_UDP_PROFILE_CHANGED": "no",
+  "pushed": "pending"
+}

@@ -26,8 +26,9 @@ CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=y
 CONFIG_ESP_BROWNOUT_DET=y
 CONFIG_ESP_BROWNOUT_DET_LVL_SEL_7=y
 
-# Measured path: quiet UART (smoke runs append sdkconfig.defaults.bench via CMake).
-CONFIG_ESP_CONSOLE_NONE=y
+# Measured path: USB console for compact JOURNAL lines only (smoke appends sdkconfig.defaults.bench).
+# CONFIG_ESP_CONSOLE_NONE is not set
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
 CONFIG_LOG_DEFAULT_LEVEL_NONE=y
 CONFIG_LOG_DEFAULT_LEVEL=0
