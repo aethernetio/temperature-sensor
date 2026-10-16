@@ -162,6 +162,11 @@ elseif(AE_EXP_PREPARED_MESSAGE_E2E)
     "prepared_message_e2e_bench.cpp"
     "prepared_send/prepared_send.cpp"
   )
+elseif(AE_EXP_THERMOMETER2_FULL_VANILLA)
+  list(APPEND src_list
+    "thermometer2_aether_full_vanilla_bench.cpp"
+    "sleeping/board_sleep_powerdown.cpp"
+  )
 elseif(AE_EXP_WIFI_LIFECYCLE)
   list(APPEND src_list "wifi_lifecycle_bench.cpp")
 elseif(AE_EXP_FULL_CYCLES)
@@ -291,6 +296,10 @@ set(AE_EXP_WIFI_LIFECYCLE_VARIANT "" CACHE STRING "Wi-Fi lifecycle variant id (0
 set(AE_EXP_WIFI_LIFECYCLE_CYCLES "" CACHE STRING "Wi-Fi lifecycle cycles (default 10)")
 set(AE_EXP_WIFI_COOLDOWN_MS "" CACHE STRING "Cooldown between cycles, outside timer (ms)")
 set(AE_EXP_PREPARED_MESSAGE_E2E "" CACHE STRING "No-sleep prepared-message E2E bench (set to 1)")
+set(AE_EXP_THERMOMETER2_FULL_VANILLA "" CACHE STRING "Thermometer2 full Aether vanilla Wi-Fi deep-sleep bench (set to 1)")
+set(AE_THERM_FULL_VANILLA_SLEEP_S "" CACHE STRING "Deep sleep seconds between FULL cycles (default 20)")
+set(AE_THERM_FULL_ACTIVE_TIMEOUT_MS "" CACHE STRING "Active cycle timeout ms (default 60000)")
+set(AE_THERM_FULL_MEASURE_CYCLES "" CACHE STRING "Measured FULL cycles per campaign (default 100, smoke=3)")
 set(AE_EXP_PREPARED_WIFI_CACHE_5X20 "" CACHE STRING "Silent 5x20 prepared Wi-Fi cache bench (set to 1)")
 set(AE_EXP_PREPARED_KEEP_WIFI_UP_5X20 "" CACHE STRING "Silent 5x20 keep-Wi-Fi-up prepared bench (set to 1)")
 set(AE_EXP_PREPARED_WIFI_BISECT "" CACHE STRING "Silent single-factor prepared Wi-Fi bisect (set to 1)")
@@ -375,6 +384,10 @@ ae_exp_define_if_set(AE_EXP_WIFI_LIFECYCLE_VARIANT)
 ae_exp_define_if_set(AE_EXP_WIFI_LIFECYCLE_CYCLES)
 ae_exp_define_if_set(AE_EXP_WIFI_COOLDOWN_MS)
 ae_exp_define_if_set(AE_EXP_PREPARED_MESSAGE_E2E)
+ae_exp_define_if_set(AE_EXP_THERMOMETER2_FULL_VANILLA)
+ae_exp_define_if_set(AE_THERM_FULL_VANILLA_SLEEP_S)
+ae_exp_define_if_set(AE_THERM_FULL_ACTIVE_TIMEOUT_MS)
+ae_exp_define_if_set(AE_THERM_FULL_MEASURE_CYCLES)
 ae_exp_define_if_set(AE_EXP_DIAG)
 ae_exp_define_if_set(AE_EXP_WIFI_DRV_DIAG)
 ae_exp_define_if_set(AE_EXP_PRECON_SKIP)
