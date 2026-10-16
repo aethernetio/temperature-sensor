@@ -1,0 +1,94 @@
+{
+  "hypothesis": "CONFIRMED",
+  "diag": {
+    "full_rx": 0,
+    "prepared_rx": 0,
+    "duplicates": -1,
+    "heap_panic": false,
+    "esp_done": false,
+    "receiver_uid": "c451c678-8b69-4d63-bdcd-019512df02f4",
+    "recv_full_lines": 0,
+    "recv_prepared_lines": 0,
+    "driver_ptrs": [
+      "0x4082ba2c",
+      "0x4083488c"
+    ],
+    "first_driver_destroyed": false,
+    "precon_skipped": true,
+    "precon_esp_netif_deinit_err": null,
+    "precon_event_loop_delete_err": null,
+    "second_create_default_err": 259,
+    "second_wifi_init_err": null,
+    "create_default_errs": [
+      0,
+      259
+    ],
+    "wifi_init_errs": [
+      0
+    ],
+    "run_id": "diag_precon_skip",
+    "precon_skip_build": true,
+    "pass": false
+  },
+  "fix1": {
+    "full_rx": 0,
+    "prepared_rx": 0,
+    "duplicates": -1,
+    "heap_panic": false,
+    "esp_done": false,
+    "receiver_uid": "e090a17c-999a-41a5-a2f0-57b0ab5165dd",
+    "recv_full_lines": 0,
+    "recv_prepared_lines": 0,
+    "driver_ptrs": [
+      "0x4082b97c",
+      "0x40831180"
+    ],
+    "first_driver_destroyed": false,
+    "precon_skipped": true,
+    "precon_esp_netif_deinit_err": null,
+    "precon_event_loop_delete_err": null,
+    "second_create_default_err": 259,
+    "second_wifi_init_err": null,
+    "create_default_errs": [
+      0,
+      259
+    ],
+    "wifi_init_errs": [
+      0
+    ],
+    "run_id": "fix_historical_precon_1",
+    "precon_skip_build": false,
+    "pass": false
+  },
+  "fix2": {
+    "full_rx": 0,
+    "prepared_rx": 0,
+    "duplicates": -1,
+    "heap_panic": false,
+    "esp_done": false,
+    "receiver_uid": "a69c76a9-a2ae-4e21-8160-b9faaedbce8c",
+    "recv_full_lines": 0,
+    "recv_prepared_lines": 0,
+    "driver_ptrs": [
+      "0x4082ba2c",
+      "0x40830264"
+    ],
+    "first_driver_destroyed": false,
+    "precon_skipped": true,
+    "precon_esp_netif_deinit_err": null,
+    "precon_event_loop_delete_err": null,
+    "second_create_default_err": 259,
+    "second_wifi_init_err": null,
+    "create_default_errs": [
+      0,
+      259
+    ],
+    "wifi_init_errs": [
+      0
+    ],
+    "run_id": "fix_historical_precon_2",
+    "precon_skip_build": false,
+    "pass": false
+  },
+  "firmware_sha256": "2648cd0e465e3787e09f4b14204e87f883abdd525f3200fc24bdbb75f8456293"
+}

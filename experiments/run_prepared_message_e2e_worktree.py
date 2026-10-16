@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 HERE = Path(__file__).resolve().parent
-AETHER_LOCAL = Path(r"C:/Users/nickc/Projects/aether-client-cpp-prepared-packet-v0")
+AETHER_LOCAL = ROOT / "deps" / "aether-client-cpp-157aadbe-diag"
 RX_ROOT = HERE / "prepared_message_receiver"
 RX_BUILD = RX_ROOT / "build-msvc"
 RX_SESSION = HERE / "prepared_message_rx_session_restore"
@@ -23,7 +23,190 @@ RESULT_JSON = HERE / "prepared_message_e2e_restore_result.json"
 
 ESPRESSIF_VID = 0x303A
 BENCH_CLIENT_ID = "prepared_message_bench_v6"
-CAPTURE_SEC = 600
+CAPTURE_SEC = 900
+
+
+def cmake_common_defs(
+    service_uid: str,
+    ssid: str,
+    password: str,
+    *,
+    precon_skip: bool,
+    wifi_diag: bool,
+) -> list[str]:
+    defs = [
+        "-D",
+        "SDKCONFIG_DEFAULTS=sdkconfig.defaults",
+        "-D",
+        f"WIFI_SSID={ssid}",
+        "-D",
+        f"WIFI_PASSWORD={password}",
+        "-D",
+        f"SERVICE_UID={service_uid}",
+        "-D",
+        "BENCH_CLIENT_ID=" + BENCH_CLIENT_ID,
+        "-D",
+        "AE_EXP_PREPARED_MESSAGE_E2E=1",
+        "-D",
+        "AE_EXP_SKIP_DTOR_SAVE=1",
+        "-D",
+        "AE_EXP_WIFI_LIFECYCLE=",
+        "-D",
+        "AE_EXP_FULL_CYCLES=",
+        "-D",
+        "AETHER_PREPARED_NONCE_RESERVE=10",
+    ]
+    if wifi_diag:
+        defs += ["-D", "AE_EXP_DIAG=1", "-D", "AE_EXP_WIFI_DRV_DIAG=1"]
+    if precon_skip:
+        defs += ["-D", "AE_EXP_PRECON_SKIP=1"]
+    if AETHER_LOCAL.is_dir():
+        defs += [
+            "-D",
+            f"CPM_aether-client-cpp_SOURCE={AETHER_LOCAL.as_posix()}",
+        ]
+    return defs
+
+
+def ps_common_array(defs: list[str]) -> str:
+    parts = []
+    for d in defs:
+        if d.startswith("-D") and "=" in d and " " not in d:
+            k, _, v = d.partition("=")
+            parts.append(f"'{k}','{v}'")
+        elif d == "-D":
+            continue
+        else:
+            parts.append(repr(d))
+    # rebuild as pairs for WIFI_PASSWORD env case handled separately in build_esp
+    return ""
+
+
+def write_build_snapshot(tag: str, precon_skip: bool, wifi_diag: bool) -> None:
+    import hashlib
+    import json
+
+    bin_path = ESP_BUILD / "temperature_sensor.bin"
+    elf_path = ESP_BUILD / "temperature_sensor.elf"
+    sdk = ESP_BUILD / "sdkconfig"
+    snap = HERE / f"build_snapshot_{tag}.json"
+    lib_sha = ""
+    lib_dirty = ""
+    if AETHER_LOCAL.is_dir():
+        r = subprocess.run(
+            ["git", "-C", str(AETHER_LOCAL), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        lib_sha = (r.stdout or "").strip()
+        r2 = subprocess.run(
+            ["git", "-C", str(AETHER_LOCAL), "status", "--short"],
+            capture_output=True,
+            text=True,
+        )
+        lib_dirty = (r2.stdout or "").strip()
+    r3 = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    r4 = subprocess.run(
+        ["git", "-C", str(ROOT), "diff", "--stat"],
+        capture_output=True,
+        text=True,
+    )
+    fw_hash = ""
+    if bin_path.is_file():
+        fw_hash = hashlib.sha256(bin_path.read_bytes()).hexdigest()
+    compile_probe = ""
+    probe = ESP_BUILD / "compile_flags_probe.txt"
+    if probe.is_file():
+        compile_probe = probe.read_text(encoding="utf-8", errors="replace")[:4000]
+    data = {
+        "tag": tag,
+        "git_head": (r3.stdout or "").strip(),
+        "git_diff_stat": (r4.stdout or "").strip(),
+        "firmware_sha256": fw_hash,
+        "elf": str(elf_path) if elf_path.is_file() else "",
+        "sdkconfig": str(sdk) if sdk.is_file() else "",
+        "library_path": str(AETHER_LOCAL),
+        "library_sha": lib_sha,
+        "library_local_patch": lib_dirty,
+        "cmake_precon_skip": precon_skip,
+        "cmake_wifi_diag": wifi_diag,
+        "compile_probe_excerpt": compile_probe,
+    }
+    snap.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    print(json.dumps(data, indent=2), flush=True)
+
+
+def parse_wifi_diag(esp_text: str) -> dict:
+    drivers: list[str] = []
+    create_errs: list[int] = []
+    wifi_init_errs: list[int] = []
+    precon_skip = "reason=AE_EXP_PRECON_SKIP" in esp_text
+    precon_ran = "PRECON_CLEANUP run=1" in esp_text
+    precon_delete = None
+    precon_netif = None
+    dtor_ends = 0
+    for line in esp_text.splitlines():
+        if line.startswith("WIFI_DRV_DIAG"):
+            m = re.search(r"ptr=(0x[0-9a-fA-F]+)", line)
+            if m and m.group(1) not in drivers:
+                drivers.append(m.group(1))
+            if "esp_event_loop_create_default" in line:
+                em = re.search(r"err=(-?\d+)", line)
+                if em:
+                    create_errs.append(int(em.group(1)))
+            if "esp_wifi_init" in line:
+                em = re.search(r"err=(-?\d+)", line)
+                if em:
+                    wifi_init_errs.append(int(em.group(1)))
+            if "\tdtor\t" in line and "end" in line:
+                dtor_ends += 1
+        if "LC\t" in line and "dtor_end" in line:
+            dtor_ends += 1
+        if "LC\t" in line and "Deinit_end" in line:
+            dtor_ends += 1
+        if "esp_event_loop_delete_default err=" in line:
+            em = re.search(r"err=(-?\d+)", line)
+            if em:
+                precon_delete = int(em.group(1))
+        if "esp_netif_deinit err=" in line:
+            em = re.search(r"err=(-?\d+)", line)
+            if em:
+                precon_netif = int(em.group(1))
+    return {
+        "driver_ptrs": drivers,
+        "first_driver_destroyed": dtor_ends >= 1,
+        "precon_skipped": precon_skip,
+        "precon_ran_historical": precon_ran,
+        "precon_esp_netif_deinit_err": precon_netif,
+        "precon_event_loop_delete_err": precon_delete,
+        "second_create_default_err": create_errs[1] if len(create_errs) > 1 else None,
+        "second_wifi_init_err": wifi_init_errs[1] if len(wifi_init_errs) > 1 else None,
+        "create_default_errs": create_errs,
+        "wifi_init_errs": wifi_init_errs,
+    }
+
+
+def extract_compile_flags_from_log() -> None:
+    """After build, grep ninja log for main bench object compile line."""
+    log_dir = ESP_BUILD / "log"
+    probe = ESP_BUILD / "compile_flags_probe.txt"
+    if not log_dir.is_dir():
+        return
+    logs = sorted(log_dir.glob("idf_py_stdout_output_*"), key=lambda p: p.stat().st_mtime)
+    if not logs:
+        return
+    text = logs[-1].read_text(encoding="utf-8", errors="replace")
+    for line in text.splitlines():
+        if "prepared_message_e2e_bench.cpp.obj" in line and "-DAE_" in line:
+            probe.write_text(line[-3500:], encoding="utf-8")
+            return
+        if "_deps/aether-client-cpp-build" in line and "esp_wifi_driver.cpp.obj" in line:
+            probe.write_text("aether:" + line[-2000:], encoding="utf-8")
+            return
 
 
 def load_wifi() -> tuple[str, str]:
@@ -170,7 +353,16 @@ def wait_receiver_uid(timeout_s: float = 600.0) -> str:
     raise RuntimeError("receiver UID timeout")
 
 
-def build_esp(service_uid: str, ssid: str, password: str, flash: bool, port: str) -> None:
+def build_esp(
+    service_uid: str,
+    ssid: str,
+    password: str,
+    flash: bool,
+    port: str,
+    *,
+    precon_skip: bool,
+    wifi_diag: bool,
+) -> None:
     ESP_BUILD.mkdir(parents=True, exist_ok=True)
     import shutil
 
@@ -182,11 +374,19 @@ def build_esp(service_uid: str, ssid: str, password: str, flash: bool, port: str
         if "IDF_TARGET:STRING=esp32c6" not in text:
             shutil.rmtree(ESP_BUILD)
     ESP_BUILD.mkdir(parents=True, exist_ok=True)
-    # ESP firmware uses CPM pin from CMakeLists; do not override aether source here.
-    aether_cpm = ""
     b = ESP_BUILD.as_posix()
     pwd_ps = password.replace("'", "''")
     ssid_ps = ssid.replace("'", "''")
+    extra_items: list[str] = []
+    if wifi_diag:
+        extra_items += ["AE_EXP_DIAG=1", "AE_EXP_WIFI_DRV_DIAG=1"]
+    extra_items.append(f"AE_EXP_PRECON_SKIP={1 if precon_skip else 0}")
+    if AETHER_LOCAL.is_dir():
+        extra_items.append(f"CPM_aether-client-cpp_SOURCE={AETHER_LOCAL.as_posix()}")
+    extra_ps = "\n".join(f"  '-D','{item}'," for item in extra_items)
+    if extra_ps:
+        # PowerShell rejects a trailing comma before ')' with no next element.
+        extra_ps = extra_ps.rstrip(",\n") + "\n"
     extra = f"""
 $env:AETHER_WIFI_PASSWORD = '{pwd_ps}'
 $common = @(
@@ -200,9 +400,10 @@ $common = @(
   '-D','AE_EXP_SKIP_DTOR_SAVE=1',
   '-D','AE_EXP_WIFI_LIFECYCLE=',
   '-D','AE_EXP_FULL_CYCLES=',
-  '-D','AETHER_PREPARED_NONCE_RESERVE=10'
+  '-D','AETHER_PREPARED_NONCE_RESERVE=10',
+{extra_ps}
 )
-{aether_cpm}if (-not (Test-Path '{b}/CMakeCache.txt')) {{
+if (-not (Test-Path '{b}/CMakeCache.txt')) {{
   idf.py @common set-target esp32c6
   if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
 }}
@@ -212,6 +413,7 @@ idf.py @common build
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
 """
     run_idf(extra)
+    extract_compile_flags_from_log()
     if not flash:
         return
     release_serial_port(port)
@@ -228,9 +430,10 @@ $common = @(
   '-D','AE_EXP_SKIP_DTOR_SAVE=1',
   '-D','AE_EXP_WIFI_LIFECYCLE=',
   '-D','AE_EXP_FULL_CYCLES=',
-  '-D','AETHER_PREPARED_NONCE_RESERVE=10'
+  '-D','AETHER_PREPARED_NONCE_RESERVE=10',
+{extra_ps}
 )
-{aether_cpm}idf.py @common -p {port} erase-flash
+idf.py @common -p {port} erase-flash
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
 idf.py @common -p {port} flash
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
@@ -274,26 +477,66 @@ def parse_results() -> dict:
     prep_m = re.search(r"prepared=(\d+)/10", rx_text)
     dup_m = re.search(r"duplicates=(\d+)", rx_text)
     heap_panic = "assert failed" in esp_text or "Guru Meditation" in esp_text
-    return {
+    recv_full = len(re.findall(r"type=FULL", rx_text))
+    recv_prep = len(re.findall(r"type=PREPARED", rx_text))
+    res = {
         "full_rx": int(full_m.group(1)) if full_m else 0,
         "prepared_rx": int(prep_m.group(1)) if prep_m else 0,
         "duplicates": int(dup_m.group(1)) if dup_m else -1,
         "heap_panic": heap_panic,
         "esp_done": "PREPARED_E2E_DONE" in esp_text,
         "receiver_uid": UID_FILE.read_text(encoding="utf-8").strip() if UID_FILE.is_file() else "",
+        "recv_full_lines": recv_full,
+        "recv_prepared_lines": recv_prep,
     }
+    res.update(parse_wifi_diag(esp_text))
+    return res
 
 
-def main() -> int:
+def run_e2e(
+    *,
+    run_id: str,
+    precon_skip: bool,
+    wifi_diag: bool,
+    rebuild: bool,
+    erase_flash: bool,
+) -> dict:
+    global ESP_LOG, RX_LOG, RESULT_JSON, RX_SESSION
+    ESP_LOG = HERE / f"prepared_message_e2e_esp_{run_id}.log"
+    RX_LOG = HERE / f"prepared_message_e2e_receiver_{run_id}.log"
+    RESULT_JSON = HERE / f"prepared_message_e2e_result_{run_id}.json"
+    RX_SESSION = HERE / f"prepared_message_rx_session_{run_id}"
+
     ssid, password = load_wifi()
     port = find_espressif_com()
-    print(f"ESP_PORT={port} SSID={ssid}", flush=True)
+    print(f"RUN_ID={run_id} ESP_PORT={port} PRECON_SKIP={precon_skip}", flush=True)
     exe = build_receiver()
     proc = start_receiver(exe)
     try:
         uid = wait_receiver_uid()
         print(f"SERVICE_UID={uid}", flush=True)
-        build_esp(uid, ssid, password, flash=True, port=port)
+        if rebuild:
+            build_esp(
+                uid,
+                ssid,
+                password,
+                flash=True,
+                port=port,
+                precon_skip=precon_skip,
+                wifi_diag=wifi_diag,
+            )
+        else:
+            release_serial_port(port)
+            b = ESP_BUILD.as_posix()
+            if erase_flash:
+                flash_only = f"""
+idf.py -B '{b}' -p {port} erase-flash
+if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
+idf.py -B '{b}' -p {port} flash
+"""
+            else:
+                flash_only = f"idf.py -B '{b}' -p {port} flash"
+            run_idf(flash_only)
         capture_serial(port, CAPTURE_SEC)
     finally:
         proc.terminate()
@@ -301,9 +544,11 @@ def main() -> int:
             proc.wait(timeout=15)
         except subprocess.TimeoutExpired:
             proc.kill()
-    res = parse_results()
     import json
 
+    res = parse_results()
+    res["run_id"] = run_id
+    res["precon_skip_build"] = precon_skip
     res["pass"] = (
         res["full_rx"] == 1
         and res["prepared_rx"] >= 8
@@ -312,7 +557,92 @@ def main() -> int:
     )
     RESULT_JSON.write_text(json.dumps(res, indent=2), encoding="utf-8")
     print(json.dumps(res, indent=2), flush=True)
-    return 0 if res["pass"] else 1
+    return res
+
+
+def main() -> int:
+    import argparse
+    import json
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--run-id", default="restore")
+    ap.add_argument("--precon-skip", type=int, default=-1, help="1=skip cleanup, 0=historical")
+    ap.add_argument("--wifi-diag", type=int, default=1)
+    ap.add_argument("--rebuild", type=int, default=1)
+    ap.add_argument("--erase-flash", type=int, default=1)
+    ap.add_argument("--campaign", action="store_true")
+    args = ap.parse_args()
+
+    if args.campaign:
+        # 1) Diagnose with PreConstructCleanup skip (reproduces broken path)
+        r_diag = run_e2e(
+            run_id="diag_precon_skip",
+            precon_skip=True,
+            wifi_diag=True,
+            rebuild=True,
+            erase_flash=True,
+        )
+        write_build_snapshot("diag_precon_skip", True, True)
+        hyp = "UNRESOLVED"
+        sc = r_diag.get("second_create_default_err")
+        if r_diag.get("precon_skipped") and sc == 259:  # ESP_ERR_INVALID_STATE
+            hyp = "CONFIRMED"
+        elif r_diag.get("precon_skipped") and sc == 0:
+            hyp = "REJECTED"
+        # 2) Historical PreConstructCleanup (fix build)
+        r_fix1 = run_e2e(
+            run_id="fix_historical_precon_1",
+            precon_skip=False,
+            wifi_diag=True,
+            rebuild=True,
+            erase_flash=True,
+        )
+        write_build_snapshot("fix_historical_precon", False, True)
+        fw = (ESP_BUILD / "temperature_sensor.bin").read_bytes()
+        import hashlib
+        import shutil
+
+        fw_hash = hashlib.sha256(fw).hexdigest()
+        session_backup = HERE / "prepared_message_rx_session_fix1_backup"
+        if RX_SESSION.exists():
+            if session_backup.exists():
+                shutil.rmtree(session_backup)
+            shutil.copytree(RX_SESSION, session_backup)
+        # 3) Repeat same binary (restore receiver session → same RECEIVER_UID)
+        if session_backup.is_dir():
+            if RX_SESSION.exists():
+                shutil.rmtree(RX_SESSION)
+            shutil.copytree(session_backup, RX_SESSION)
+        r_fix2 = run_e2e(
+            run_id="fix_historical_precon_2",
+            precon_skip=False,
+            wifi_diag=True,
+            rebuild=False,
+            erase_flash=True,
+        )
+        report = {
+            "hypothesis": hyp,
+            "diag": r_diag,
+            "fix1": r_fix1,
+            "fix2": r_fix2,
+            "firmware_sha256": fw_hash,
+        }
+        (HERE / "wifi_e2e_campaign_report.json").write_text(
+            json.dumps(report, indent=2), encoding="utf-8"
+        )
+        ok = r_fix1.get("pass") and r_fix2.get("pass")
+        return 0 if ok else 1
+
+    precon = args.precon_skip == 1 if args.precon_skip >= 0 else False
+    res = run_e2e(
+        run_id=args.run_id,
+        precon_skip=precon,
+        wifi_diag=args.wifi_diag == 1,
+        rebuild=args.rebuild == 1,
+        erase_flash=args.erase_flash == 1,
+    )
+    write_build_snapshot(args.run_id, precon, args.wifi_diag == 1)
+    return 0 if res.get("pass") else 1
 
 
 if __name__ == "__main__":

@@ -1,0 +1,32 @@
+{
+  "full_rx": 0,
+  "prepared_rx": 0,
+  "duplicates": -1,
+  "heap_panic": false,
+  "esp_done": false,
+  "receiver_uid": "750a1854-e34f-4506-9810-689c070a7792",
+  "recv_full_lines": 0,
+  "recv_prepared_lines": 0,
+  "driver_ptrs": [
+    "0x4082b9d4",
+    "0x408331d8"
+  ],
+  "first_driver_destroyed": false,
+  "precon_skipped": false,
+  "precon_ran_historical": true,
+  "precon_esp_netif_deinit_err": 262,
+  "precon_event_loop_delete_err": 0,
+  "second_create_default_err": 0,
+  "second_wifi_init_err": 259,
+  "create_default_errs": [
+    0,
+    0
+  ],
+  "wifi_init_errs": [
+    0,
+    259
+  ],
+  "run_id": "fix_precon0_1",
+  "precon_skip_build": false,
+  "pass": false
+}

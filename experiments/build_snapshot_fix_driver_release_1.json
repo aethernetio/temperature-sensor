@@ -1,0 +1,14 @@
+{
+  "tag": "fix_driver_release_1",
+  "git_head": "f74aff1d563f9ced8d1787188deff3a8c6485c6b",
+  "git_diff_stat": "experiments/run_prepared_message_e2e_worktree.py | 362 ++++++++++++++++++++++-\n main/CMakeLists.txt                              |   6 +\n main/prepared_message_e2e_bench.cpp              |  40 ++-\n 3 files changed, 388 insertions(+), 20 deletions(-)",
+  "firmware_sha256": "c69e17309bd645ebffc98c51ce0fe2c8a0f2d63c5d37e88eb51a08dd1f68fa88",
+  "elf": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\build-esp32c6-save-bench-smoke\\temperature_sensor.elf",
+  "sdkconfig": "",
+  "library_path": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\deps\\aether-client-cpp-157aadbe-diag",
+  "library_sha": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
+  "library_local_patch": "M aether/adapters/wifi_adapter.cpp\n M aether/adapters/wifi_adapter.h\n M aether/wifi/esp_wifi_driver.cpp\n?? aether/wifi/wifi_drv_diag_log.h",
+  "cmake_precon_skip": false,
+  "cmake_wifi_diag": true,
+  "compile_probe_excerpt": "aether:[91/175] Building CXX object _deps/aether-client-cpp-build/CMakeFiles/aether.dir/aether/wifi/esp_wifi_driver.cpp.obj"
+}

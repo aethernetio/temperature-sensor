@@ -24,9 +24,12 @@
 #include "wifi_lifecycle_out.h"
 
 #if defined(ESP_PLATFORM)
+#  include "aether/ae_exp_diag.h"
+#  include <esp_err.h>
 #  include <esp_event.h>
 #  include <esp_netif.h>
 #  include <esp_timer.h>
+#  include "aether/adapters/wifi_adapter.h"
 #  include <freertos/FreeRTOS.h>
 #  include <freertos/task.h>
 #  include <nvs_flash.h>
@@ -65,16 +68,26 @@ static bool g_had_aether_app = false;
 
 static void PreConstructCleanup() {
   if (!g_had_aether_app) {
+    WifiLifecyclePrintf("PRECON_CLEANUP skip=1 reason=no_prior_app\n");
     return;
   }
-#if AE_EXP_PREPARED_MESSAGE_E2E
-  // Same-boot register → full cycle: keep ESP-IDF Wi-Fi/netif (historical E2E).
+#if defined(AE_EXP_PRECON_SKIP) && AE_EXP_PRECON_SKIP
+  WifiLifecyclePrintf("PRECON_CLEANUP skip=1 reason=AE_EXP_PRECON_SKIP\n");
   return;
 #endif
+  WifiLifecyclePrintf(
+      "PRECON_CLEANUP run=1 AE_WIFI_USE_FULL_DEINIT=%d\n",
+      AE_WIFI_USE_FULL_DEINIT ? 1 : 0);
 #  if !AE_WIFI_USE_FULL_DEINIT
-  esp_netif_deinit();
-  esp_event_loop_delete_default();
+  esp_err_t err = esp_netif_deinit();
+  WifiLifecyclePrintf("PRECON_CLEANUP esp_netif_deinit err=%d name=%s\n",
+                      static_cast<int>(err), esp_err_to_name(err));
+  err = esp_event_loop_delete_default();
+  WifiLifecyclePrintf(
+      "PRECON_CLEANUP esp_event_loop_delete_default err=%d name=%s\n",
+      static_cast<int>(err), esp_err_to_name(err));
 #  endif
+  WifiLifecyclePrintf("PRECON_CLEANUP done\n");
 }
 
 static std::int64_t NowUs() { return esp_timer_get_time(); }
@@ -113,12 +126,29 @@ static int g_prepared_completed = 0;
 static std::int64_t g_t0 = 0;
 #endif
 
+#if defined(ESP_PLATFORM) && AE_DISTILLATION
+static void ReleaseWifiDriversBeforeAppReset() {
+  if (!g_app || !g_app->aether() || !g_app->aether()->adapter_registry) {
+    return;
+  }
+  for (auto const& adapter : g_app->aether()->adapter_registry->adapters()) {
+    ae::WifiAdapter::ptr wa{adapter};
+    wa.WithLoaded([](auto const& a) {
+      a->ReleaseOwnedDriverForPhaseHandoff();
+    });
+  }
+}
+#endif
+
 static void ReleaseApp() {
   g_select_sub.Reset();
   g_stream_sub.Reset();
   g_write_sub.Reset();
   g_stream.reset();
   g_client = {};
+#if defined(ESP_PLATFORM) && AE_DISTILLATION
+  ReleaseWifiDriversBeforeAppReset();
+#endif
   g_app.reset();
 }
 
@@ -202,6 +232,7 @@ static void StartRegister() {
 #endif
   WifiLifecyclePrintf("REGISTRATION_START client_id=%s\n", kBenchClientId);
   WifiLifecyclePrintf("REGISTRATION_BEFORE_CONSTRUCT\n");
+  AeExpSetCycle(1);
   g_had_aether_app = true;
   g_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
@@ -241,6 +272,7 @@ static void StartFullCycle() {
   g_t0 = NowUs();
 #endif
   WifiLifecyclePrintf("FULL_CYCLE_START\n");
+  AeExpSetCycle(2);
   g_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
 #if AE_DISTILLATION && defined(ESP_PLATFORM)

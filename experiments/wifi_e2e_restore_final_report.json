@@ -1,0 +1,40 @@
+{
+  "git_head": "f74aff1d563f9ced8d1787188deff3a8c6485c6b",
+  "firmware_sha256": "c69e17309bd645ebffc98c51ce0fe2c8a0f2d63c5d37e88eb51a08dd1f68fa88",
+  "library_sha": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
+  "library_local_patch": "deps/aether-client-cpp-157aadbe-diag: wifi_drv_diag_log.h (new); esp_wifi_driver.cpp LC/WIFI_DRV_DIAG; wifi_adapter ReleaseOwnedDriverForPhaseHandoff (E2E)",
+  "effective_full_deinit": "bench AE_WIFI_USE_FULL_DEINIT=0 (from PreConstructCleanup log); library same unless AE_EXP_WIFI_FEAT_LEGACY_DEINIT set (unset in this build)",
+  "effective_flags": {
+    "AE_EXP_PREPARED_MESSAGE_E2E": "1",
+    "AE_EXP_WIFI_CANONICAL": "unset",
+    "AE_EXP_WIFI_FEAT_LEGACY_DEINIT": "unset",
+    "AE_WIFI_USE_FULL_DEINIT": "0",
+    "AE_WIFI_USE_INSTANCE_HANDLERS": "default (instance handlers path; see esp_wifi_driver.cpp AE_WIFI_USE_INSTANCE_HANDLERS)"
+  },
+  "first_driver_destroyed": true,
+  "first_event_loop_deleted": true,
+  "second_create_default_result": "ESP_OK (0)",
+  "second_wifi_init_result": "ESP_OK (0)",
+  "hypothesis": "CONFIRMED",
+  "confirmed_cause": "AE_EXP_PRECON_SKIP left default event loop alive → second esp_event_loop_create_default returned ESP_ERR_INVALID_STATE (259) and Init aborted before esp_wifi_init. With historical PreConstructCleanup, orphaned first EspWifiDriver (distilled adapter) still owned Wi-Fi until ReleaseApp; global esp_wifi_deinit in PreConstructCleanup without driver dtor broke second GOT_IP.",
+  "minimal_fix": "Release WifiAdapter-owned driver in ReleaseApp before PreConstructCleanup; restore historical PreConstructCleanup (esp_netif_deinit + esp_event_loop_delete_default only, no extra esp_wifi_* in bench). Wi-Fi driver diag in controlled aether copy @ 157aadbe.",
+  "run1_full": "1/1",
+  "run1_prepared": "1/10",
+  "run1_notes": "fix_driver_release_1: second GOT_IP, FULL RECV yes; prepared hot path wifi-failed after #1 (reason 201)",
+  "run2_full": "0/1",
+  "run2_prepared": "0/10",
+  "run2_notes": "fix_driver_release_2 same binary: FULL_CYCLE_ERR select_fail (cloud/select); not a Wi-Fi init regression",
+  "panics": 0,
+  "duplicates": 0,
+  "logs": [
+    "experiments/prepared_message_e2e_esp_fix_driver_release_1.log",
+    "experiments/prepared_message_e2e_receiver_fix_driver_release_1.log",
+    "experiments/prepared_message_e2e_result_fix_driver_release_1.json",
+    "experiments/prepared_message_e2e_esp_fix_driver_release_2.log",
+    "experiments/prepared_message_e2e_receiver_fix_driver_release_2.log",
+    "experiments/prepared_message_e2e_result_fix_driver_release_2.json",
+    "experiments/wifi_e2e_campaign_report.json"
+  ],
+  "result_json": "experiments/wifi_e2e_restore_final_report.json",
+  "pushed": "pending"
+}

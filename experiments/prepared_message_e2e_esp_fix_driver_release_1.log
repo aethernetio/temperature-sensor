@@ -1,0 +1,2119 @@
+Activating ESP-IDF 6.0
+warning:  IDF_PATH is changed from 'C:/Espressif/frameworks/esp-idf-v6.0.2' to 
+'C:\Espressif\frameworks\esp-idf-v6.0.2'.
+* Checking python version ... 3.11.2
+* Checking python dependencies ... OK
+* Deactivating the current ESP-IDF environment (if any) ... OK
+* Establishing a new ESP-IDF environment ... OK
+* Identifying shell ... powershell
+* Detecting outdated tools in system ... Found tools that are not used by active ESP-IDF version.
+For removing old versions of ccache, cmake, dfu-util, esp-clang, esp-rom-elfs, 
+esp32ulp-elf, espressif-ide, idf-driver, idf-python-wheels, ninja, 
+openocd-esp32, riscv32-esp-elf, riscv32-esp-elf-gdb, xtensa-esp-elf, 
+xtensa-esp-elf-gdb, xtensa-esp32-elf, xtensa-esp32s2-elf, xtensa-esp32s3-elf use
+command 'python.exe C:\Espressif\frameworks\esp-idf-v6.0.2\tools\idf_tools.py 
+uninstall'
+To free up even more space, remove installation packages of those tools.
+Use option python.exe C:\Espressif\frameworks\esp-idf-v6.0.2\tools\idf_tools.py 
+uninstall --remove-archives.
+
+Done! You can now compile ESP-IDF projects.
+Go to the project directory and run:
+
+  idf.py build
+
+[0;33m--- Warning: GDB cannot open serial ports accessed as COMx[0m
+[0;33m--- Using \\.\COM5 instead...[0m
+[0;33m--- esp-idf-monitor 1.9.0 on \\.\COM5 115200[0m
+--- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H
+--- Print filter: "*:I"
+I (293) esp_image: segment 3: paddr=00160068 vaddr=40804b68 sizeESP-ROM:esp32c6-20220919
+Build:Sep 19 2022
+rst:0x15 (USB_UART_HPSYS),boot:0x1e (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40805c3e
+xtensa-esp32-elf-addr2line -fiaC -e C:/Users/nickc/Projects/temperature-sensor-working-hot/build-esp32c6-save-bench-smoke/temperature_sensor.elf 0x40805c3e: [WinError 2] The system cannot find the file specified
+invalid header: 0xffffff01
+invalid header: 0xffffff01
+invalid header: 0xffffff01
+invalid header: 0xffffff01
+invalid header: 0xffffff01
+invalid header: 0xffffff01
+invalid header: 0xffffff01
+invalid header: 0xffffff01
+invalid header: 0xffffff01
+SPIWP:0xee
+mode:DIO, clock div:2
+load:0x40875730,len:0x1324
+load:0x4086b910,len:0xcbc
+load:0x4086e610,len:0x3130
+entry 0x4086b91a
+I (44) boot: ESP-IDF v6.0.2 2nd stage bootloader
+I (45) boot: compile time Oct 15 2026 22:58:06
+I (45) boot: chip revision: v0.1
+I (45) boot: efuse block revision: v0.3
+I (46) boot.esp32c6: SPI Speed      : 80MHz
+I (46) boot.esp32c6: SPI Mode       : DIO
+I (46) boot.esp32c6: SPI Flash Size : 4MB
+I (47) boot: Enabling RNG early entropy source...
+I (47) boot: Partition Table:
+I (47) boot: ## Label            Usage          Type ST Offset   Length
+I (48) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (48) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (49) boot:  2 factory          factory app      00 00 00010000 00300000
+I (49) boot:  3 storage          Unknown data     01 82 00310000 000e1000
+I (50) boot: End of partition table
+I (50) esp_image: segment 0: paddr=00010020 vaddr=42130020 size=2b488h (177288) map
+I (85) esp_image: segment 1: paddr=0003b4b0 vaddr=40800000 size=04b68h ( 19304) load
+I (89) esp_image: segment 2: paddr=00040020 vaddr=42000020 size=120040h (1179712) map
+I (315) esp_image: segment 3: paddr=00160068 vaddr=40804b68 size=1320ch ( 78348) load
+I (332) esp_image: segment 4: paddr=0017327c vaddr=40817d80 size=031c4h ( 12740) load
+I (335) esp_image: segment 5: paddr=00176448 vaddr=50003400 size=00060h (    96) load
+I (336) esp_image: segment 6: paddr=001764b0 vaddr=500034f8 size=00024h (    36) load
+I (342) boot: Loaded app from partition at offset 0x10000
+I (343) boot: Disabling RNG early entropy source...
+I (344) cpu_start: Unicore app
+I (352) cpu_start: Pro cpu start user code
+I (352) cpu_start: cpu freq: 160000000 Hz
+I (352) app_init: Application information:
+I (353) app_init: Project name:     temperature_sensor
+I (353) app_init: App version:      f74aff1-dirty
+I (353) app_init: Compile time:     Oct 16 2026 09:00:42
+I (353) app_init: ELF file SHA256:  8dfec925a...
+I (353) app_init: ESP-IDF:          v6.0.2
+I (354) efuse_init: Min chip rev:     v0.0
+I (354) efuse_init: Max chip rev:     v0.99 
+I (354) efuse_init: Chip rev:         v0.1
+I (354) heap_init: Initializing. RAM available for dynamic allocation:
+I (355) heap_init: At 40823F40 len 000586D0 (353 KiB): RAM
+I (355) heap_init: At 4087C610 len 00002F54 (11 KiB): RAM
+I (355) heap_init: At 5000351C len 00000ABC (2 KiB): RTCRAM
+I (356) spi_flash: detected chip: generic
+I (356) spi_flash: flash io: dio
+I (360) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (361) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (362) main_task: Started on CPU0
+I (362) main_task: Calling app_main()
+PREPARED_E2E_START client_id=prepared_message_bench_v6 service=e71db45f-a56a-4ce5-ac48-430cca571142
+PRECON_CLEANUP skip=1 reason=no_prior_app
+REGISTRATION_START client_id=prepared_message_bench_v6
+REGISTRATION_BEFORE_CONSTRUCT
+Platform:esp32c6
+Compiler:gcc
+Compiler version:15.2.0
+Library version:0.1.0.157aadbec8e7b852d0f89274307ff7cb8103e5f7
+CPU arch:esp32c6
+Endianness:LittleEndian
+UTMid:0
+AE_TASK_MAX_COUNT:128
+AE_TASK_MAX_SIZE:8 * sizeof(void*)
+AE_TASK_ALIGN:alignof(std::max_align_t)
+AE_API_PROTOCOL_MAX_PENDING_RESPONSES:10
+AE_API_PROTOCOL_MAX_PACKET_STACK_DEPTH:4
+AE_API_PROTOCOL_MAX_PARSER_PACKER_DEPTH:4
+AE_API_PROTOCOL_PENDING_RESPONSE_MAX_SIZE:4 * sizeof(void*)
+AE_API_PROTOCOL_PENDING_RESPONSE_ALIGN:alignof(std::max_align_t)
+AE_SUPPORT_IPV4:1
+AE_SUPPORT_IPV6:0
+AE_SUPPORT_UDP:1
+AE_UDP_PACKET_QUEUE_SIZE:100
+AE_SUPPORT_TCP:1
+AE_TCP_PACKET_QUEUE_SIZE:100
+AE_SUPPORT_WEBSOCKET:1
+AE_SUPPORT_HTTP:1
+AE_SUPPORT_HTTP_OVER_TCP:1
+AE_SUPPORT_HTTP_WINHTTP:1
+AE_SUPPORT_HTTPS:1
+AE_SUPPORT_PROXY:1
+AE_SUPPORT_DYNAMIC_PROXY:1
+AE_SUPPORT_CLOUD_DNS:1
+AE_SUPPORT_DYNAMIC_CLOUD_DNS:0
+AE_SUPPORT_CLOUD_IPS:1
+AE_SUPPORT_DYNAMIC_CLOUD_IPS:1
+AE_LWIP_SOCKET_TYPES:1
+AE_FREERTOS_POLLER_STACK_SIZE:4096
+AE_SUPPORT_MODEMS:0
+AE_ENABLE_THINGY91X:1
+AE_ENABLE_SIM7070:0
+AE_ENABLE_BG95:0
+AE_SUPPORT_LORA:0
+AE_ENABLE_EBYTE_E22_LM:0
+AE_ENABLE_DX_SMART_LR02_LM:0
+AE_SUPPORT_GATEWAY:0
+AE_SUPPORT_REGISTRATION:1
+AE_SUPPORT_REGISTRATION_DYNAMIC_IP:1
+AE_ENABLE_PING:1
+AE_PING_INTERVAL_MS:5000 + 1000
+AE_BCRYPT_CRC32:1
+AE_POW:1
+AE_SIGNATURE:2
+AE_CRYPTO_ASYNC:2
+AE_CRYPTO_SYNC:2
+AE_KDF:2
+AE_CRYPTO_HASH:1
+AE_TARGET_ENDIANNESS:1
+AE_SUPPORT_SPIFS_FS:1
+AE_SAFE_STREAM_CAPACITY:20 * 1024
+AE_SAFE_STREAM_RTO_GROW_FACTOR:1.5
+AE_STATISTICS_CONNECTION_WINDOW_SIZE:100
+AE_DEFAULT_CONNECTION_TIMEOUT_MS:50000
+AE_STATISTICS_RESPONSE_WINDOW_SIZE:100
+AE_DEFAULT_RESPONSE_TIMEOUT_MS:5000
+AE_STATISTICS_SAFE_STREAM_WINDOW_SIZE:100
+AE_WIFI_CONNECTION_TIMEOUT_MS:20000
+AE_MODEM_CONNECTION_TIMEOUT_MS:15000
+AE_CLOUD_MAX_SERVER_CONNECTIONS:3
+AE_CLOUD_SERVER_QUARANTINE_TIME_MS:10000
+AE_TELE_ENABLED:1
+AE_TELE_COMPILATION_INFO:1
+AE_TELE_RUNTIME_INFO:0
+AE_TELE_METRICS_MODULES:0xffffffff
+AE_TELE_METRICS_MODULES_EXCLUDE:{ }
+AE_TELE_METRICS_DURATION:0xffffffff
+AE_TELE_METRICS_DURATION_EXCLUDE:{ }
+AE_TELE_DEBUG_MODULES:0xffffffff
+AE_TELE_DEBUG_MODULES_EXCLUDE:{ }
+AE_TELE_INFO_MODULES:0xffffffff
+AE_TELE_INFO_MODULES_EXCLUDE:{ }
+AE_TELE_WARN_MODULES:0xffffffff
+AE_TELE_WARN_MODULES_EXCLUDE:{ }
+AE_TELE_ERROR_MODULES:0xffffffff
+AE_TELE_ERROR_MODULES_EXCLUDE:{ }
+AE_TELE_LOG_MODULES:0xffffffff
+AE_TELE_LOG_MODULES_EXCLUDE:{ }
+AE_TELE_LOG_LOCATION:0xffffffff
+AE_TELE_LOG_LOCATION_EXCLUDE:{ }
+AE_TELE_LOG_NAME:0xffffffff
+AE_TELE_LOG_NAME_EXCLUDE:{ }
+AE_TELE_LOG_LEVEL_MODULE:0xffffffff
+AE_TELE_LOG_LEVEL_MODULE_EXCLUDE:{ }
+AE_TELE_LOG_BLOB:0xffffffff
+AE_TELE_LOG_BLOB_EXCLUDE:{ }
+AE_TELE_LOG_CONSOLE:1
+AE_TELE_LOG_TO_STATISTICS:1
+AE_STATISTICS_MAX_SIZE:1024
+AE_DISTILLATION:1
+AE_FILTRATION:1
+DEBUG:0
+
+   3:[12:58:17.133033]:kInfo:kAether:aether_app.cpp:74:AetherStarted
+W (382) SPIFFS: mount failed, -10025. formatting...
+4294967294:[12:58:26.244046]:kDebug:MLog:spifs_domain_storage.cpp:347:kLog:File /spiffs/object_map_dump does not exists 
+ 182:[12:58:26.246170]:kInfo:kDomainStorage:spifs_domain_storage.cpp:200:kSpifsDsEnumObjIdNotFound:Obj not found 1
+4294967294:[12:58:26.246888]:kDebug:MLog:domain.cpp:139:kLog:For obj 1 enumerated classes []
+   4:[12:58:26.247613]:kDebug:kAether:aether.cpp:37:AetherCreated
+LC	1	9143974	WifiAdapter	1	0x40836db4	0	ctor	
+4294967294:[12:58:26.250595]:kDebug:MLog:wifi_adapter.cpp:45:kLog:Wifi instance created!
+SV	1	9172694	begin	obj_id=1
+SV	1	9173322	write_begin	path=/spiffs/1/2178182515/0 bytes=0 obj_id=1
+SV	1	9221553	write_end	path=/spiffs/1/2178182515/0 bytes=0 duration_us=48252
+ 309:[12:58:26.328414]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1, class id=2178182515, version=0, data size=0
+SV	1	9223479	write_begin	path=/spiffs/2000/2178182515/0 bytes=0 obj_id=2000
+SV	1	9271370	write_end	path=/spiffs/2000/2178182515/0 bytes=0 duration_us=47907
+ 309:[12:58:26.378074]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2000, class id=2178182515, version=0, data size=0
+SV	1	9273036	write_begin	path=/spiffs/2000/1058537116/0 bytes=109 obj_id=2000
+SV	1	9322692	write_end	path=/spiffs/2000/1058537116/0 bytes=109 duration_us=49748
+ 309:[12:58:26.429460]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2000, class id=1058537116, version=0, data size=109
+SV	1	9324559	write_begin	path=/spiffs/2/2178182515/0 bytes=0 obj_id=2
+SV	1	9371412	write_end	path=/spiffs/2/2178182515/0 bytes=0 duration_us=46878
+ 309:[12:58:26.478117]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2, class id=2178182515, version=0, data size=0
+SV	1	9373189	write_begin	path=/spiffs/3823686862/2178182515/0 bytes=0 obj_id=3823686862
+SV	1	9421371	write_end	path=/spiffs/3823686862/2178182515/0 bytes=0 duration_us=48197
+ 309:[12:58:26.528071]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3823686862, class id=2178182515, version=0, data size=0
+SV	1	9423096	write_begin	path=/spiffs/4/2178182515/0 bytes=0 obj_id=4
+SV	1	9471387	write_end	path=/spiffs/4/2178182515/0 bytes=0 duration_us=48308
+ 309:[12:58:26.578071]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=4, class id=2178182515, version=0, data size=0
+SV	1	9473224	write_begin	path=/spiffs/1003/2178182515/0 bytes=0 obj_id=1003
+SV	1	9521380	write_end	path=/spiffs/1003/2178182515/0 bytes=0 duration_us=48174
+ 309:[12:58:26.628102]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1003, class id=2178182515, version=0, data size=0
+SV	1	9522744	write_begin	path=/spiffs/1003/698262047/0 bytes=0 obj_id=1003
+SV	1	9561329	write_end	path=/spiffs/1003/698262047/0 bytes=0 duration_us=38603
+ 309:[12:58:26.668000]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1003, class id=698262047, version=0, data size=0
+SV	1	9563045	write_begin	path=/spiffs/4000/2178182515/0 bytes=0 obj_id=4000
+SV	1	9611372	write_end	path=/spiffs/4000/2178182515/0 bytes=0 duration_us=48345
+ 309:[12:58:26.718064]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=4000, class id=2178182515, version=0, data size=0
+SV	1	9612668	write_begin	path=/spiffs/4000/844107085/0 bytes=0 obj_id=4000
+SV	1	9651324	write_end	path=/spiffs/4000/844107085/0 bytes=0 duration_us=38672
+ 309:[12:58:26.757985]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=4000, class id=844107085, version=0, data size=0
+SV	1	9652559	write_begin	path=/spiffs/4000/3591204969/0 bytes=0 obj_id=4000
+SV	1	9691307	write_end	path=/spiffs/4000/3591204969/0 bytes=0 duration_us=38765
+ 309:[12:58:26.797970]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=4000, class id=3591204969, version=0, data size=0
+SV	1	9692743	write_begin	path=/spiffs/1003/1232350972/0 bytes=41 obj_id=1003
+SV	1	9742448	write_end	path=/spiffs/1003/1232350972/0 bytes=41 duration_us=49759
+ 309:[12:58:26.849182]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1003, class id=1232350972, version=0, data size=41
+SV	1	9744309	write_begin	path=/spiffs/2731584603/2178182515/0 bytes=0 obj_id=2731584603
+SV	1	9791408	write_end	path=/spiffs/2731584603/2178182515/0 bytes=0 duration_us=47123
+ 309:[12:58:26.898138]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2731584603, class id=2178182515, version=0, data size=0
+SV	1	9792778	write_begin	path=/spiffs/2731584603/2767960597/0 bytes=0 obj_id=2731584603
+SV	1	9841325	write_end	path=/spiffs/2731584603/2767960597/0 bytes=0 duration_us=48565
+ 309:[12:58:26.948018]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2731584603, class id=2767960597, version=0, data size=0
+SV	1	9843127	write_begin	path=/spiffs/5000/2178182515/0 bytes=0 obj_id=5000
+SV	1	9891377	write_end	path=/spiffs/5000/2178182515/0 bytes=0 duration_us=48269
+ 309:[12:58:26.998092]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=5000, class id=2178182515, version=0, data size=0
+SV	1	9892705	write_begin	path=/spiffs/5000/733819916/0 bytes=0 obj_id=5000
+SV	1	9941330	write_end	path=/spiffs/5000/733819916/0 bytes=0 duration_us=48643
+ 309:[12:58:27.047993]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=5000, class id=733819916, version=0, data size=0
+SV	1	9942667	write_begin	path=/spiffs/5000/1196019635/0 bytes=5 obj_id=5000
+SV	1	9992322	write_end	path=/spiffs/5000/1196019635/0 bytes=5 duration_us=49682
+ 309:[12:58:27.099057]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=5000, class id=1196019635, version=0, data size=5
+SV	1	9993829	write_begin	path=/spiffs/2731584603/877772869/0 bytes=47 obj_id=2731584603
+SV	1	10042412	write_end	path=/spiffs/2731584603/877772869/0 bytes=47 duration_us=48635
+ 309:[12:58:27.149172]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2731584603, class id=877772869, version=0, data size=47
+SV	1	10044183	write_begin	path=/spiffs/2731584603/877772869/1 bytes=46 obj_id=2731584603
+SV	1	10092408	write_end	path=/spiffs/2731584603/877772869/1 bytes=46 duration_us=48283
+ 309:[12:58:27.199194]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2731584603, class id=877772869, version=1, data size=46
+SV	1	10093848	write_begin	path=/spiffs/1003/1138714670/0 bytes=9 obj_id=1003
+SV	1	10142370	write_end	path=/spiffs/1003/1138714670/0 bytes=9 duration_us=48546
+ 309:[12:58:27.249081]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1003, class id=1138714670, version=0, data size=9
+SV	1	10143735	write_begin	path=/spiffs/4/3488512947/0 bytes=9 obj_id=4
+SV	1	10192313	write_end	path=/spiffs/4/3488512947/0 bytes=9 duration_us=48615
+ 309:[12:58:27.299018]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=4, class id=3488512947, version=0, data size=9
+SV	1	10194171	write_begin	path=/spiffs/3211993418/2178182515/0 bytes=0 obj_id=3211993418
+SV	1	10241392	write_end	path=/spiffs/3211993418/2178182515/0 bytes=0 duration_us=47242
+ 309:[12:58:27.348132]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3211993418, class id=2178182515, version=0, data size=0
+SV	1	10243178	write_begin	path=/spiffs/2754781151/2178182515/0 bytes=0 obj_id=2754781151
+SV	1	10291388	write_end	path=/spiffs/2754781151/2178182515/0 bytes=0 duration_us=48228
+ 309:[12:58:27.398110]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2754781151, class id=2178182515, version=0, data size=0
+SV	1	10292838	write_begin	path=/spiffs/2754781151/2654162901/0 bytes=24 obj_id=2754781151
+SV	1	10342375	write_end	path=/spiffs/2754781151/2654162901/0 bytes=24 duration_us=49582
+ 309:[12:58:27.449128]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2754781151, class id=2654162901, version=0, data size=24
+SV	1	10343799	write_begin	path=/spiffs/3211993418/2461747236/0 bytes=15 obj_id=3211993418
+SV	1	10392332	write_end	path=/spiffs/3211993418/2461747236/0 bytes=15 duration_us=48563
+ 309:[12:58:27.499090]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3211993418, class id=2461747236, version=0, data size=15
+SV	1	10393981	write_begin	path=/spiffs/3211993418/4177166869/0 bytes=28 obj_id=3211993418
+SV	1	10442439	write_end	path=/spiffs/3211993418/4177166869/0 bytes=28 duration_us=48505
+ 309:[12:58:27.549221]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3211993418, class id=4177166869, version=0, data size=28
+SV	1	10443922	write_begin	path=/spiffs/3823686862/2721984319/0 bytes=28 obj_id=3823686862
+SV	1	10492373	write_end	path=/spiffs/3823686862/2721984319/0 bytes=28 duration_us=48486
+ 309:[12:58:27.599106]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3823686862, class id=2721984319, version=0, data size=28
+SV	1	10493799	write_begin	path=/spiffs/2/207799855/0 bytes=13 obj_id=2
+SV	1	10542301	write_end	path=/spiffs/2/207799855/0 bytes=13 duration_us=48535
+ 309:[12:58:27.649008]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2, class id=207799855, version=0, data size=13
+SV	1	10543748	write_begin	path=/spiffs/2/2967114514/0 bytes=5 obj_id=2
+SV	1	10592325	write_end	path=/spiffs/2/2967114514/0 bytes=5 duration_us=48600
+ 309:[12:58:27.699044]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2, class id=2967114514, version=0, data size=5
+SV	1	10594026	write_begin	path=/spiffs/3000/2178182515/0 bytes=0 obj_id=3000
+SV	1	10641368	write_end	path=/spiffs/3000/2178182515/0 bytes=0 duration_us=47364
+ 309:[12:58:27.748077]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3000, class id=2178182515, version=0, data size=0
+SV	1	10642839	write_begin	path=/spiffs/3000/2424033868/0 bytes=38 obj_id=3000
+SV	1	10692473	write_end	path=/spiffs/3000/2424033868/0 bytes=38 duration_us=49691
+ 309:[12:58:27.799207]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3000, class id=2424033868, version=0, data size=38
+SV	1	10694190	write_begin	path=/spiffs/3/2178182515/0 bytes=0 obj_id=3
+SV	1	10741399	write_end	path=/spiffs/3/2178182515/0 bytes=0 duration_us=47229
+ 309:[12:58:27.848099]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3, class id=2178182515, version=0, data size=0
+SV	1	10742905	write_begin	path=/spiffs/3/1105219716/0 bytes=37 obj_id=3
+SV	1	10792389	write_end	path=/spiffs/3/1105219716/0 bytes=37 duration_us=49530
+ 309:[12:58:27.899121]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3, class id=1105219716, version=0, data size=37
+SV	1	10793925	write_begin	path=/spiffs/1/3757268233/0 bytes=43 obj_id=1
+SV	1	10842428	write_end	path=/spiffs/1/3757268233/0 bytes=43 duration_us=48553
+ 309:[12:58:27.949182]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1, class id=3757268233, version=0, data size=43
+SV	1	10894640	map_rewrite	path=/spiffs/object_map_dump bytes=542
+SV	1	10895125	end	obj_id=1 duration_us=1722445
+4294967294:[12:58:28.009489]:kDebug:MLog:aether.cpp:93:kLog:Select client prepared_message_bench_v6 with parent uid b1ac52c8-8d94-bd39-4c01-a631ac594165
+LC	1	10908541	ServerConnection	0	0x4082b324	0	SelectChannel	start
+4294967294:[12:58:28.015247]:kDebug:MLog:server_connection.cpp:157:kLog:Select channel
+LC	1	10909748	ServerConnection	0	0x4082b324	0	TopChannel	endpoint=34.60.244.148:9010 protocol:0
+LC	1	10911880	WifiChannel	0	0x40837be8	0	TransportBuilder	34.60.244.148:9010 protocol:0
+4294967294:[12:58:28.018639]:kDebug:MLog:wifi_channel.cpp:213:kLog:Make transport builder for 34.60.244.148:9010 protocol:0
+LC	1	10916130	EspWifiDriver	2	0x4082b97c	0	ctor_begin	
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=ctor	api=begin	err=0	name=ESP_OK
+LC	1	10916687	EspWifiDriver	2	0x4082b97c	0	Init_begin	
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Init	api=esp_netif_init	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Init	api=esp_event_loop_create_default	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Init	api=esp_netif_create_default_wifi_sta	netif=0x4082bcd4
+I (11262) pp: pp rom version: 5b8dcfa
+I (11272) net80211: net80211 rom version: 5b8dcfa
+I (11282) wifi:wifi driver task: 4083e924, prio:23, stack:6656, core=0
+I (11282) wifi:wifi firmware version: 00ad238
+I (11282) wifi:wifi certification version: v7.0
+I (11282) wifi:config NVS flash: enabled
+I (11282) wifi:config nano formatting: disabled
+I (11282) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (11282) wifi:Init data frame dynamic rx buffer num: 32
+I (11282) wifi:Init static rx mgmt buffer num: 5
+I (11282) wifi:Init management short buffer num: 32
+I (11282) wifi:Init dynamic tx buffer num: 32
+I (11282) wifi:Init static tx FG buffer num: 2
+I (11282) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (11282) wifi:Init static rx buffer num: 10
+I (11282) wifi:Init dynamic rx buffer num: 32
+I (11282) wifi_init: accept mbox: 6
+I (11282) wifi_init: tcpip mbox: 32
+I (11282) wifi_init: udp mbox: 6
+I (11282) wifi_init: tcp mbox: 6
+I (11282) wifi_init: tcp tx win: 5760
+I (11282) wifi_init: tcp rx win: 5760
+I (11282) wifi_init: tcp mss: 1440
+I (11282) wifi_init: WiFi IRAM OP enabled
+I (11282) wifi_init: WiFi RX IRAM OP enabled
+I (11282) wifi_init: WiFi SLP IRAM OP enabled
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Init	api=esp_wifi_init	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=RegisterHandlers	api=esp_event_handler_register_WIFI	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=RegisterHandlers	api=esp_event_handler_register_IP	err=0	name=ESP_OK
+LC	1	10938358	EspWifiDriver	2	0x4082b97c	0	Init_end	ok
+LC	1	10938538	EspWifiDriver	2	0x4082b97c	0	ctor_end	
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=ctor	api=end	err=0	name=ESP_OK
+LC	1	10938941	WifiAdapter	1	0x40836db4	0	driver_create	driver=0x4082b97c
+LC	1	10941244	WifiAccessPoint	0	0x4083735c	0	IsConnected	result=0
+LC	1	10942033	WifiAccessPoint	0	0x4083735c	0	Connect	new_action
+LC	1	10942338	WifiAdapter	1	0x40836db4	0	driver_reuse	driver=0x4082b97c
+LC	1	10944278	WifiConnectAction	3	0x40837424	0	ctor	ssid=chirkov
+4294967294:[12:58:28.051015]:kDebug:MLog:wifi_access_point.cpp:53:kLog:WifiConnectAction created
+4294967294:[12:58:28.054716]:kDebug:MLog:server_connection.cpp:183:kLog:New channel selected
+ 1000:[12:58:28.058641]:kInfo:kRegister:registration.cpp:56:RegisterStarted
+4294967294:[12:58:28.059210]:kDebug:MLog:registration.cpp:72:kLog:Registration::InitConnection
+ 1004:[12:58:28.060095]:kInfo:kRegister:registration.cpp:100:RegisterGetKeys:GetKeys
+4294967294:[12:58:28.063200]:kDebug:MLog:select_client.cpp:44:kLog:Waiting for client registration
+REGISTRATION_AFTER_CONSTRUCT
+4294967294:[12:58:28.064321]:kDebug:MLog:wifi_access_point.cpp:63:kLog:Driver connected to NOT CONNECTED
+LC	1	10958654	WifiConnectAction	3	0x40837424	0	EnsureConnected	calling_driver_Connect
+LC	1	10959032	WifiConnectAction	3	0x40837424	0	Connect	ssid=chirkov before_driver_Connect
+LC	1	10959375	EspWifiDriver	2	0x4082b97c	0	Connect	ssid=chirkov has_connected_to=0 will_disconnect_first=0
+LC	1	10974005	EspWifiDriver	2	0x4082b97c	0	esp_wifi_start	
+I (11322) phy_init: phy_version 344,0b4366d,Apr 10 2026,13:53:11
+W (11322) phy_init: failed to load RF calibration data (0x1102), falling back to full calibration
+I (11392) phy_init: Saving new calibration data due to checksum failure or outdated calibration data, mode(2)
+I (11402) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (11402) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (11402) wifi:enable tsf
+I (11402) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 43
+I (11402) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 2
+LC	1	11055409	EspWifiDriver	2	0x4082b97c	0	STA_START	
+I (11622) wifi:(he)max.RxAMPDULenExponentExtension:3, max.RxAMPDUpre-EOFpaddingBytes:8388607(0x7fffff)
+I (11622) wifi:(mac)omc_ul_mu_data_disable_rx:1
+I (11622) wifi:(phy)ppe_thresholds_present:1, nominal_packet_padding:0
+I (11622) wifi:(phy)dcm tx(constellation:0, nss:0), dcm rx(constellation:1, nss:0)
+I (11622) wifi:(phy)rx_mcs_map:0xfffa, tx_mcs_map:0xfffa, stbc_tx:0, bfmer(su:1, mu:1), ldpc:1, max_rate:172
+I (11622) wifi:(phy)nsts:2, ru_index_bitmap:0x3(242:1, 484:1, 996:0, 2*996:0)
+I (11622) wifi:(phy)threshold_bits:24, nsts_num:2, ru_num:2, he_cap->len:26, ppe_threshold_len:4(6,11,4)
+I (11622) wifi:(ppe)RU242, NSTS0, PPE16:0, PPE8:7, nominal_packet_padding:2
+I (11622) wifi:(opr)len:7, TWT Required:0, VHT Opr Info Present:0, 6GHz Opr Info Present:0, Co-Hosted BSS:0(max_indicator:0), Basic MCS and NSS:0xfffc
+I (11622) wifi:(opr)len:7, Default PE Duration:4, TXOP RTS Threshold:1023(0 us), ER-SU-Disable:0
+I (11622) wifi:(opr)len:7, BSS Color:3, disabled:0, Partial BSS Color:0
+I (11622) wifi:(spr)len:2, ctrl:0x3, PSR Disallowed:1, Non-SRG OBSS PD SR Disallowed:1
+I (11622) wifi:(spr)len:2, ctrl:0x3, Non-SRG Offset Present:0, SRG Info Present:0
+I (11622) wifi:new:<2,0>, old:<1,0>, ap:<255,255>, sta:<2,0>, prof:1, snd_ch_cfg:0x0
+I (11622) wifi:(connect)dot11_authmode:0x6, pairwise_cipher:0x3, group_cipher:0x3
+I (11622) wifi:state: init -> auth (0xb0)
+I (11632) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 43
+I (11782) wifi:state: auth -> assoc (0x0)
+I (11812) wifi:(assoc)RESP, Extended Capabilities length:10, operating_mode_notification:0
+I (11812) wifi:(assoc)RESP, Extended Capabilities, MBSSID:0, TWT Responder:0, OBSS Narrow Bandwidth RU In OFDMA Tolerance:0
+I (11812) wifi:Extended Capabilities length:10, operating_mode_notification:1
+I (11812) wifi:(he)max.RxAMPDULenExponentExtension:3, max.RxAMPDUpre-EOFpaddingBytes:8388607(0x7fffff)
+I (11812) wifi:(mac)omc_ul_mu_data_disable_rx:1
+I (11812) wifi:(phy)ppe_thresholds_present:1, nominal_packet_padding:0
+I (11812) wifi:(phy)dcm tx(constellation:0, nss:0), dcm rx(constellation:1, nss:0)
+I (11812) wifi:(phy)rx_mcs_map:0xfffa, tx_mcs_map:0xfffa, stbc_tx:0, bfmer(su:1, mu:1), ldpc:1, max_rate:172
+I (11812) wifi:(phy)nsts:2, ru_index_bitmap:0x3(242:1, 484:1, 996:0, 2*996:0)
+I (11812) wifi:(phy)threshold_bits:24, nsts_num:2, ru_num:2, he_cap->len:26, ppe_threshold_len:4(6,11,4)
+I (11812) wifi:(ppe)RU242, NSTS0, PPE16:0, PPE8:7, nominal_packet_padding:2
+I (11812) wifi:(opr)len:7, TWT Required:0, VHT Opr Info Present:0, 6GHz Opr Info Present:0, Co-Hosted BSS:0(max_indicator:0), Basic MCS and NSS:0xfffc
+I (11812) wifi:(opr)len:7, Default PE Duration:4, TXOP RTS Threshold:1023(0 us), ER-SU-Disable:0
+I (11812) wifi:(opr)len:7, BSS Color:3, disabled:0, Partial BSS Color:0
+I (11812) wifi:BSS max idle period:291(1000TU), protected keep alive:TRUE
+I (11812) wifi:state: assoc -> run (0x10)
+I (11812) wifi:(he)ppe_thresholds_present:1, nominal_packet_padding(rx:0, cfg:2)
+I (11812) wifi:(trc)phytype:CBW20-SGI, snr:23, maxRate:172, highestRateIdx:0
+W (11812) wifi:(trc)band:2G, phymode:3, highestRateIdx:0, lowestRateIdx:11, dataSchedTableSize:14
+I (11812) wifi:(trc)band:2G, rate(L-MCS4, rateIdx:4), ampdu(rate:L-MCS4, schedIdx(4, stop:8)), snr:23, ampduState:wait operational
+I (11812) wifi:ifidx:0, rssi:-74, nf:-97, phytype(0x3, CBW20-SGI), phymode(0x7, 11ax), max_rate:172, he:1, vht:0, ht:1
+I (11812) wifi:(ht)max.RxAMPDULenExponent:3(65535 bytes), MMSS:0(no restriction)
+I (21812) wifi:state: run -> init (0xcc00)
+I (21832) wifi:teardown, set twt_inactive_time_secs:6, sp_count:0
+I (21832) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 5
+LC	1	21482923	EspWifiDriver	2	0x4082b97c	0	STA_DISCONNECTED	reason=204
+I (21842) wifi:(he)max.RxAMPDULenExponentExtension:3, max.RxAMPDUpre-EOFpaddingBytes:8388607(0x7fffff)
+I (21842) wifi:(mac)omc_ul_mu_data_disable_rx:1
+I (21842) wifi:(phy)ppe_thresholds_present:1, nominal_packet_padding:0
+I (21842) wifi:(phy)dcm tx(constellation:0, nss:0), dcm rx(constellation:1, nss:0)
+I (21842) wifi:(phy)rx_mcs_map:0xfffa, tx_mcs_map:0xfffa, stbc_tx:0, bfmer(su:1, mu:1), ldpc:1, max_rate:172
+I (21842) wifi:(phy)nsts:2, ru_index_bitmap:0x3(242:1, 484:1, 996:0, 2*996:0)
+I (21842) wifi:(phy)threshold_bits:24, nsts_num:2, ru_num:2, he_cap->len:26, ppe_threshold_len:4(6,11,4)
+I (21842) wifi:(ppe)RU242, NSTS0, PPE16:0, PPE8:7, nominal_packet_padding:2
+I (21852) wifi:(opr)len:7, TWT Required:0, VHT Opr Info Present:0, 6GHz Opr Info Present:0, Co-Hosted BSS:0(max_indicator:0), Basic MCS and NSS:0xfffc
+I (21852) wifi:(opr)len:7, Default PE Duration:4, TXOP RTS Threshold:1023(0 us), ER-SU-Disable:0
+I (21852) wifi:(opr)len:7, BSS Color:3, disabled:0, Partial BSS Color:0
+I (21852) wifi:(spr)len:2, ctrl:0x3, PSR Disallowed:1, Non-SRG OBSS PD SR Disallowed:1
+I (21852) wifi:(spr)len:2, ctrl:0x3, Non-SRG Offset Present:0, SRG Info Present:0
+I (22702) wifi:(he)max.RxAMPDULenExponentExtension:3, max.RxAMPDUpre-EOFpaddingBytes:8388607(0x7fffff)
+I (22702) wifi:(mac)omc_ul_mu_data_disable_rx:1
+I (22702) wifi:(phy)ppe_thresholds_present:1, nominal_packet_padding:0
+I (22702) wifi:(phy)dcm tx(constellation:0, nss:0), dcm rx(constellation:1, nss:0)
+I (22702) wifi:(phy)rx_mcs_map:0xfffa, tx_mcs_map:0xfffa, stbc_tx:0, bfmer(su:1, mu:1), ldpc:1, max_rate:172
+I (22702) wifi:(phy)nsts:2, ru_index_bitmap:0x3(242:1, 484:1, 996:0, 2*996:0)
+I (22702) wifi:(phy)threshold_bits:24, nsts_num:2, ru_num:2, he_cap->len:26, ppe_threshold_len:4(6,11,4)
+I (22702) wifi:(ppe)RU242, NSTS0, PPE16:0, PPE8:7, nominal_packet_padding:2
+I (22702) wifi:(opr)len:7, TWT Required:0, VHT Opr Info Present:0, 6GHz Opr Info Present:0, Co-Hosted BSS:0(max_indicator:0), Basic MCS and NSS:0xfffc
+I (22702) wifi:(opr)len:7, Default PE Duration:4, TXOP RTS Threshold:1023(0 us), ER-SU-Disable:0
+I (22702) wifi:(opr)len:7, BSS Color:34, disabled:0, Partial BSS Color:0
+I (22702) wifi:(spr)len:2, ctrl:0x3, PSR Disallowed:1, Non-SRG OBSS PD SR Disallowed:1
+I (22702) wifi:(spr)len:2, ctrl:0x3, Non-SRG Offset Present:0, SRG Info Present:0
+I (22712) wifi:new:<9,0>, old:<2,0>, ap:<255,255>, sta:<9,0>, prof:1, snd_ch_cfg:0x0
+I (22712) wifi:(connect)dot11_authmode:0x6, pairwise_cipher:0x3, group_cipher:0x3
+I (22712) wifi:state: init -> auth (0xb0)
+I (22712) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 43
+I (22852) wifi:state: auth -> assoc (0x0)
+I (22892) wifi:(assoc)RESP, Extended Capabilities length:10, operating_mode_notification:0
+I (22892) wifi:(assoc)RESP, Extended Capabilities, MBSSID:0, TWT Responder:0, OBSS Narrow Bandwidth RU In OFDMA Tolerance:0
+I (22892) wifi:Extended Capabilities length:10, operating_mode_notification:1
+I (22892) wifi:(he)max.RxAMPDULenExponentExtension:3, max.RxAMPDUpre-EOFpaddingBytes:8388607(0x7fffff)
+I (22892) wifi:(mac)omc_ul_mu_data_disable_rx:1
+I (22892) wifi:(phy)ppe_thresholds_present:1, nominal_packet_padding:0
+I (22892) wifi:(phy)dcm tx(constellation:0, nss:0), dcm rx(constellation:1, nss:0)
+I (22892) wifi:(phy)rx_mcs_map:0xfffa, tx_mcs_map:0xfffa, stbc_tx:0, bfmer(su:1, mu:1), ldpc:1, max_rate:172
+I (22892) wifi:(phy)nsts:2, ru_index_bitmap:0x3(242:1, 484:1, 996:0, 2*996:0)
+I (22892) wifi:(phy)threshold_bits:24, nsts_num:2, ru_num:2, he_cap->len:26, ppe_threshold_len:4(6,11,4)
+I (22892) wifi:(ppe)RU242, NSTS0, PPE16:0, PPE8:7, nominal_packet_padding:2
+I (22892) wifi:(opr)len:7, TWT Required:0, VHT Opr Info Present:0, 6GHz Opr Info Present:0, Co-Hosted BSS:0(max_indicator:0), Basic MCS and NSS:0xfffc
+I (22892) wifi:(opr)len:7, Default PE Duration:4, TXOP RTS Threshold:1023(0 us), ER-SU-Disable:0
+I (22892) wifi:(opr)len:7, BSS Color:34, disabled:0, Partial BSS Color:0
+I (22892) wifi:BSS max idle period:291(1000TU), protected keep alive:TRUE
+I (22892) wifi:state: assoc -> run (0x10)
+I (22892) wifi:(he)ppe_thresholds_present:1, nominal_packet_padding(rx:0, cfg:2)
+I (22892) wifi:(trc)phytype:CBW20-SGI, snr:48, maxRate:172, highestRateIdx:0
+W (22892) wifi:(trc)band:2G, phymode:3, highestRateIdx:0, lowestRateIdx:11, dataSchedTableSize:14
+I (22892) wifi:(trc)band:2G, rate(S-MCS7, rateIdx:0), ampdu(rate:S-MCS7, schedIdx(0, stop:8)), snr:48, ampduState:wait operational
+I (22892) wifi:ifidx:0, rssi:-49, nf:-97, phytype(0x3, CBW20-SGI), phymode(0x7, 11ax), max_rate:172, he:1, vht:0, ht:1
+I (22892) wifi:(ht)max.RxAMPDULenExponent:3(65535 bytes), MMSS:0(no restriction)
+I (22912) wifi:(extcap)mbssid:0, enhanced_mbssid_advertise:0, complete_nontxbssid_profiles:0, twt_responder: 1
+I (22912) wifi:connected with chirkov, aid = 21, channel 9, BW20, bssid = 30:68:93:39:02:74
+I (22912) wifi:security: WPA3-SAE H2E, phy: ax, rssi: -49, cipher(pairwise:0x3, group:0x3), pmf:1
+I (22922) wifi:pm start, type: 1, twt_start:0
+
+I (22922) wifi:pm start, type:1, aid:0x15, trans-BSSID:30:68:93:39:02:74, BSSID[5]:0x74, mbssid(max-indicator:0, index:0), he:1
+I (22922) wifi:dp: 1, bi: 102400, li: 3, scale listen interval from 307200 us to 307200 us
+I (22922) wifi:set rx beacon pti, rx_bcn_pti: 10, bcn_timeout: 25000, mt_pti: 10, mt_time: 10000
+I (22922) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 4
+LC	1	22576523	EspWifiDriver	2	0x4082b97c	0	STA_CONNECTED	ch=9
+I (22922) EspWifiDriver: Event handler event_base IP_EVENT event_id 9
+I (22952) wifi:AP's beacon interval = 102400 us, DTIM period = 1
+I (24022) esp_netif_handlers: sta ip: 192.168.68.92, mask: 255.255.252.0, gw: 192.168.68.1
+I (24022) EspWifiDriver: Event handler event_base IP_EVENT event_id 0
+LC	1	23671037	EspWifiDriver	2	0x4082b97c	0	GOT_IP	
+4294967294:[12:58:40.778568]:kInfo:MLog:wifi_access_point.cpp:84:kLog:Wifi connected
+  53:[12:58:40.779940]:kInfo:kTransport:tcp.h:154:kTcpTransport
+  51:[12:58:40.780581]:kInfo:kTransport:tcp.h:155:kTcpTransportConnect:Tcp connect to endpoint 34.60.244.148:9010
+4294967294:[12:58:40.782672]:kDebug:MLog:lwip_cb_tcp_socket.cpp:142:kLog:LwIp CB TCP socket connection event 1
+4294967294:[12:58:40.845940]:kDebug:MLog:lwip_cb_tcp_socket.cpp:223:kLog:Connected to the server
+4294967294:[12:58:40.846708]:kDebug:MLog:lwip_cb_tcp_socket.cpp:142:kLog:LwIp CB TCP socket connection event 2
+4294967294:[12:58:40.848508]:kInfo:MLog:channel_select_action.cpp:36:kLog:Transport built for 0:00:12.800391
+4294967294:[12:58:40.849226]:kDebug:MLog:server_connection.cpp:201:kLog:Channel updated
+LC	1	23743703	ServerConnection	0	0x4082b324	0	ChannelUpdated	writable=1 endpoint=34.60.244.148:9010 protocol:0
+ 400:[12:58:40.850785]:kDebug:kTransportDebug:tcp.h:173:kTcpTransportSend:Socket 34.60.244.148:9010 send data size 6
+4294967294:[12:58:40.856301]:kDebug:MLog:tcp.h:74:kLog:Data has been written size 7 data 0x06030100000001
+4294967294:[12:58:40.950705]:kDebug:MLog:lwip_cb_tcp_socket.cpp:183:kLog:Received 104 bytes
+4294967294:[12:58:40.951449]:kDebug:MLog:tcp.cpp:74:kLog:Received data 104
+ 401:[12:58:40.952715]:kDebug:kTransportDebug:tcp.cpp:84:kTcpTransportReceive:Socket 34.60.244.148:9010 received data size 103 
+data0x000100000002fc84831b947a12f8f64a4e3a9b5a41aefb22e9065e6299a07098a69e44af7b2f0268a1abf84a02f8064ae20e6a77ce140146fcf893073ad8bddc708a17f4a7f35bfd228b1ab44cafbedccbb96d4806d6489b327f1b1c62aa2f9e6a016b16e0f20f
+4294967294:[12:58:41.006580]:kInfo:MLog:registration.cpp:117:kLog:Key received
+ 1008:[12:58:41.007295]:kInfo:kRegister:registration.cpp:142:RegisterRequestPowParams:Request proof of work params
+ 400:[12:58:41.074990]:kDebug:kTransportDebug:tcp.h:173:kTcpTransportSend:Socket 34.60.244.148:9010 send data size 151
+4294967294:[12:58:41.077367]:kDebug:MLog:tcp.h:74:kLog:Data has been written size 152 data 0x970401942109417157b23cd1a138dcdcaa26a45e434c96ddc84ecf4af672c6f8c0808604f2732ec4479ab62257813c823901a34100000000000000008db77fe01cf176440af2fda9a85ca763ee3723b1f14cfea4bd911d74d1a53be9dd2378b39929d5e4382c78691fd3ecf88203b567e7760e98234f6a42a6e526905068d371560e1eb213ffe93ae5a27b0cf003ceb67d3d55b12eb9038a
+4294967294:[12:58:41.153366]:kDebug:MLog:lwip_cb_tcp_socket.cpp:183:kLog:Received 234 bytes
+4294967294:[12:58:41.154095]:kDebug:MLog:tcp.cpp:74:kLog:Received data 234
+ 401:[12:58:41.155395]:kDebug:kTransportDebug:tcp.cpp:84:kTcpTransportReceive:Socket 34.60.244.148:9010 received data size 233 
+data0x03e7336b8ecc45ce216445dcb0c9c84dc4a28d73250371c02d8c14ec8de77f29b63f9084b9f7a10ba839cfd60e91b2823703577e23f82b66e1f34cb44edb8ceb1544c821dc5d522d1810900d17681eb90ae4a232a1412d46761dc4acd3e9dcc4e6b0b80765228e2e752832277c63af4b8af0dab09f5af1341cfb68456a85d3b22b38e189f225b33bd28ff6ed3149928be01805afa9de0011337f5c3ad9e65fd878bc8c85099ba19ebe2be460c0ceaac73f016bb2c811989f211cf1241292faeea34407d9e2dba17b105abdd507b8b6d3f31c430c6cf1e677b0289bb2c99eb05b9805e4584c224948a7
+ 1011:[12:58:41.211019]:kInfo:kRegister:registration.cpp:192:RegisterMakeRegistration:Make registration
+ 1001:[12:58:44.452769]:kDebug:kRegister:registration.cpp:199:RegisterKeysGenerated:Global Pk: 2:[0xfc84831b947a12f8f64a4e3a9b5a41aefb22e9065e6299a07098a69e44af7b2f], Masterkey: 3:[0x27b28112af86d1b0aa404a20d26c036fd01164a15d70e4b3e8330151e3023c07]
+ 400:[12:58:44.579844]:kDebug:kTransportDebug:tcp.h:173:kTcpTransportSend:Socket 34.60.244.148:9010 send data size 365
+4294967294:[12:58:44.582286]:kDebug:MLog:tcp.h:74:kLog:Data has been written size 367 data 0xfb720401fb6e6c4d888fa181040dbcccdc6b9857744fd1dc160e1ad896767bbd2fd9ada25c373df7bc15e30e5a4bdaa42fc4bb410a8e01000000000000001675ea9d018014f264a70323fa67aa1798f65fdcb60272a01953424c2d912c5c63f7195070c7bc790dc7708755ed0073bc796d1656ab7a50b11e422d98a12cca1248d0996ad8bcea86a0a721eaf20ca9256babd459e08b156f198a112ecf33bf9d7c532da66d4a54662d29090e7d5a8d2f1c094b5854804ea75c82f020189c92dd17878a8d57b1a535c7a7eaad7e7f481c4892ab44e83e861012420864247c3056c60fe80d1aea3de81c438ebb5bd5c0e83658b0f5ad94cea431bb3ee7032f5d5180a9bb0d373b358b49a6e5de1fac7a30fae85d8127ac50a26ec4113a9ef78a82a3707faace6e0306456b30cb064475cdfdc8528c39c72d2acf77a20419f051fb48fb10fcfae4a4148bff688aec419510e57f9b7d86ff97e322d9a0a3979c82219f881cd1a7c35b639a6e02dd993f3fa8
+4294967294:[12:58:44.781432]:kDebug:MLog:lwip_cb_tcp_socket.cpp:183:kLog:Received 91 bytes
+4294967294:[12:58:44.782194]:kDebug:MLog:tcp.cpp:74:kLog:Received data 91
+ 401:[12:58:44.783335]:kDebug:kTransportDebug:tcp.cpp:84:kTcpTransportReceive:Socket 34.60.244.148:9010 received data size 90 
+data0x0458dbeccf4a5e51a4b476fa6e95018955c0d8d887d55477f015b69376a754cdae5c1dc5c90c3a416bb531411a5e72b2d9c91e2689151253a99cf75e0b218eacaec7b23f314abeb40d5fa73b8795f237d9335cf9f3af5d8f4eff
+ 1012:[12:58:44.785175]:kInfo:kRegister:registration.cpp:220:RegisterRegistrationConfirmed:Registration confirmed
+ 1013:[12:58:44.785946]:kInfo:kRegister:registration.cpp:243:RegisterResolveCloud:Resolve cloud as [20, 21, 24]
+ 400:[12:58:44.850038]:kDebug:kTransportDebug:tcp.h:173:kTcpTransportSend:Socket 34.60.244.148:9010 send data size 107
+4294967294:[12:58:44.852301]:kDebug:MLog:tcp.h:74:kLog:Data has been written size 108 data 0x6b040168951ebc0f91d15278cd1af97c88fb2873bb915066e228b062f9489043be24531eab1a84fa2c721432b315020d5c64384a02000000000000009caec33e2aafae63d377c4af22847b15d0cc4bc12af435d0eda20ed7d51342134ac8eaab563603f5ef48f95b7c0e7e03
+4294967294:[12:58:45.078247]:kDebug:MLog:lwip_cb_tcp_socket.cpp:183:kLog:Received 184 bytes
+4294967294:[12:58:45.079001]:kDebug:MLog:tcp.cpp:74:kLog:Received data 184
+ 401:[12:58:45.080312]:kDebug:kTransportDebug:tcp.cpp:84:kTcpTransportReceive:Socket 34.60.244.148:9010 received data size 183 
+data0x03b5346b8ecc45ce2164b969832c3431e98b0c715135e2ed33e0cdf5bd3b59789e475c978b9d8028dc09358a8e45a58f70c83fed9cf7ef1b3b4702610fc8cba290f1ca04209f4836a914376110b1521d1b441c7e3b6b9886dc494a2f515cf704bd33df8a02b8f09b435972a72b35d9b2ca084dcc7303cef1ba17355b9814a956b321bd1c44d147af67d6389c7c1377e73f298f79abc2171f1c18a1b3965ba9043d4f63584c36bb2d666d444ac27d3393be44217a805b7b
+ 1014:[12:58:45.083015]:kInfo:kRegister:registration.cpp:267:RegisterResolveCloudResponse
+4294967294:[12:58:45.083917]:kDebug:MLog:registration.cpp:287:kLog:Got server 20 with endpoints 34.60.244.148:9023 protocol:3, 34.60.244.148:9021 protocol:1, 34.60.244.148:9020 protocol:0, dbservice.aethernet.io:9023 protocol:3
+4294967294:[12:58:45.085006]:kDebug:MLog:registration.cpp:287:kLog:Got server 21 with endpoints los.aethernet.io:9023 protocol:3, 34.27.155.201:9023 protocol:3, 34.27.155.201:9021 protocol:1, 34.27.155.201:9020 protocol:0
+4294967294:[12:58:45.086079]:kDebug:MLog:registration.cpp:287:kLog:Got server 24 with endpoints helsinki.aethernet.io:9023 protocol:3, 35.228.56.142:9020 protocol:0, 35.228.56.142:9021 protocol:1, 35.228.56.142:9023 protocol:3
+ 1015:[12:58:45.087582]:kDebug:kRegister:registration.cpp:303:RegisterClientRegistered:Client registered:
+>>>>>>>>>>>>>>>
+parent_uid=b1ac52c8-8d94-bd39-4c01-a631ac594165,
+uid=aaf9f2ad-2bfa-4d03-a289-72e984948c5d,
+ephemeral_uid=2d71a8ee-4cfa-49b5-ae45-874f10d51e81
+master_key=3:[0x27b28112af86d1b0aa404a20d26c036fd01164a15d70e4b3e8330151e3023c07],
+cloud=[
+server_id=20, endpoints=[34.60.244.148:9023 protocol:3, 34.60.244.148:9021 protocol:1, 34.60.244.148:9020 protocol:0, dbservice.aethernet.io:9023 protocol:3], server_id=21, endpoints=[los.aethernet.io:9023 protocol:3, 34.27.155.201:9023 protocol:3, 34.27.155.201:9021 protocol:1, 34.27.155.201:9020 protocol:0], server_id=24, endpoints=[helsinki.aethernet.io:9023 protocol:3, 35.228.56.142:9020 protocol:0, 35.228.56.142:9021 protocol:1, 35.228.56.142:9023 protocol:3]
+]
+<<<<<<<<<<<<<<<
+4294967294:[12:58:45.090572]:kDebug:MLog:aether.cpp:58:kLog:Create new client prepared_message_bench_v6 with uid aaf9f2ad-2bfa-4d03-a289-72e984948c5d
+ 308:[12:58:45.091502]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2000 classes 1058537116, 2178182515
+4294967294:[12:58:45.092308]:kDebug:MLog:domain.cpp:139:kLog:For obj 2000 enumerated classes [1058537116, 2178182515]
+ 310:[12:58:45.093909]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2000, class id=1058537116, version=0
+4294967294:[12:58:45.095098]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 109 bytes
+ 310:[12:58:45.096241]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2000, class id=2178182515, version=0
+4294967294:[12:58:45.097046]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+REGISTRATION_CLIENT_UID=aaf9f2ad-2bfa-4d03-a289-72e984948c5d
+SV	1	28082128	begin	obj_id=1
+SV	1	28082662	crc_skip	path=/spiffs/1/2178182515/0 bytes=0 obj_id=1
+4294967294:[12:58:45.189324]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28084322	crc_skip	path=/spiffs/2000/2178182515/0 bytes=0 obj_id=2000
+4294967294:[12:58:45.190925]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2000, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28085743	crc_skip	path=/spiffs/2000/1058537116/0 bytes=109 obj_id=2000
+4294967294:[12:58:45.192362]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2000, class id=1058537116, version=0 crc is the same, not update data
+SV	1	28087250	crc_skip	path=/spiffs/2/2178182515/0 bytes=0 obj_id=2
+4294967294:[12:58:45.193862]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28088772	crc_skip	path=/spiffs/3823686862/2178182515/0 bytes=0 obj_id=3823686862
+4294967294:[12:58:45.195439]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3823686862, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28090338	crc_skip	path=/spiffs/4/2178182515/0 bytes=0 obj_id=4
+4294967294:[12:58:45.196915]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28091935	crc_skip	path=/spiffs/1003/2178182515/0 bytes=0 obj_id=1003
+4294967294:[12:58:45.198602]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1003, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28093118	crc_skip	path=/spiffs/1003/698262047/0 bytes=0 obj_id=1003
+4294967294:[12:58:45.199630]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1003, class id=698262047, version=0 crc is the same, not update data
+SV	1	28094498	crc_skip	path=/spiffs/4000/2178182515/0 bytes=0 obj_id=4000
+4294967294:[12:58:45.201091]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4000, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28095580	crc_skip	path=/spiffs/4000/844107085/0 bytes=0 obj_id=4000
+4294967294:[12:58:45.202113]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4000, class id=844107085, version=0 crc is the same, not update data
+SV	1	28096597	crc_skip	path=/spiffs/4000/3591204969/0 bytes=0 obj_id=4000
+4294967294:[12:58:45.203105]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4000, class id=3591204969, version=0 crc is the same, not update data
+SV	1	28097701	crc_skip	path=/spiffs/1003/1232350972/0 bytes=41 obj_id=1003
+4294967294:[12:58:45.204286]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1003, class id=1232350972, version=0 crc is the same, not update data
+SV	1	28099208	crc_skip	path=/spiffs/2731584603/2178182515/0 bytes=0 obj_id=2731584603
+4294967294:[12:58:45.205880]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2731584603, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28100417	crc_skip	path=/spiffs/2731584603/2767960597/0 bytes=0 obj_id=2731584603
+4294967294:[12:58:45.206999]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2731584603, class id=2767960597, version=0 crc is the same, not update data
+SV	1	28101950	crc_skip	path=/spiffs/5000/2178182515/0 bytes=0 obj_id=5000
+4294967294:[12:58:45.208595]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=5000, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28103089	crc_skip	path=/spiffs/5000/733819916/0 bytes=0 obj_id=5000
+4294967294:[12:58:45.209612]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=5000, class id=733819916, version=0 crc is the same, not update data
+SV	1	28104138	crc_skip	path=/spiffs/5000/1196019635/0 bytes=5 obj_id=5000
+4294967294:[12:58:45.210691]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=5000, class id=1196019635, version=0 crc is the same, not update data
+SV	1	28105272	crc_skip	path=/spiffs/2731584603/877772869/0 bytes=47 obj_id=2731584603
+4294967294:[12:58:45.211887]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2731584603, class id=877772869, version=0 crc is the same, not update data
+SV	1	28106604	crc_skip	path=/spiffs/2731584603/877772869/1 bytes=46 obj_id=2731584603
+4294967294:[12:58:45.213262]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2731584603, class id=877772869, version=1 crc is the same, not update data
+SV	1	28107783	crc_skip	path=/spiffs/1003/1138714670/0 bytes=9 obj_id=1003
+4294967294:[12:58:45.214303]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1003, class id=1138714670, version=0 crc is the same, not update data
+SV	1	28108789	crc_skip	path=/spiffs/4/3488512947/0 bytes=9 obj_id=4
+4294967294:[12:58:45.215282]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4, class id=3488512947, version=0 crc is the same, not update data
+SV	1	28110212	crc_skip	path=/spiffs/3211993418/2178182515/0 bytes=0 obj_id=3211993418
+4294967294:[12:58:45.216917]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3211993418, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28111815	crc_skip	path=/spiffs/2754781151/2178182515/0 bytes=0 obj_id=2754781151
+4294967294:[12:58:45.218493]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2754781151, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28113105	write_begin	path=/spiffs/2754781151/2654162901/0 bytes=32 obj_id=2754781151
+SV	1	28123412	write_end	path=/spiffs/2754781151/2654162901/0 bytes=32 duration_us=10331
+ 309:[12:58:45.230248]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2754781151, class id=2654162901, version=0, data size=32
+SV	1	28124960	crc_skip	path=/spiffs/3211993418/2461747236/0 bytes=15 obj_id=3211993418
+4294967294:[12:58:45.231621]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3211993418, class id=2461747236, version=0 crc is the same, not update data
+SV	1	28126371	crc_skip	path=/spiffs/3211993418/4177166869/0 bytes=28 obj_id=3211993418
+4294967294:[12:58:45.233053]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3211993418, class id=4177166869, version=0 crc is the same, not update data
+SV	1	28127598	crc_skip	path=/spiffs/3823686862/2721984319/0 bytes=28 obj_id=3823686862
+4294967294:[12:58:45.234185]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3823686862, class id=2721984319, version=0 crc is the same, not update data
+SV	1	28128707	crc_skip	path=/spiffs/2/207799855/0 bytes=13 obj_id=2
+4294967294:[12:58:45.235230]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2, class id=207799855, version=0 crc is the same, not update data
+SV	1	28130596	crc_skip	path=/spiffs/2/2967114514/0 bytes=5 obj_id=2
+4294967294:[12:58:45.237243]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2, class id=2967114514, version=0 crc is the same, not update data
+SV	1	28132140	crc_skip	path=/spiffs/3000/2178182515/0 bytes=0 obj_id=3000
+4294967294:[12:58:45.238784]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3000, class id=2178182515, version=0 crc is the same, not update data
+SV	1	28133417	crc_skip	path=/spiffs/3000/2424033868/0 bytes=38 obj_id=3000
+4294967294:[12:58:45.240007]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3000, class id=2424033868, version=0 crc is the same, not update data
+SV	1	28134915	write_begin	path=/spiffs/753414741/2178182515/0 bytes=0 obj_id=753414741
+SV	1	28181510	write_end	path=/spiffs/753414741/2178182515/0 bytes=0 duration_us=46608
+ 309:[12:58:45.288417]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=753414741, class id=2178182515, version=0, data size=0
+SV	1	28183781	write_begin	path=/spiffs/772495520/2178182515/0 bytes=0 obj_id=772495520
+SV	1	28231501	write_end	path=/spiffs/772495520/2178182515/0 bytes=0 duration_us=47743
+ 309:[12:58:45.338530]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=772495520, class id=2178182515, version=0, data size=0
+SV	1	28233751	write_begin	path=/spiffs/2797372892/2178182515/0 bytes=0 obj_id=2797372892
+SV	1	28281475	write_end	path=/spiffs/2797372892/2178182515/0 bytes=0 duration_us=47748
+ 309:[12:58:45.388327]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2797372892, class id=2178182515, version=0, data size=0
+SV	1	28283739	write_begin	path=/spiffs/3851930645/2178182515/0 bytes=0 obj_id=3851930645
+SV	1	28331398	write_end	path=/spiffs/3851930645/2178182515/0 bytes=0 duration_us=47678
+ 309:[12:58:45.438150]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3851930645, class id=2178182515, version=0, data size=0
+SV	1	28333201	write_begin	path=/spiffs/3835119418/2178182515/0 bytes=0 obj_id=3835119418
+SV	1	28381599	write_end	path=/spiffs/3835119418/2178182515/0 bytes=0 duration_us=48425
+ 309:[12:58:45.488620]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3835119418, class id=2178182515, version=0, data size=0
+SV	1	28383479	write_begin	path=/spiffs/3835119418/2654162901/0 bytes=24 obj_id=3835119418
+SV	1	28432523	write_end	path=/spiffs/3835119418/2654162901/0 bytes=24 duration_us=49106
+ 309:[12:58:45.539378]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3835119418, class id=2654162901, version=0, data size=24
+SV	1	28434084	write_begin	path=/spiffs/3851930645/2461747236/0 bytes=15 obj_id=3851930645
+SV	1	28482427	write_end	path=/spiffs/3851930645/2461747236/0 bytes=15 duration_us=48391
+ 309:[12:58:45.589314]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3851930645, class id=2461747236, version=0, data size=15
+SV	1	28484315	write_begin	path=/spiffs/3851930645/4177166869/0 bytes=28 obj_id=3851930645
+SV	1	28532450	write_end	path=/spiffs/3851930645/4177166869/0 bytes=28 duration_us=48190
+ 309:[12:58:45.639261]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3851930645, class id=4177166869, version=0, data size=28
+SV	1	28534465	write_begin	path=/spiffs/3637166074/2178182515/0 bytes=0 obj_id=3637166074
+SV	1	28581478	write_end	path=/spiffs/3637166074/2178182515/0 bytes=0 duration_us=47032
+ 309:[12:58:45.688304]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3637166074, class id=2178182515, version=0, data size=0
+SV	1	28583384	write_begin	path=/spiffs/2009660758/2178182515/0 bytes=0 obj_id=2009660758
+SV	1	28631408	write_end	path=/spiffs/2009660758/2178182515/0 bytes=0 duration_us=48044
+ 309:[12:58:45.738167]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2009660758, class id=2178182515, version=0, data size=0
+SV	1	28632913	write_begin	path=/spiffs/2009660758/2654162901/0 bytes=24 obj_id=2009660758
+SV	1	28682522	write_end	path=/spiffs/2009660758/2654162901/0 bytes=24 duration_us=49659
+ 309:[12:58:45.789399]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2009660758, class id=2654162901, version=0, data size=24
+SV	1	28684125	write_begin	path=/spiffs/3637166074/2461747236/0 bytes=15 obj_id=3637166074
+SV	1	28732410	write_end	path=/spiffs/3637166074/2461747236/0 bytes=15 duration_us=48329
+ 309:[12:58:45.839179]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3637166074, class id=2461747236, version=0, data size=15
+SV	1	28734084	write_begin	path=/spiffs/3637166074/4177166869/0 bytes=28 obj_id=3637166074
+SV	1	28782462	write_end	path=/spiffs/3637166074/4177166869/0 bytes=28 duration_us=48434
+ 309:[12:58:45.889349]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3637166074, class id=4177166869, version=0, data size=28
+SV	1	28784116	write_begin	path=/spiffs/2797372892/2721984319/0 bytes=79 obj_id=2797372892
+SV	1	28832546	write_end	path=/spiffs/2797372892/2721984319/0 bytes=79 duration_us=48493
+ 309:[12:58:45.939316]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2797372892, class id=2721984319, version=0, data size=79
+SV	1	28834407	write_begin	path=/spiffs/687578286/2178182515/0 bytes=0 obj_id=687578286
+SV	1	28881620	write_end	path=/spiffs/687578286/2178182515/0 bytes=0 duration_us=47240
+ 309:[12:58:45.988632]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=687578286, class id=2178182515, version=0, data size=0
+SV	1	28884102	write_begin	path=/spiffs/272318763/2178182515/0 bytes=0 obj_id=272318763
+SV	1	28931501	write_end	path=/spiffs/272318763/2178182515/0 bytes=0 duration_us=47426
+ 309:[12:58:46.038415]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=272318763, class id=2178182515, version=0, data size=0
+SV	1	28933560	write_begin	path=/spiffs/2145374975/2178182515/0 bytes=0 obj_id=2145374975
+SV	1	28981620	write_end	path=/spiffs/2145374975/2178182515/0 bytes=0 duration_us=48089
+ 309:[12:58:46.088608]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2145374975, class id=2178182515, version=0, data size=0
+SV	1	28983463	write_begin	path=/spiffs/2145374975/2654162901/0 bytes=24 obj_id=2145374975
+SV	1	29032562	write_end	path=/spiffs/2145374975/2654162901/0 bytes=24 duration_us=49160
+ 309:[12:58:46.139371]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2145374975, class id=2654162901, version=0, data size=24
+SV	1	29034061	write_begin	path=/spiffs/272318763/2461747236/0 bytes=15 obj_id=272318763
+SV	1	29082619	write_end	path=/spiffs/272318763/2461747236/0 bytes=15 duration_us=48609
+ 309:[12:58:46.189615]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=272318763, class id=2461747236, version=0, data size=15
+SV	1	29084670	write_begin	path=/spiffs/272318763/4177166869/0 bytes=28 obj_id=272318763
+SV	1	29132428	write_end	path=/spiffs/272318763/4177166869/0 bytes=28 duration_us=47824
+ 309:[12:58:46.239246]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=272318763, class id=4177166869, version=0, data size=28
+SV	1	29134460	write_begin	path=/spiffs/4144001347/2178182515/0 bytes=0 obj_id=4144001347
+SV	1	29181490	write_end	path=/spiffs/4144001347/2178182515/0 bytes=0 duration_us=47048
+ 309:[12:58:46.288338]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=4144001347, class id=2178182515, version=0, data size=0
+SV	1	29183466	write_begin	path=/spiffs/2966347703/2178182515/0 bytes=0 obj_id=2966347703
+SV	1	29231394	write_end	path=/spiffs/2966347703/2178182515/0 bytes=0 duration_us=47947
+ 309:[12:58:46.338156]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2966347703, class id=2178182515, version=0, data size=0
+SV	1	29232910	write_begin	path=/spiffs/2966347703/2654162901/0 bytes=24 obj_id=2966347703
+SV	1	29282500	write_end	path=/spiffs/2966347703/2654162901/0 bytes=24 duration_us=49640
+ 309:[12:58:46.389363]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2966347703, class id=2654162901, version=0, data size=24
+SV	1	29284074	write_begin	path=/spiffs/4144001347/2461747236/0 bytes=15 obj_id=4144001347
+SV	1	29332409	write_end	path=/spiffs/4144001347/2461747236/0 bytes=15 duration_us=48375
+ 309:[12:58:46.439200]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=4144001347, class id=2461747236, version=0, data size=15
+SV	1	29334105	write_begin	path=/spiffs/4144001347/4177166869/0 bytes=28 obj_id=4144001347
+SV	1	29382972	write_end	path=/spiffs/4144001347/4177166869/0 bytes=28 duration_us=48925
+ 309:[12:58:46.489985]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=4144001347, class id=4177166869, version=0, data size=28
+SV	1	29384794	write_begin	path=/spiffs/687578286/2721984319/0 bytes=73 obj_id=687578286
+SV	1	29432592	write_end	path=/spiffs/687578286/2721984319/0 bytes=73 duration_us=47890
+ 309:[12:58:46.539444]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=687578286, class id=2721984319, version=0, data size=73
+SV	1	29434566	write_begin	path=/spiffs/42623263/2178182515/0 bytes=0 obj_id=42623263
+SV	1	29481763	write_end	path=/spiffs/42623263/2178182515/0 bytes=0 duration_us=47228
+ 309:[12:58:46.588943]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=42623263, class id=2178182515, version=0, data size=0
+SV	1	29484447	write_begin	path=/spiffs/1743408591/2178182515/0 bytes=0 obj_id=1743408591
+SV	1	29531429	write_end	path=/spiffs/1743408591/2178182515/0 bytes=0 duration_us=47004
+ 309:[12:58:46.638257]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1743408591, class id=2178182515, version=0, data size=0
+SV	1	29533331	write_begin	path=/spiffs/3242992000/2178182515/0 bytes=0 obj_id=3242992000
+SV	1	29581449	write_end	path=/spiffs/3242992000/2178182515/0 bytes=0 duration_us=48138
+ 309:[12:58:46.688287]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3242992000, class id=2178182515, version=0, data size=0
+SV	1	29583059	write_begin	path=/spiffs/3242992000/2654162901/0 bytes=24 obj_id=3242992000
+SV	1	29632560	write_end	path=/spiffs/3242992000/2654162901/0 bytes=24 duration_us=49562
+ 309:[12:58:46.739379]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3242992000, class id=2654162901, version=0, data size=24
+SV	1	29634045	write_begin	path=/spiffs/1743408591/2461747236/0 bytes=15 obj_id=1743408591
+SV	1	29682458	write_end	path=/spiffs/1743408591/2461747236/0 bytes=15 duration_us=48456
+ 309:[12:58:46.789339]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1743408591, class id=2461747236, version=0, data size=15
+SV	1	29684344	write_begin	path=/spiffs/1743408591/4177166869/0 bytes=28 obj_id=1743408591
+SV	1	29732440	write_end	path=/spiffs/1743408591/4177166869/0 bytes=28 duration_us=48149
+ 309:[12:58:46.839274]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1743408591, class id=4177166869, version=0, data size=28
+SV	1	29734454	write_begin	path=/spiffs/3422035634/2178182515/0 bytes=0 obj_id=3422035634
+SV	1	29781908	write_end	path=/spiffs/3422035634/2178182515/0 bytes=0 duration_us=47483
+ 309:[12:58:46.888902]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3422035634, class id=2178182515, version=0, data size=0
+SV	1	29784133	write_begin	path=/spiffs/3477837816/2178182515/0 bytes=0 obj_id=3477837816
+SV	1	29831406	write_end	path=/spiffs/3477837816/2178182515/0 bytes=0 duration_us=47294
+ 309:[12:58:46.938244]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3477837816, class id=2178182515, version=0, data size=0
+SV	1	29833006	write_begin	path=/spiffs/3477837816/2654162901/0 bytes=24 obj_id=3477837816
+SV	1	29882574	write_end	path=/spiffs/3477837816/2654162901/0 bytes=24 duration_us=49627
+ 309:[12:58:46.989426]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3477837816, class id=2654162901, version=0, data size=24
+SV	1	29884147	write_begin	path=/spiffs/3422035634/2461747236/0 bytes=15 obj_id=3422035634
+SV	1	29932435	write_end	path=/spiffs/3422035634/2461747236/0 bytes=15 duration_us=48338
+ 309:[12:58:47.039315]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3422035634, class id=2461747236, version=0, data size=15
+SV	1	29934285	write_begin	path=/spiffs/3422035634/4177166869/0 bytes=28 obj_id=3422035634
+SV	1	29982742	write_end	path=/spiffs/3422035634/4177166869/0 bytes=28 duration_us=48520
+ 309:[12:58:47.089716]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3422035634, class id=4177166869, version=0, data size=28
+SV	1	29984595	write_begin	path=/spiffs/42623263/2721984319/0 bytes=78 obj_id=42623263
+SV	1	30032697	write_end	path=/spiffs/42623263/2721984319/0 bytes=78 duration_us=48197
+ 309:[12:58:47.139587]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=42623263, class id=2721984319, version=0, data size=78
+SV	1	30034330	write_begin	path=/spiffs/772495520/207799855/0 bytes=31 obj_id=772495520
+SV	1	30082480	write_end	path=/spiffs/772495520/207799855/0 bytes=31 duration_us=48213
+ 309:[12:58:47.189307]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=772495520, class id=207799855, version=0, data size=31
+SV	1	30084046	write_begin	path=/spiffs/772495520/712345007/0 bytes=16 obj_id=772495520
+SV	1	30132385	write_end	path=/spiffs/772495520/712345007/0 bytes=16 duration_us=48368
+ 309:[12:58:47.239163]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=772495520, class id=712345007, version=0, data size=16
+SV	1	30134394	write_begin	path=/spiffs/1300729825/2178182515/0 bytes=0 obj_id=1300729825
+SV	1	30182792	write_end	path=/spiffs/1300729825/2178182515/0 bytes=0 duration_us=48427
+ 309:[12:58:47.289850]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1300729825, class id=2178182515, version=0, data size=0
+SV	1	30184801	write_begin	path=/spiffs/1300729825/2026002825/0 bytes=97 obj_id=1300729825
+SV	1	30232804	write_end	path=/spiffs/1300729825/2026002825/0 bytes=97 duration_us=48095
+ 309:[12:58:47.339727]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1300729825, class id=2026002825, version=0, data size=97
+SV	1	30234901	write_begin	path=/spiffs/997852072/2178182515/0 bytes=0 obj_id=997852072
+SV	1	30281711	write_end	path=/spiffs/997852072/2178182515/0 bytes=0 duration_us=46833
+ 309:[12:58:47.388519]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=997852072, class id=2178182515, version=0, data size=0
+SV	1	30283457	write_begin	path=/spiffs/997852072/4247110631/0 bytes=60 obj_id=997852072
+SV	1	30332662	write_end	path=/spiffs/997852072/4247110631/0 bytes=60 duration_us=49279
+ 309:[12:58:47.439636]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=997852072, class id=4247110631, version=0, data size=60
+SV	1	30334488	write_begin	path=/spiffs/753414741/1058537116/0 bytes=479 obj_id=753414741
+SV	1	30384517	write_end	path=/spiffs/753414741/1058537116/0 bytes=479 duration_us=50160
+ 309:[12:58:47.491327]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=753414741, class id=1058537116, version=0, data size=479
+SV	1	30386448	crc_skip	path=/spiffs/3/2178182515/0 bytes=0 obj_id=3
+4294967294:[12:58:47.493117]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3, class id=2178182515, version=0 crc is the same, not update data
+SV	1	30388827	write_begin	path=/spiffs/3/1105219716/0 bytes=2229 obj_id=3
+SV	1	30411343	write_end	path=/spiffs/3/1105219716/0 bytes=2229 duration_us=22779
+ 309:[12:58:47.518157]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3, class id=1105219716, version=0, data size=2229
+SV	1	30413063	write_begin	path=/spiffs/1/3757268233/0 bytes=98 obj_id=1
+SV	1	30417286	write_end	path=/spiffs/1/3757268233/0 bytes=98 duration_us=4301
+ 309:[12:58:47.524029]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1, class id=3757268233, version=0, data size=98
+SV	1	30428762	map_rewrite	path=/spiffs/object_map_dump bytes=1279
+SV	1	30429406	end	obj_id=1 duration_us=2347292
+LC	1	30438440	WifiAdapter	1	0x40836db4	0	driver_release	driver=0x4082b97c
+LC	1	30438835	EspWifiDriver	2	0x4082b97c	0	dtor_begin	
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=dtor	api=begin	err=0	name=ESP_OK
+LC	1	30439260	EspWifiDriver	2	0x4082b97c	0	Disconnect_begin	
+I (30792) wifi:state: run -> init (0x0)
+I (30802) wifi:teardown, set twt_inactive_time_secs:6, sp_count:0
+I (30802) wifi:pm stop, total sleep time: 5902468 us / 7877140 us
+
+4294967294:[12:58:47.559994]:kError:MLog:lwip_cb_tcp_socket.cpp:203:kLog:TCP error: -13 Software caused connection abort
+I (30802) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 5
+LC	1	30455321	EspWifiDriver	2	0x4082b97c	0	STA_DISCONNECTED	reason=8
+I (30802) EspWifiDriver: Event handler event_base IP_EVENT event_id 10
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Disconnect	api=esp_wifi_disconnect	err=0	name=ESP_OK
+I (30802) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 3
+I (30802) wifi:flush txq
+I (30802) wifi:stop sw txq
+I (30802) wifi:lmac stop hw txq
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Disconnect	api=esp_wifi_stop	err=0	name=ESP_OK
+LC	1	30458609	EspWifiDriver	2	0x4082b97c	0	Disconnect_end	
+LC	1	30458787	EspWifiDriver	2	0x4082b97c	0	Deinit_begin	
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Deinit	api=begin	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Deinit	api=esp_wifi_stop	err=0	name=ESP_OK
+I (30812) wifi:Deinit lldesc rx mblock:10
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Deinit	api=esp_wifi_deinit	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Deinit	api=esp_netif_destroy_default_wifi	netif=0x4082bcd4
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=UnregisterHandlers	api=esp_event_handler_unregister_WIFI	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=UnregisterHandlers	api=esp_event_handler_unregister_IP	err=0	name=ESP_OK
+LC	1	30471651	EspWifiDriver	2	0x4082b97c	0	Deinit_end	
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=Deinit	api=end	err=0	name=ESP_OK
+LC	1	30472044	EspWifiDriver	2	0x4082b97c	0	dtor_end	
+WIFI_DRV_DIAG	ptr=0x4082b97c	phase=dtor	api=end	err=0	name=ESP_OK
+Metrics:
+Index,Invocations,Max Duration,Sum Duration,Min Duration
+310,2,2030,3502,1472
+1015,1,3333,3333,3333
+1014,1,7425,7425,7425
+1013,1,63716,63716,63716
+1012,1,66114,66114,66114
+1001,1,127249,127249,127249
+3,1,729,729,729
+308,1,810,810,810
+1004,1,697,697,697
+182,1,774,774,774
+4,1,479,479,479
+309,82,1366,84522,871
+400,4,1491,5296,1232
+1011,1,3368695,3368695,3368695
+4294967294,69,98585,431131,544
+1000,1,2548,2548,2548
+1008,1,67158,67158,67158
+51,1,2962,2962,2962
+53,1,3550,3550,3550
+401,4,3426080,6078952,68224
+
+REGISTRATION time_ms=30467
+PRECON_CLEANUP run=1 AE_WIFI_USE_FULL_DEINIT=0
+PRECON_CLEANUP esp_netif_deinit err=262 name=ESP_ERR_NOT_SUPPORTED
+PRECON_CLEANUP esp_event_loop_delete_default err=0 name=ESP_OK
+PRECON_CLEANUP done
+FULL_CYCLE_START
+Platform:esp32c6
+Compiler:gcc
+Compiler version:15.2.0
+Library version:0.1.0.157aadbec8e7b852d0f89274307ff7cb8103e5f7
+CPU arch:esp32c6
+Endianness:LittleEndian
+UTMid:0
+AE_TASK_MAX_COUNT:128
+AE_TASK_MAX_SIZE:8 * sizeof(void*)
+AE_TASK_ALIGN:alignof(std::max_align_t)
+AE_API_PROTOCOL_MAX_PENDING_RESPONSES:10
+AE_API_PROTOCOL_MAX_PACKET_STACK_DEPTH:4
+AE_API_PROTOCOL_MAX_PARSER_PACKER_DEPTH:4
+AE_API_PROTOCOL_PENDING_RESPONSE_MAX_SIZE:4 * sizeof(void*)
+AE_API_PROTOCOL_PENDING_RESPONSE_ALIGN:alignof(std::max_align_t)
+AE_SUPPORT_IPV4:1
+AE_SUPPORT_IPV6:0
+AE_SUPPORT_UDP:1
+AE_UDP_PACKET_QUEUE_SIZE:100
+AE_SUPPORT_TCP:1
+AE_TCP_PACKET_QUEUE_SIZE:100
+AE_SUPPORT_WEBSOCKET:1
+AE_SUPPORT_HTTP:1
+AE_SUPPORT_HTTP_OVER_TCP:1
+AE_SUPPORT_HTTP_WINHTTP:1
+AE_SUPPORT_HTTPS:1
+AE_SUPPORT_PROXY:1
+AE_SUPPORT_DYNAMIC_PROXY:1
+AE_SUPPORT_CLOUD_DNS:1
+AE_SUPPORT_DYNAMIC_CLOUD_DNS:0
+AE_SUPPORT_CLOUD_IPS:1
+AE_SUPPORT_DYNAMIC_CLOUD_IPS:1
+AE_LWIP_SOCKET_TYPES:1
+AE_FREERTOS_POLLER_STACK_SIZE:4096
+AE_SUPPORT_MODEMS:0
+AE_ENABLE_THINGY91X:1
+AE_ENABLE_SIM7070:0
+AE_ENABLE_BG95:0
+AE_SUPPORT_LORA:0
+AE_ENABLE_EBYTE_E22_LM:0
+AE_ENABLE_DX_SMART_LR02_LM:0
+AE_SUPPORT_GATEWAY:0
+AE_SUPPORT_REGISTRATION:1
+AE_SUPPORT_REGISTRATION_DYNAMIC_IP:1
+AE_ENABLE_PING:1
+AE_PING_INTERVAL_MS:5000 + 1000
+AE_BCRYPT_CRC32:1
+AE_POW:1
+AE_SIGNATURE:2
+AE_CRYPTO_ASYNC:2
+AE_CRYPTO_SYNC:2
+AE_KDF:2
+AE_CRYPTO_HASH:1
+AE_TARGET_ENDIANNESS:1
+AE_SUPPORT_SPIFS_FS:1
+AE_SAFE_STREAM_CAPACITY:20 * 1024
+AE_SAFE_STREAM_RTO_GROW_FACTOR:1.5
+AE_STATISTICS_CONNECTION_WINDOW_SIZE:100
+AE_DEFAULT_CONNECTION_TIMEOUT_MS:50000
+AE_STATISTICS_RESPONSE_WINDOW_SIZE:100
+AE_DEFAULT_RESPONSE_TIMEOUT_MS:5000
+AE_STATISTICS_SAFE_STREAM_WINDOW_SIZE:100
+AE_WIFI_CONNECTION_TIMEOUT_MS:20000
+AE_MODEM_CONNECTION_TIMEOUT_MS:15000
+AE_CLOUD_MAX_SERVER_CONNECTIONS:3
+AE_CLOUD_SERVER_QUARANTINE_TIME_MS:10000
+AE_TELE_ENABLED:1
+AE_TELE_COMPILATION_INFO:1
+AE_TELE_RUNTIME_INFO:0
+AE_TELE_METRICS_MODULES:0xffffffff
+AE_TELE_METRICS_MODULES_EXCLUDE:{ }
+AE_TELE_METRICS_DURATION:0xffffffff
+AE_TELE_METRICS_DURATION_EXCLUDE:{ }
+AE_TELE_DEBUG_MODULES:0xffffffff
+AE_TELE_DEBUG_MODULES_EXCLUDE:{ }
+AE_TELE_INFO_MODULES:0xffffffff
+AE_TELE_INFO_MODULES_EXCLUDE:{ }
+AE_TELE_WARN_MODULES:0xffffffff
+AE_TELE_WARN_MODULES_EXCLUDE:{ }
+AE_TELE_ERROR_MODULES:0xffffffff
+AE_TELE_ERROR_MODULES_EXCLUDE:{ }
+AE_TELE_LOG_MODULES:0xffffffff
+AE_TELE_LOG_MODULES_EXCLUDE:{ }
+AE_TELE_LOG_LOCATION:0xffffffff
+AE_TELE_LOG_LOCATION_EXCLUDE:{ }
+AE_TELE_LOG_NAME:0xffffffff
+AE_TELE_LOG_NAME_EXCLUDE:{ }
+AE_TELE_LOG_LEVEL_MODULE:0xffffffff
+AE_TELE_LOG_LEVEL_MODULE_EXCLUDE:{ }
+AE_TELE_LOG_BLOB:0xffffffff
+AE_TELE_LOG_BLOB_EXCLUDE:{ }
+AE_TELE_LOG_CONSOLE:1
+AE_TELE_LOG_TO_STATISTICS:1
+AE_STATISTICS_MAX_SIZE:1024
+AE_DISTILLATION:1
+AE_FILTRATION:1
+DEBUG:0
+
+   3:[12:58:47.600970]:kInfo:kAether:aether_app.cpp:74:AetherStarted
+ 308:[12:58:47.638788]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 1 classes 2178182515, 3757268233
+4294967294:[12:58:47.639746]:kDebug:MLog:domain.cpp:139:kLog:For obj 1 enumerated classes [2178182515, 3757268233]
+ 310:[12:58:47.662293]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1, class id=3757268233, version=0
+4294967294:[12:58:47.663378]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 98 bytes
+ 310:[12:58:47.681559]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1, class id=2178182515, version=0
+4294967294:[12:58:47.682362]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:47.683398]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3 classes 1105219716, 2178182515
+4294967294:[12:58:47.684176]:kDebug:MLog:domain.cpp:139:kLog:For obj 3 enumerated classes [1105219716, 2178182515]
+ 310:[12:58:47.689290]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3, class id=1105219716, version=0
+4294967294:[12:58:47.691194]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 2229 bytes
+ 310:[12:58:47.710908]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3, class id=2178182515, version=0
+4294967294:[12:58:47.711714]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+SV	2	30607552	begin	obj_id=1
+SV	2	30608122	crc_skip	path=/spiffs/1/2178182515/0 bytes=0 obj_id=1
+4294967294:[12:58:47.714779]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1, class id=2178182515, version=0 crc is the same, not update data
+SV	2	30609863	crc_skip	path=/spiffs/3/2178182515/0 bytes=0 obj_id=3
+4294967294:[12:58:47.716473]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3, class id=2178182515, version=0 crc is the same, not update data
+SV	2	30612175	crc_skip	path=/spiffs/3/1105219716/0 bytes=2229 obj_id=3
+4294967294:[12:58:47.718766]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3, class id=1105219716, version=0 crc is the same, not update data
+SV	2	30613332	crc_skip	path=/spiffs/1/3757268233/0 bytes=98 obj_id=1
+4294967294:[12:58:47.719876]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1, class id=3757268233, version=0 crc is the same, not update data
+SV	2	30614365	end	obj_id=1 duration_us=6825
+4294967294:[12:58:47.721865]:kDebug:MLog:aether.cpp:93:kLog:Select client prepared_message_bench_v6 with parent uid b1ac52c8-8d94-bd39-4c01-a631ac594165
+ 308:[12:58:47.722843]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 753414741 classes 1058537116, 2178182515
+4294967294:[12:58:47.723690]:kDebug:MLog:domain.cpp:139:kLog:For obj 753414741 enumerated classes [1058537116, 2178182515]
+ 310:[12:58:47.727463]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=753414741, class id=1058537116, version=0
+4294967294:[12:58:47.728759]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 479 bytes
+ 310:[12:58:47.748930]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=753414741, class id=2178182515, version=0
+4294967294:[12:58:47.749726]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:47.750715]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 772495520 classes 207799855, 712345007, 2178182515
+4294967294:[12:58:47.751519]:kDebug:MLog:domain.cpp:139:kLog:For obj 772495520 enumerated classes [207799855, 712345007, 2178182515]
+ 310:[12:58:47.754720]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=772495520, class id=712345007, version=0
+4294967294:[12:58:47.755785]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 16 bytes
+ 310:[12:58:47.778208]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=772495520, class id=207799855, version=0
+4294967294:[12:58:47.779205]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 31 bytes
+ 310:[12:58:47.799618]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=772495520, class id=2178182515, version=0
+4294967294:[12:58:47.800437]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+4294967294:[12:58:47.801610]:kDebug:MLog:select_client.cpp:31:kLog:Select loaded client
+ 168:[12:58:47.803968]:kDebug:kClientMessages:p2p_message_stream.cpp:163:kP2pMessageStreamNew:P2pStream created for e71db45f-a56a-4ce5-ac48-430cca571142
+LC	2	30698553	P2pStream	0	0x408413f0	0	GetCloud	start
+ 308:[12:58:47.805280]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 997852072 classes 2178182515, 4247110631
+4294967294:[12:58:47.806109]:kDebug:MLog:domain.cpp:139:kLog:For obj 997852072 enumerated classes [2178182515, 4247110631]
+ 310:[12:58:47.809707]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=997852072, class id=4247110631, version=0
+4294967294:[12:58:47.810870]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 60 bytes
+ 310:[12:58:47.833170]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=997852072, class id=2178182515, version=0
+4294967294:[12:58:47.833980]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+4294967294:[12:58:47.834959]:kDebug:MLog:client_cloud_manager.cpp:174:kLog:Ask cloud for uid: e71db45f-a56a-4ce5-ac48-430cca571142
+LC	2	30729501	ClientCloudManager	0	0x4083e9f0	0	GetCloud	cache_miss
+4294967294:[12:58:47.840892]:kDebug:MLog:cloud_server_connections.cpp:285:kLog:Reconcile servers vacancy=3 selected_count=0
+4294967294:[12:58:47.841979]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=20 priority=0
+LC	2	30736456	CloudServerConnections	0	0x4084a558	0	Connect	server_id=20
+ 308:[12:58:47.843454]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2797372892 classes 2178182515, 2721984319
+4294967294:[12:58:47.844296]:kDebug:MLog:domain.cpp:139:kLog:For obj 2797372892 enumerated classes [2178182515, 2721984319]
+ 310:[12:58:47.865476]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2797372892, class id=2721984319, version=0
+4294967294:[12:58:47.866637]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 79 bytes
+ 310:[12:58:47.888326]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2797372892, class id=2178182515, version=0
+4294967294:[12:58:47.889124]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:47.890210]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3851930645 classes 2178182515, 2461747236, 4177166869
+4294967294:[12:58:47.891065]:kDebug:MLog:domain.cpp:139:kLog:For obj 3851930645 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[12:58:47.892610]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3851930645, class id=4177166869, version=0
+4294967294:[12:58:47.893693]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[12:58:47.915999]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3851930645, class id=2461747236, version=0
+4294967294:[12:58:47.916971]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[12:58:47.939103]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3851930645, class id=2178182515, version=0
+4294967294:[12:58:47.939923]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:47.940806]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3835119418 classes 2178182515, 2654162901
+4294967294:[12:58:47.941649]:kDebug:MLog:domain.cpp:139:kLog:For obj 3835119418 enumerated classes [2178182515, 2654162901]
+ 310:[12:58:47.942876]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3835119418, class id=2654162901, version=0
+4294967294:[12:58:47.943917]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 24 bytes
+ 310:[12:58:47.966160]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3835119418, class id=2178182515, version=0
+4294967294:[12:58:47.966995]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:47.967999]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2731584603 classes 877772869, 2178182515, 2767960597
+4294967294:[12:58:47.968843]:kDebug:MLog:domain.cpp:139:kLog:For obj 2731584603 enumerated classes [877772869, 2178182515, 2767960597]
+ 310:[12:58:47.990269]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2731584603, class id=877772869, version=0
+4294967294:[12:58:47.991317]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 47 bytes
+ 310:[12:58:47.992340]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2731584603, class id=877772869, version=1
+4294967294:[12:58:47.993298]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 46 bytes
+ 310:[12:58:48.015264]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2731584603, class id=2767960597, version=0
+4294967294:[12:58:48.016351]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 310:[12:58:48.038639]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2731584603, class id=2178182515, version=0
+4294967294:[12:58:48.039502]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.040425]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 1003 classes 698262047, 1138714670, 1232350972, 2178182515
+4294967294:[12:58:48.041253]:kDebug:MLog:domain.cpp:139:kLog:For obj 1003 enumerated classes [698262047, 1138714670, 1232350972, 2178182515]
+ 310:[12:58:48.042844]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1003, class id=1138714670, version=0
+4294967294:[12:58:48.043910]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 9 bytes
+ 310:[12:58:48.065835]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1003, class id=1232350972, version=0
+4294967294:[12:58:48.066818]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 41 bytes
+ 310:[12:58:48.088933]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1003, class id=698262047, version=0
+4294967294:[12:58:48.089848]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 310:[12:58:48.111972]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1003, class id=2178182515, version=0
+4294967294:[12:58:48.112837]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.114029]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3637166074 classes 2178182515, 2461747236, 4177166869
+4294967294:[12:58:48.114901]:kDebug:MLog:domain.cpp:139:kLog:For obj 3637166074 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[12:58:48.118243]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3637166074, class id=4177166869, version=0
+4294967294:[12:58:48.119333]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[12:58:48.141570]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3637166074, class id=2461747236, version=0
+4294967294:[12:58:48.142511]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[12:58:48.164684]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3637166074, class id=2178182515, version=0
+4294967294:[12:58:48.165516]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.166406]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2009660758 classes 2178182515, 2654162901
+4294967294:[12:58:48.167197]:kDebug:MLog:domain.cpp:139:kLog:For obj 2009660758 enumerated classes [2178182515, 2654162901]
+ 310:[12:58:48.168432]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2009660758, class id=2654162901, version=0
+4294967294:[12:58:48.169490]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 24 bytes
+ 310:[12:58:48.191730]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2009660758, class id=2178182515, version=0
+4294967294:[12:58:48.192559]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.193514]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 4 classes 2178182515, 3488512947
+4294967294:[12:58:48.194277]:kDebug:MLog:domain.cpp:139:kLog:For obj 4 enumerated classes [2178182515, 3488512947]
+ 310:[12:58:48.215497]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4, class id=3488512947, version=0
+4294967294:[12:58:48.216553]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 9 bytes
+ 310:[12:58:48.237999]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4, class id=2178182515, version=0
+4294967294:[12:58:48.238831]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+LC	2	31147531	ServerConnection	0	0x4083b98c	0	SelectChannel	start
+4294967294:[12:58:48.254390]:kDebug:MLog:server_connection.cpp:157:kLog:Select channel
+LC	2	31148957	ServerConnection	0	0x4083b98c	0	TopChannel	endpoint=34.60.244.148:9021 protocol:1
+ 308:[12:58:48.258171]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 5000 classes 733819916, 1196019635, 2178182515
+4294967294:[12:58:48.259076]:kDebug:MLog:domain.cpp:139:kLog:For obj 5000 enumerated classes [733819916, 1196019635, 2178182515]
+ 310:[12:58:48.261089]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=5000, class id=1196019635, version=0
+4294967294:[12:58:48.262230]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 5 bytes
+ 310:[12:58:48.284481]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=5000, class id=733819916, version=0
+4294967294:[12:58:48.285274]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 310:[12:58:48.307448]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=5000, class id=2178182515, version=0
+4294967294:[12:58:48.308273]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.309195]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 4000 classes 844107085, 2178182515, 3591204969
+4294967294:[12:58:48.310003]:kDebug:MLog:domain.cpp:139:kLog:For obj 4000 enumerated classes [844107085, 2178182515, 3591204969]
+ 310:[12:58:48.332203]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4000, class id=3591204969, version=0
+4294967294:[12:58:48.333074]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 310:[12:58:48.355280]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4000, class id=844107085, version=0
+4294967294:[12:58:48.356097]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 310:[12:58:48.378250]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4000, class id=2178182515, version=0
+4294967294:[12:58:48.379053]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+LC	2	31273621	WifiChannel	0	0x40846aa0	0	TransportBuilder	34.60.244.148:9021 protocol:1
+4294967294:[12:58:48.380326]:kDebug:MLog:wifi_channel.cpp:213:kLog:Make transport builder for 34.60.244.148:9021 protocol:1
+LC	2	31279525	EspWifiDriver	4	0x4083bc84	0	ctor_begin	
+WIFI_DRV_DIAG	ptr=0x4083bc84	phase=ctor	api=begin	err=0	name=ESP_OK
+LC	2	31280081	EspWifiDriver	4	0x4083bc84	0	Init_begin	
+WIFI_DRV_DIAG	ptr=0x4083bc84	phase=Init	api=esp_netif_init	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4083bc84	phase=Init	api=esp_event_loop_create_default	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4083bc84	phase=Init	api=esp_netif_create_default_wifi_sta	netif=0x40844594
+I (31632) pp: pp rom version: 5b8dcfa
+I (31632) net80211: net80211 rom version: 5b8dcfa
+I (31642) wifi:wifi driver task: 4084fb8c, prio:23, stack:6656, core=0
+I (31642) wifi:wifi firmware version: 00ad238
+I (31642) wifi:wifi certification version: v7.0
+I (31642) wifi:config NVS flash: enabled
+I (31642) wifi:config nano formatting: disabled
+I (31642) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (31642) wifi:Init data frame dynamic rx buffer num: 32
+I (31642) wifi:Init static rx mgmt buffer num: 5
+I (31642) wifi:Init management short buffer num: 32
+I (31642) wifi:Init dynamic tx buffer num: 32
+I (31642) wifi:Init static tx FG buffer num: 2
+I (31642) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (31642) wifi:Init static rx buffer num: 10
+I (31642) wifi:Init dynamic rx buffer num: 32
+I (31642) wifi_init: accept mbox: 6
+I (31642) wifi_init: tcpip mbox: 32
+I (31642) wifi_init: udp mbox: 6
+I (31652) wifi_init: tcp mbox: 6
+I (31652) wifi_init: tcp tx win: 5760
+I (31652) wifi_init: tcp rx win: 5760
+I (31652) wifi_init: tcp mss: 1440
+I (31652) wifi_init: WiFi IRAM OP enabled
+I (31652) wifi_init: WiFi RX IRAM OP enabled
+I (31652) wifi_init: WiFi SLP IRAM OP enabled
+WIFI_DRV_DIAG	ptr=0x4083bc84	phase=Init	api=esp_wifi_init	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4083bc84	phase=RegisterHandlers	api=esp_event_handler_register_WIFI	err=0	name=ESP_OK
+WIFI_DRV_DIAG	ptr=0x4083bc84	phase=RegisterHandlers	api=esp_event_handler_register_IP	err=0	name=ESP_OK
+LC	2	31301767	EspWifiDriver	4	0x4083bc84	0	Init_end	ok
+LC	2	31301944	EspWifiDriver	4	0x4083bc84	0	ctor_end	
+WIFI_DRV_DIAG	ptr=0x4083bc84	phase=ctor	api=end	err=0	name=ESP_OK
+LC	2	31302349	WifiAdapter	0	0x408349a4	0	driver_create	driver=0x4083bc84
+LC	2	31305264	WifiAccessPoint	0	0x4083f874	0	IsConnected	result=0
+LC	2	31306040	WifiAccessPoint	0	0x4083f874	0	Connect	new_action
+LC	2	31306379	WifiAdapter	0	0x408349a4	0	driver_reuse	driver=0x4083bc84
+LC	2	31308985	WifiConnectAction	5	0x4083f93c	0	ctor	ssid=chirkov
+4294967294:[12:58:48.415732]:kDebug:MLog:wifi_access_point.cpp:53:kLog:WifiConnectAction created
+4294967294:[12:58:48.420737]:kDebug:MLog:server_connection.cpp:183:kLog:New channel selected
+4294967294:[12:58:48.421660]:kDebug:MLog:client_server_connection.cpp:155:kLog:Client server connection from aaf9f2ad-2bfa-4d03-a289-72e984948c5d:e-2d71a8ee-4cfa-49b5-ae45-874f10d51e81 to 20
+4294967294:[12:58:48.429015]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=21 priority=1
+LC	2	31323494	CloudServerConnections	0	0x4084a558	0	Connect	server_id=21
+ 308:[12:58:48.432493]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 687578286 classes 2178182515, 2721984319
+4294967294:[12:58:48.433370]:kDebug:MLog:domain.cpp:139:kLog:For obj 687578286 enumerated classes [2178182515, 2721984319]
+ 310:[12:58:48.437455]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=687578286, class id=2721984319, version=0
+4294967294:[12:58:48.438660]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 73 bytes
+ 310:[12:58:48.460307]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=687578286, class id=2178182515, version=0
+4294967294:[12:58:48.461117]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.462216]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 272318763 classes 2178182515, 2461747236, 4177166869
+4294967294:[12:58:48.463058]:kDebug:MLog:domain.cpp:139:kLog:For obj 272318763 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[12:58:48.464545]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=272318763, class id=4177166869, version=0
+4294967294:[12:58:48.465624]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[12:58:48.487871]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=272318763, class id=2461747236, version=0
+4294967294:[12:58:48.488849]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[12:58:48.510910]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=272318763, class id=2178182515, version=0
+4294967294:[12:58:48.511716]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.512600]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2145374975 classes 2178182515, 2654162901
+4294967294:[12:58:48.513376]:kDebug:MLog:domain.cpp:139:kLog:For obj 2145374975 enumerated classes [2178182515, 2654162901]
+ 310:[12:58:48.514581]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2145374975, class id=2654162901, version=0
+4294967294:[12:58:48.515637]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 24 bytes
+ 310:[12:58:48.537911]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2145374975, class id=2178182515, version=0
+4294967294:[12:58:48.538723]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.539740]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 4144001347 classes 2178182515, 2461747236, 4177166869
+4294967294:[12:58:48.540584]:kDebug:MLog:domain.cpp:139:kLog:For obj 4144001347 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[12:58:48.542270]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4144001347, class id=4177166869, version=0
+4294967294:[12:58:48.543340]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[12:58:48.565626]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4144001347, class id=2461747236, version=0
+4294967294:[12:58:48.566594]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[12:58:48.588646]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4144001347, class id=2178182515, version=0
+4294967294:[12:58:48.589454]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.590318]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2966347703 classes 2178182515, 2654162901
+4294967294:[12:58:48.591094]:kDebug:MLog:domain.cpp:139:kLog:For obj 2966347703 enumerated classes [2178182515, 2654162901]
+ 310:[12:58:48.592292]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2966347703, class id=2654162901, version=0
+4294967294:[12:58:48.593329]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 24 bytes
+ 310:[12:58:48.615614]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2966347703, class id=2178182515, version=0
+4294967294:[12:58:48.616445]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+LC	2	31530053	ServerConnection	0	0x408582e4	0	SelectChannel	start
+4294967294:[12:58:48.636886]:kDebug:MLog:server_connection.cpp:157:kLog:Select channel
+LC	2	31531531	ServerConnection	0	0x408582e4	0	TopChannel	endpoint=34.27.155.201:9021 protocol:1
+LC	2	31535032	WifiChannel	0	0x4085704c	0	TransportBuilder	34.27.155.201:9021 protocol:1
+4294967294:[12:58:48.641780]:kDebug:MLog:wifi_channel.cpp:213:kLog:Make transport builder for 34.27.155.201:9021 protocol:1
+LC	2	31541827	WifiAdapter	0	0x408349a4	0	driver_reuse	driver=0x4083bc84
+LC	2	31544812	WifiAccessPoint	0	0x4083f874	0	IsConnected	result=0
+LC	2	31545462	WifiAccessPoint	0	0x4083f874	0	Connect	reuse
+4294967294:[12:58:48.657347]:kDebug:MLog:server_connection.cpp:183:kLog:New channel selected
+4294967294:[12:58:48.658269]:kDebug:MLog:client_server_connection.cpp:155:kLog:Client server connection from aaf9f2ad-2bfa-4d03-a289-72e984948c5d:e-2d71a8ee-4cfa-49b5-ae45-874f10d51e81 to 21
+4294967294:[12:58:48.667460]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=24 priority=2
+LC	2	31561946	CloudServerConnections	0	0x4084a558	0	Connect	server_id=24
+ 308:[12:58:48.671518]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 42623263 classes 2178182515, 2721984319
+4294967294:[12:58:48.672392]:kDebug:MLog:domain.cpp:139:kLog:For obj 42623263 enumerated classes [2178182515, 2721984319]
+ 310:[12:58:48.674782]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=42623263, class id=2721984319, version=0
+4294967294:[12:58:48.676036]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 78 bytes
+ 310:[12:58:48.697672]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=42623263, class id=2178182515, version=0
+4294967294:[12:58:48.698493]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.699592]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 1743408591 classes 2178182515, 2461747236, 4177166869
+4294967294:[12:58:48.700431]:kDebug:MLog:domain.cpp:139:kLog:For obj 1743408591 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[12:58:48.701924]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1743408591, class id=4177166869, version=0
+4294967294:[12:58:48.703005]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[12:58:48.725310]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1743408591, class id=2461747236, version=0
+4294967294:[12:58:48.726328]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[12:58:48.748417]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1743408591, class id=2178182515, version=0
+4294967294:[12:58:48.749252]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.750117]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3242992000 classes 2178182515, 2654162901
+4294967294:[12:58:48.750905]:kDebug:MLog:domain.cpp:139:kLog:For obj 3242992000 enumerated classes [2178182515, 2654162901]
+ 310:[12:58:48.752197]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3242992000, class id=2654162901, version=0
+4294967294:[12:58:48.753248]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 24 bytes
+ 310:[12:58:48.775421]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3242992000, class id=2178182515, version=0
+4294967294:[12:58:48.776256]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.777279]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3422035634 classes 2178182515, 2461747236, 4177166869
+4294967294:[12:58:48.778098]:kDebug:MLog:domain.cpp:139:kLog:For obj 3422035634 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[12:58:48.779801]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3422035634, class id=4177166869, version=0
+4294967294:[12:58:48.780922]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[12:58:48.803201]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3422035634, class id=2461747236, version=0
+4294967294:[12:58:48.804162]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[12:58:48.826241]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3422035634, class id=2178182515, version=0
+4294967294:[12:58:48.827075]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[12:58:48.827927]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3477837816 classes 2178182515, 2654162901
+4294967294:[12:58:48.828708]:kDebug:MLog:domain.cpp:139:kLog:For obj 3477837816 enumerated classes [2178182515, 2654162901]
+ 310:[12:58:48.829878]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3477837816, class id=2654162901, version=0
+4294967294:[12:58:48.830900]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 24 bytes
+ 310:[12:58:48.853175]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3477837816, class id=2178182515, version=0
+4294967294:[12:58:48.854008]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+LC	2	31771499	ServerConnection	0	0x4085a418	0	SelectChannel	start
+4294967294:[12:58:48.878318]:kDebug:MLog:server_connection.cpp:157:kLog:Select channel
+LC	2	31772884	ServerConnection	0	0x4085a418	0	TopChannel	endpoint=35.228.56.142:9021 protocol:1
+LC	2	31776943	WifiChannel	0	0x4085944c	0	TransportBuilder	35.228.56.142:9021 protocol:1
+4294967294:[12:58:48.883704]:kDebug:MLog:wifi_channel.cpp:213:kLog:Make transport builder for 35.228.56.142:9021 protocol:1
+LC	2	31784840	WifiAdapter	0	0x408349a4	0	driver_reuse	driver=0x4083bc84
+LC	2	31788453	WifiAccessPoint	0	0x4083f874	0	IsConnected	result=0
+LC	2	31789112	WifiAccessPoint	0	0x4083f874	0	Connect	reuse
+4294967294:[12:58:48.902115]:kDebug:MLog:server_connection.cpp:183:kLog:New channel selected
+4294967294:[12:58:48.903060]:kDebug:MLog:client_server_connection.cpp:155:kLog:Client server connection from aaf9f2ad-2bfa-4d03-a289-72e984948c5d:e-2d71a8ee-4cfa-49b5-ae45-874f10d51e81 to 24
+4294967294:[12:58:48.920049]:kDebug:MLog:cloud_server_connections.cpp:317:kLog:Selected servers reconciled selected_count=3, list=!no debug!
+ 308:[12:58:48.924460]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 1300729825 classes 2026002825, 2178182515
+4294967294:[12:58:48.925359]:kDebug:MLog:domain.cpp:139:kLog:For obj 1300729825 enumerated classes [2026002825, 2178182515]
+ 310:[12:58:48.927382]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1300729825, class id=2026002825, version=0
+4294967294:[12:58:48.928564]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 97 bytes
+ 310:[12:58:48.950800]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1300729825, class id=2178182515, version=0
+4294967294:[12:58:48.951662]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+4294967294:[12:58:48.952611]:kInfo:MLog:ping_cloud_servers.cpp:250:kLog:PingCloudServers created
+4294967294:[12:58:48.953240]:kDebug:MLog:ping_cloud_servers.cpp:263:kLog:Servers update
+  22:[12:58:48.954149]:kInfo:kAeActions:telemetry.cpp:42:TelemetryCreated
+4294967294:[12:58:48.966169]:kDebug:MLog:wifi_access_point.cpp:63:kLog:Driver connected to NOT CONNECTED
+LC	2	31860661	WifiConnectAction	5	0x4083f93c	0	EnsureConnected	calling_driver_Connect
+LC	2	31861084	WifiConnectAction	5	0x4083f93c	0	Connect	ssid=chirkov before_driver_Connect
+LC	2	31861420	EspWifiDriver	4	0x4083bc84	0	Connect	ssid=chirkov has_connected_to=0 will_disconnect_first=0
+LC	2	31862460	EspWifiDriver	4	0x4083bc84	0	esp_wifi_start	
+I (32212) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (32212) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (32212) wifi:enable tsf
+I (32212) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 43
+I (32212) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 2
+LC	2	31867773	EspWifiDriver	4	0x4083bc84	0	STA_START	
+I (32222) wifi:(he)max.RxAMPDULenExponentExtension:3, max.RxAMPDUpre-EOFpaddingBytes:8388607(0x7fffff)
+I (32222) wifi:(mac)omc_ul_mu_data_disable_rx:1
+I (32222) wifi:(phy)ppe_thresholds_present:1, nominal_packet_padding:0
+I (32222) wifi:(phy)dcm tx(constellation:0, nss:0), dcm rx(constellation:1, nss:0)
+I (32222) wifi:(phy)rx_mcs_map:0xfffa, tx_mcs_map:0xfffa, stbc_tx:0, bfmer(su:1, mu:1), ldpc:1, max_rate:172
+I (32222) wifi:(phy)nsts:2, ru_index_bitmap:0x3(242:1, 484:1, 996:0, 2*996:0)
+I (32232) wifi:(phy)threshold_bits:24, nsts_num:2, ru_num:2, he_cap->len:26, ppe_threshold_len:4(6,11,4)
+I (32232) wifi:(ppe)RU242, NSTS0, PPE16:0, PPE8:7, nominal_packet_padding:2
+I (32232) wifi:(opr)len:7, TWT Required:0, VHT Opr Info Present:0, 6GHz Opr Info Present:0, Co-Hosted BSS:0(max_indicator:0), Basic MCS and NSS:0xfffc
+I (32232) wifi:(opr)len:7, Default PE Duration:4, TXOP RTS Threshold:1023(0 us), ER-SU-Disable:0
+I (32232) wifi:(opr)len:7, BSS Color:34, disabled:0, Partial BSS Color:0
+I (32232) wifi:(spr)len:2, ctrl:0x3, PSR Disallowed:1, Non-SRG OBSS PD SR Disallowed:1
+I (32232) wifi:(spr)len:2, ctrl:0x3, Non-SRG Offset Present:0, SRG Info Present:0
+I (32232) wifi:new:<9,0>, old:<1,0>, ap:<255,255>, sta:<9,0>, prof:1, snd_ch_cfg:0x0
+I (32232) wifi:(connect)dot11_authmode:0x6, pairwise_cipher:0x3, group_cipher:0x3
+I (32232) wifi:state: init -> auth (0xb0)
+I (32232) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 43
+I (32362) wifi:state: auth -> assoc (0x0)
+4294967294:[12:58:49.128419]:kDebug:MLog:cloud_request.cpp:119:kLog:Make request to server 20
+4294967294:[12:58:49.129306]:kDebug:MLog:get_cloud_aether.cpp:36:kLog:Send cloud request for uid:e71db45f-a56a-4ce5-ac48-430cca571142 at server:20
+4294967294:[12:58:49.130241]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x2601e71db45fa56a4ce5ac48430cca571142ffffffffffffffff
+4294967294:[12:58:49.138608]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 70, 0x74bf6ca1b25bb5a19a16760fb6a51bc6e7c4ca237a7c1401a75deb8f074d51e6fac1dc2baeffe6eed856d9a5d2fe4f77fe982a7f7877c15ada4d024f713e40aa48a407cb869b
+4294967294:[12:58:49.140331]:kDebug:MLog:cloud_request.cpp:119:kLog:Make request to server 21
+4294967294:[12:58:49.141003]:kDebug:MLog:get_cloud_aether.cpp:36:kLog:Send cloud request for uid:e71db45f-a56a-4ce5-ac48-430cca571142 at server:21
+4294967294:[12:58:49.141902]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x2601e71db45fa56a4ce5ac48430cca571142ffffffffffffffff
+4294967294:[12:58:49.150080]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 70, 0x4f329ac42042c4cefc1d8198da6fb694f424619f91045963a7d1f6e6c30ac2ecb29d5612fd48f53adc7b5a28dee29e366c51a88ac1530391903fa423ea3e67f5b76ba41ea11b
+4294967294:[12:58:49.151645]:kDebug:MLog:cloud_request.cpp:119:kLog:Make request to server 24
+4294967294:[12:58:49.152458]:kDebug:MLog:get_cloud_aether.cpp:36:kLog:Send cloud request for uid:e71db45f-a56a-4ce5-ac48-430cca571142 at server:24
+4294967294:[12:58:49.153451]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x2601e71db45fa56a4ce5ac48430cca571142ffffffffffffffff
+I (32392) wifi:(assoc)RESP, Extended Capabilities length:10, operating_mode_notification:0
+I (32392) wifi:(assoc)RESP, Extended Capabilities, MBSSID:0, TWT Responder:0, OBSS Narrow Bandwidth RU In OFDMA Tolerance:0
+I (32392) wifi:Extended Capabilities length:10, operating_mode_notification:1
+I (32402) wifi:(he)max.RxAMPDULenExponentExtension:3, max.RxAMPDUpre-EOFpaddingBytes:8388607(0x7fffff)
+I (32402) wifi:(mac)omc_ul_mu_data_disable_rx:1
+I (32402) wifi:(phy)ppe_thresholds_present:1, nominal_packet_padding:0
+I (32402) wifi:(phy)dcm tx(constellation:0, nss:0), dcm rx(constellation:1, nss:0)
+I (32402) wifi:(phy)rx_mcs_map:0xfffa, tx_mcs_map:0xfffa, stbc_tx:0, bfmer(su:1, mu:1), ldpc:1, max_rate:172
+I (32402) wifi:(phy)nsts:2, ru_index_bitmap:0x3(242:1, 484:1, 996:0, 2*996:0)
+I (32402) wifi:(phy)threshold_bits:24, nsts_num:2, ru_num:2, he_cap->len:26, ppe_threshold_len:4(6,11,4)
+I (32402) wifi:(ppe)RU242, NSTS0, PPE16:0, PPE8:7, nominal_packet_padding:2
+I (32402) wifi:(opr)len:7, TWT Required:0, VHT Opr Info Present:0, 6GHz Opr Info Present:0, Co-Hosted BSS:0(max_indicator:0), Basic MCS and NSS:0xfffc
+I (32402) wifi:(opr)len:7, Default PE Duration:4, TXOP RTS Threshold:1023(0 us), ER-SU-Disable:0
+I (32402) wifi:(opr)len:7, BSS Color:34, disabled:0, Partial BSS Color:0
+I (32402) wifi:BSS max idle period:291(1000TU), protected keep alive:TRUE
+I (32402) wifi:state: assoc -> run (0x10)
+I (32402) wifi:(he)ppe_thresholds_present:1, nominal_packet_padding(rx:0, cfg:2)
+I (32402) wifi:(trc)phytype:CBW20-SGI, snr:48, maxRate:172, highestRateIdx:0
+W (32402) wifi:(trc)band:2G, phymode:3, highestRateIdx:0, lowestRateIdx:11, dataSchedTableSize:14
+I (32402) wifi:(trc)band:2G, rate(S-MCS7, rateIdx:0), ampdu(rate:S-MCS7, schedIdx(0, stop:8)), snr:48, ampduState:wait operational
+I (32402) wifi:ifidx:0, rssi:-48, nf:-96, phytype(0x3, CBW20-SGI), phymode(0x7, 11ax), max_rate:172, he:1, vht:0, ht:1
+I (32402) wifi:(ht)max.RxAMPDULenExponent:3(65535 bytes), MMSS:0(no restriction)
+I (32412) wifi:(extcap)mbssid:0, enhanced_mbssid_advertise:0, complete_nontxbssid_profiles:0, twt_responder: 1
+I (32412) wifi:connected with chirkov, aid = 21, channel 9, BW20, bssid = 30:68:93:39:02:74
+I (32412) wifi:security: WPA3-SAE H2E, phy: ax, rssi: -48, cipher(pairwise:0x3, group:0x3), pmf:1
+I (32422) wifi:pm start, type: 1, twt_start:0
+
+I (32422) wifi:pm start, type:1, aid:0x15, trans-BSSID:30:68:93:39:02:74, BSSID[5]:0x74, mbssid(max-indicator:0, index:0), he:1
+I (32422) wifi:dp: 1, bi: 102400, li: 3, scale listen interval from 307200 us to 307200 us
+I (32422) wifi:set rx beacon pti, rx_bcn_pti: 10, bcn_timeout: 25000, mt_pti: 10, mt_time: 10000
+I (32422) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 4
+LC	2	32074580	EspWifiDriver	4	0x4083bc84	0	STA_CONNECTED	ch=9
+I (32422) EspWifiDriver: Event handler event_base IP_EVENT event_id 9
+4294967294:[12:58:49.184558]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 70, 0x6d8aa8ae47899ab445423b61b2a3099b9747048bd10fa18bb307020b26655125d4d9e907cda50e30df112db755ff691a3cb677f58c835e0dd61fd5b92a0d72f1e0179fa2f600
+I (32472) wifi:AP's beacon interval = 102400 us, DTIM period = 1
+I (33942) esp_netif_handlers: sta ip: 192.168.68.92, mask: 255.255.252.0, gw: 192.168.68.1
+I (33942) EspWifiDriver: Event handler event_base IP_EVENT event_id 0
+LC	2	33590952	EspWifiDriver	4	0x4083bc84	0	GOT_IP	
+4294967294:[12:58:50.698487]:kInfo:MLog:wifi_access_point.cpp:84:kLog:Wifi connected
+  54:[12:58:50.699826]:kInfo:kTransport:udp.cpp:25:kUdpTransport
+  55:[12:58:50.700540]:kInfo:kTransport:udp.h:145:kUdpTransportConnect:Udp connect to endpoint 34.60.244.148:9021
+4294967294:[12:58:50.701791]:kInfo:MLog:channel_select_action.cpp:36:kLog:Transport built for 0:00:02.289703
+4294967294:[12:58:50.702533]:kDebug:MLog:server_connection.cpp:201:kLog:Channel updated
+LC	2	33597012	ServerConnection	0	0x4083b98c	0	ChannelUpdated	writable=1 endpoint=34.60.244.148:9021 protocol:1
+ 402:[12:58:50.703879]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:88
+4294967294:[12:58:50.708967]:kDebug:MLog:cloud_server_connections.cpp:170:kLog:CLOUD_SERVER_LINKED server_id=20 priority=0
+  17:[12:58:50.713659]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[12:58:50.714804]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 5 expected time 0:00:05.000000
+4294967294:[12:58:50.715806]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040500000070170000000000007017000000000000
+4294967294:[12:58:50.723998]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x75bf6ca1b25bb5a176185e204d270b0a61860eb545b20d65849eb8cc8f9e2aa0c396cffbb7fd46f96c3038d194ce33bf1886c93393c4ff772f42fda4effdd1aa3f
+4294967294:[12:58:50.725781]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 12:58:56.714460 after 0:00:06.000000
+  54:[12:58:50.737616]:kInfo:kTransport:udp.cpp:25:kUdpTransport
+  55:[12:58:50.738403]:kInfo:kTransport:udp.h:145:kUdpTransportConnect:Udp connect to endpoint 34.27.155.201:9021
+4294967294:[12:58:50.739539]:kInfo:MLog:channel_select_action.cpp:36:kLog:Transport built for 0:00:02.088013
+4294967294:[12:58:50.740240]:kDebug:MLog:server_connection.cpp:201:kLog:Channel updated
+LC	2	33634685	ServerConnection	0	0x408582e4	0	ChannelUpdated	writable=1 endpoint=34.27.155.201:9021 protocol:1
+ 402:[12:58:50.741527]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:88
+4294967294:[12:58:50.746553]:kDebug:MLog:cloud_server_connections.cpp:170:kLog:CLOUD_SERVER_LINKED server_id=21 priority=1
+  17:[12:58:50.751207]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[12:58:50.752317]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 6 expected time 0:00:05.000000
+4294967294:[12:58:50.753286]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040600000070170000000000007017000000000000
+4294967294:[12:58:50.761447]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x50329ac42042c4ce4ad0f384cb0a805912e53530b7b30d2f363156d7c4ec488d211932d5b41e7ff4a4c9ea79f943ba498a7401531ee0494c608e8cf6da1cb5368b
+4294967294:[12:58:50.763204]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 12:58:56.752004 after 0:00:06.000000
+  54:[12:58:50.777438]:kInfo:kTransport:udp.cpp:25:kUdpTransport
+  55:[12:58:50.778733]:kInfo:kTransport:udp.h:145:kUdpTransportConnect:Udp connect to endpoint 35.228.56.142:9021
+4294967294:[12:58:50.780121]:kInfo:MLog:channel_select_action.cpp:36:kLog:Transport built for 0:00:01.884929
+4294967294:[12:58:50.780823]:kDebug:MLog:server_connection.cpp:201:kLog:Channel updated
+LC	2	33675277	ServerConnection	0	0x4085a418	0	ChannelUpdated	writable=1 endpoint=35.228.56.142:9021 protocol:1
+ 402:[12:58:50.782168]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:88
+4294967294:[12:58:50.787643]:kDebug:MLog:cloud_server_connections.cpp:170:kLog:CLOUD_SERVER_LINKED server_id=24 priority=2
+  17:[12:58:50.792391]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[12:58:50.793496]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 7 expected time 0:00:05.000000
+4294967294:[12:58:50.794482]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040700000070170000000000007017000000000000
+4294967294:[12:58:50.802664]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x6e8aa8ae47899ab4a6ead2869e47536044a89c68105f396040988208f2f53002277c15e9f43d7717c0329e0de22f3789cac15d7e1bf69550223b683f12ad94a9a5
+4294967294:[12:58:50.804425]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 12:58:56.793173 after 0:00:06.000000
+4294967294:[12:58:50.816486]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 88 bytes
+4294967294:[12:58:50.817207]:kDebug:MLog:udp.h:63:kLog:Data has been written size 88
+4294967294:[12:58:50.818631]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 88 bytes
+4294967294:[12:58:50.819234]:kDebug:MLog:udp.h:63:kLog:Data has been written size 88
+4294967294:[12:58:50.819875]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 88 bytes
+4294967294:[12:58:50.820392]:kDebug:MLog:udp.h:63:kLog:Data has been written size 88
+ 402:[12:58:50.822224]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+ 402:[12:58:50.823837]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+ 402:[12:58:50.824993]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[12:58:50.826393]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[12:58:50.827052]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[12:58:50.828000]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[12:58:50.828583]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[12:58:50.829698]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[12:58:50.830389]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[12:58:50.882600]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 79 bytes
+4294967294:[12:58:50.883531]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 79 bytes
+4294967294:[12:58:50.884780]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[12:58:50.885506]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[12:58:50.886226]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 79
+4294967294:[12:58:50.891262]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x1501e71db45fa56a4ce5ac48430cca571142000000000000000003140015001800
+4294967294:[12:58:50.892348]:kDebug:MLog:client_api_safe.cpp:117:kLog:Received cloud configs count 1
+4294967294:[12:58:50.893059]:kDebug:MLog:client_cloud_manager.cpp:242:kLog:Got cloud config update subject:e71db45f-a56a-4ce5-ac48-430cca571142, ver:0, cloud:[20, 21, 24]
+4294967294:[12:58:50.893929]:kDebug:MLog:client_cloud_manager.cpp:282:kLog:Finalize servers for new cloud config [20, 21, 24]
+LC	2	33870428	P2pStream	0	0x408413f0	0	get_cloud_ok	
+4294967294:[12:58:51.020322]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 79 bytes
+4294967294:[12:58:51.021305]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[12:58:51.024233]:kDebug:MLog:cloud_server_connections.cpp:285:kLog:Reconcile servers vacancy=3 selected_count=0
+4294967294:[12:58:51.028557]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=20 priority=0
+LC	2	33922997	CloudServerConnections	0	0x408646c0	0	Connect	server_id=20
+4294967294:[12:58:51.040250]:kDebug:MLog:cloud_server_connections.cpp:160:kLog:CLOUD_SERVER_LINKED server_id=20 priority=0
+4294967294:[12:58:51.044766]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=21 priority=1
+LC	2	33939311	CloudServerConnections	0	0x408646c0	0	Connect	server_id=21
+4294967294:[12:58:51.056490]:kDebug:MLog:cloud_server_connections.cpp:160:kLog:CLOUD_SERVER_LINKED server_id=21 priority=1
+4294967294:[12:58:51.060943]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=24 priority=2
+LC	2	33955464	CloudServerConnections	0	0x408646c0	0	Connect	server_id=24
+4294967294:[12:58:51.073553]:kDebug:MLog:cloud_server_connections.cpp:160:kLog:CLOUD_SERVER_LINKED server_id=24 priority=2
+4294967294:[12:58:51.087183]:kDebug:MLog:cloud_server_connections.cpp:317:kLog:Selected servers reconciled selected_count=3, list=!no debug!
+LC	2	33986287	MessageSendStream	0	0x40864c2c	0	stream_update	is_writable=1
+4294967294:[12:58:51.093116]:kDebug:MLog:p2p_message_stream.cpp:135:kLog:Message send stream link state 1, rec_write_size 1200, max_write_size 1200
+LC	2	33987689	P2pStream	0	0x408413f0	0	message_send_stream	created
+4294967294:[12:58:51.094229]:kDebug:MLog:p2p_message_stream.cpp:239:kLog:Send connected
+4294967294:[12:58:51.094952]:kDebug:MLog:p2p_message_stream.cpp:175:kLog:Write message for uid e71db45f-a56a-4ce5-ac48-430cca571142 size:6 data:0x46554c4c3a30
+4294967294:[12:58:51.095933]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x06e71db45fa56a4ce5ac48430cca5711420646554c4c3a30
+4294967294:[12:58:51.104706]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 68, 0x76bf6ca1b25bb5a1b27e926a1aa9d86562b5294782c16f54b3aa48ac9444f62ac7541123cad968c3d873dc9b72fb2444c46ca05c6144b7c88a4170e78b17237ff88359e4
+ 402:[12:58:51.106029]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:86
+ 403:[12:58:51.132397]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 79
+4294967294:[12:58:51.137368]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x1501e71db45fa56a4ce5ac48430cca571142000000000000000003140015001800
+4294967294:[12:58:51.138378]:kDebug:MLog:client_api_safe.cpp:117:kLog:Received cloud configs count 1
+4294967294:[12:58:51.139045]:kDebug:MLog:client_cloud_manager.cpp:242:kLog:Got cloud config update subject:e71db45f-a56a-4ce5-ac48-430cca571142, ver:0, cloud:[20, 21, 24]
+ 403:[12:58:51.139946]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[12:58:51.144731]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0006000000
+4294967294:[12:58:51.145723]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 6 duration 0:00:00.393459
+ 403:[12:58:51.157473]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[12:58:51.162255]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0005000000
+4294967294:[12:58:51.163148]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 5 duration 0:00:00.448476
+ 403:[12:58:51.174563]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 79
+4294967294:[12:58:51.180356]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x1501e71db45fa56a4ce5ac48430cca571142000000000000000003140015001800
+4294967294:[12:58:51.181365]:kDebug:MLog:client_api_safe.cpp:117:kLog:Received cloud configs count 1
+4294967294:[12:58:51.182051]:kDebug:MLog:client_cloud_manager.cpp:242:kLog:Got cloud config update subject:e71db45f-a56a-4ce5-ac48-430cca571142, ver:0, cloud:[20, 21, 24]
+ 403:[12:58:51.182976]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[12:58:51.187815]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0007000000
+4294967294:[12:58:51.188740]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 7 duration 0:00:00.395342
+4294967294:[12:58:51.200685]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 86 bytes
+4294967294:[12:58:51.201384]:kDebug:MLog:udp.h:63:kLog:Data has been written size 86
+PREPARED_BLOCK reserved=10 remaining=10
+SV	2	34114876	begin	obj_id=1
+SV	2	34115380	crc_skip	path=/spiffs/1/2178182515/0 bytes=0 obj_id=1
+4294967294:[12:58:51.222095]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34117210	crc_skip	path=/spiffs/753414741/2178182515/0 bytes=0 obj_id=753414741
+4294967294:[12:58:51.223871]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=753414741, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34118967	crc_skip	path=/spiffs/772495520/2178182515/0 bytes=0 obj_id=772495520
+4294967294:[12:58:51.225645]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=772495520, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34120558	crc_skip	path=/spiffs/2797372892/2178182515/0 bytes=0 obj_id=2797372892
+4294967294:[12:58:51.227235]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2797372892, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34122158	crc_skip	path=/spiffs/4/2178182515/0 bytes=0 obj_id=4
+4294967294:[12:58:51.228785]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34123880	crc_skip	path=/spiffs/1003/2178182515/0 bytes=0 obj_id=1003
+4294967294:[12:58:51.230510]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1003, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34125022	crc_skip	path=/spiffs/1003/698262047/0 bytes=0 obj_id=1003
+4294967294:[12:58:51.231533]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1003, class id=698262047, version=0 crc is the same, not update data
+SV	2	34126228	crc_skip	path=/spiffs/1003/1232350972/0 bytes=41 obj_id=1003
+4294967294:[12:58:51.232852]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1003, class id=1232350972, version=0 crc is the same, not update data
+SV	2	34127824	crc_skip	path=/spiffs/2731584603/2178182515/0 bytes=0 obj_id=2731584603
+4294967294:[12:58:51.234513]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2731584603, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34129047	crc_skip	path=/spiffs/2731584603/2767960597/0 bytes=0 obj_id=2731584603
+4294967294:[12:58:51.235625]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2731584603, class id=2767960597, version=0 crc is the same, not update data
+SV	2	34130298	crc_skip	path=/spiffs/2731584603/877772869/0 bytes=47 obj_id=2731584603
+4294967294:[12:58:51.236929]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2731584603, class id=877772869, version=0 crc is the same, not update data
+SV	2	34131661	crc_skip	path=/spiffs/2731584603/877772869/1 bytes=46 obj_id=2731584603
+4294967294:[12:58:51.238298]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2731584603, class id=877772869, version=1 crc is the same, not update data
+SV	2	34132808	crc_skip	path=/spiffs/1003/1138714670/0 bytes=9 obj_id=1003
+4294967294:[12:58:51.239337]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1003, class id=1138714670, version=0 crc is the same, not update data
+SV	2	34133846	crc_skip	path=/spiffs/4/3488512947/0 bytes=9 obj_id=4
+4294967294:[12:58:51.240361]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4, class id=3488512947, version=0 crc is the same, not update data
+SV	2	34135287	crc_skip	path=/spiffs/3851930645/2178182515/0 bytes=0 obj_id=3851930645
+4294967294:[12:58:51.241995]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3851930645, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34136912	crc_skip	path=/spiffs/3835119418/2178182515/0 bytes=0 obj_id=3835119418
+4294967294:[12:58:51.243650]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3835119418, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34138268	write_begin	path=/spiffs/3835119418/2654162901/0 bytes=40 obj_id=3835119418
+SV	2	34143647	write_end	path=/spiffs/3835119418/2654162901/0 bytes=40 duration_us=5403
+ 309:[12:58:51.250534]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3835119418, class id=2654162901, version=0, data size=40
+SV	2	34145251	crc_skip	path=/spiffs/3851930645/2461747236/0 bytes=15 obj_id=3851930645
+4294967294:[12:58:51.251911]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3851930645, class id=2461747236, version=0 crc is the same, not update data
+SV	2	34147543	crc_skip	path=/spiffs/4000/2178182515/0 bytes=0 obj_id=4000
+4294967294:[12:58:51.254249]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4000, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34148796	crc_skip	path=/spiffs/4000/844107085/0 bytes=0 obj_id=4000
+4294967294:[12:58:51.255333]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4000, class id=844107085, version=0 crc is the same, not update data
+SV	2	34149814	crc_skip	path=/spiffs/4000/3591204969/0 bytes=0 obj_id=4000
+4294967294:[12:58:51.256336]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4000, class id=3591204969, version=0 crc is the same, not update data
+SV	2	34151221	crc_skip	path=/spiffs/5000/2178182515/0 bytes=0 obj_id=5000
+4294967294:[12:58:51.257840]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=5000, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34152698	crc_skip	path=/spiffs/5000/733819916/0 bytes=0 obj_id=5000
+4294967294:[12:58:51.259305]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=5000, class id=733819916, version=0 crc is the same, not update data
+SV	2	34153901	crc_skip	path=/spiffs/5000/1196019635/0 bytes=5 obj_id=5000
+4294967294:[12:58:51.260486]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=5000, class id=1196019635, version=0 crc is the same, not update data
+SV	2	34155118	crc_skip	path=/spiffs/3851930645/4177166869/0 bytes=28 obj_id=3851930645
+4294967294:[12:58:51.261768]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3851930645, class id=4177166869, version=0 crc is the same, not update data
+SV	2	34156727	crc_skip	path=/spiffs/3637166074/2178182515/0 bytes=0 obj_id=3637166074
+4294967294:[12:58:51.263427]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3637166074, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34158304	crc_skip	path=/spiffs/2009660758/2178182515/0 bytes=0 obj_id=2009660758
+4294967294:[12:58:51.264985]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2009660758, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34159637	crc_skip	path=/spiffs/2009660758/2654162901/0 bytes=24 obj_id=2009660758
+4294967294:[12:58:51.266232]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2009660758, class id=2654162901, version=0 crc is the same, not update data
+SV	2	34160727	crc_skip	path=/spiffs/3637166074/2461747236/0 bytes=15 obj_id=3637166074
+4294967294:[12:58:51.267307]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3637166074, class id=2461747236, version=0 crc is the same, not update data
+SV	2	34161923	crc_skip	path=/spiffs/3637166074/4177166869/0 bytes=28 obj_id=3637166074
+4294967294:[12:58:51.268617]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3637166074, class id=4177166869, version=0 crc is the same, not update data
+SV	2	34163165	crc_skip	path=/spiffs/2797372892/2721984319/0 bytes=79 obj_id=2797372892
+4294967294:[12:58:51.269745]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2797372892, class id=2721984319, version=0 crc is the same, not update data
+SV	2	34164592	crc_skip	path=/spiffs/687578286/2178182515/0 bytes=0 obj_id=687578286
+4294967294:[12:58:51.271255]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=687578286, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34166303	crc_skip	path=/spiffs/272318763/2178182515/0 bytes=0 obj_id=272318763
+4294967294:[12:58:51.273005]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=272318763, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34167922	crc_skip	path=/spiffs/2145374975/2178182515/0 bytes=0 obj_id=2145374975
+4294967294:[12:58:51.274651]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2145374975, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34169246	write_begin	path=/spiffs/2145374975/2654162901/0 bytes=40 obj_id=2145374975
+SV	2	34183346	write_end	path=/spiffs/2145374975/2654162901/0 bytes=40 duration_us=14122
+ 309:[12:58:51.290246]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2145374975, class id=2654162901, version=0, data size=40
+SV	2	34184987	crc_skip	path=/spiffs/272318763/2461747236/0 bytes=15 obj_id=272318763
+4294967294:[12:58:51.291623]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=272318763, class id=2461747236, version=0 crc is the same, not update data
+SV	2	34186365	crc_skip	path=/spiffs/272318763/4177166869/0 bytes=28 obj_id=272318763
+4294967294:[12:58:51.293053]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=272318763, class id=4177166869, version=0 crc is the same, not update data
+SV	2	34188047	crc_skip	path=/spiffs/4144001347/2178182515/0 bytes=0 obj_id=4144001347
+4294967294:[12:58:51.294712]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4144001347, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34189592	crc_skip	path=/spiffs/2966347703/2178182515/0 bytes=0 obj_id=2966347703
+4294967294:[12:58:51.296285]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2966347703, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34190886	crc_skip	path=/spiffs/2966347703/2654162901/0 bytes=24 obj_id=2966347703
+4294967294:[12:58:51.297496]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2966347703, class id=2654162901, version=0 crc is the same, not update data
+SV	2	34192018	crc_skip	path=/spiffs/4144001347/2461747236/0 bytes=15 obj_id=4144001347
+4294967294:[12:58:51.298594]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4144001347, class id=2461747236, version=0 crc is the same, not update data
+SV	2	34193207	crc_skip	path=/spiffs/4144001347/4177166869/0 bytes=28 obj_id=4144001347
+4294967294:[12:58:51.299847]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4144001347, class id=4177166869, version=0 crc is the same, not update data
+SV	2	34194412	crc_skip	path=/spiffs/687578286/2721984319/0 bytes=73 obj_id=687578286
+4294967294:[12:58:51.301006]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=687578286, class id=2721984319, version=0 crc is the same, not update data
+SV	2	34195872	crc_skip	path=/spiffs/42623263/2178182515/0 bytes=0 obj_id=42623263
+4294967294:[12:58:51.302532]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=42623263, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34197595	crc_skip	path=/spiffs/1743408591/2178182515/0 bytes=0 obj_id=1743408591
+4294967294:[12:58:51.304274]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1743408591, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34199169	crc_skip	path=/spiffs/3242992000/2178182515/0 bytes=0 obj_id=3242992000
+4294967294:[12:58:51.305855]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3242992000, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34200459	crc_skip	path=/spiffs/3242992000/2654162901/0 bytes=24 obj_id=3242992000
+4294967294:[12:58:51.307064]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3242992000, class id=2654162901, version=0 crc is the same, not update data
+SV	2	34201566	crc_skip	path=/spiffs/1743408591/2461747236/0 bytes=15 obj_id=1743408591
+4294967294:[12:58:51.308142]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1743408591, class id=2461747236, version=0 crc is the same, not update data
+SV	2	34202777	crc_skip	path=/spiffs/1743408591/4177166869/0 bytes=28 obj_id=1743408591
+4294967294:[12:58:51.309423]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1743408591, class id=4177166869, version=0 crc is the same, not update data
+SV	2	34204326	crc_skip	path=/spiffs/3422035634/2178182515/0 bytes=0 obj_id=3422035634
+4294967294:[12:58:51.310995]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3422035634, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34205881	crc_skip	path=/spiffs/3477837816/2178182515/0 bytes=0 obj_id=3477837816
+4294967294:[12:58:51.312636]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3477837816, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34207231	write_begin	path=/spiffs/3477837816/2654162901/0 bytes=40 obj_id=3477837816
+SV	2	34213223	write_end	path=/spiffs/3477837816/2654162901/0 bytes=40 duration_us=6015
+ 309:[12:58:51.320034]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3477837816, class id=2654162901, version=0, data size=40
+SV	2	34214741	crc_skip	path=/spiffs/3422035634/2461747236/0 bytes=15 obj_id=3422035634
+4294967294:[12:58:51.321385]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3422035634, class id=2461747236, version=0 crc is the same, not update data
+SV	2	34216119	crc_skip	path=/spiffs/3422035634/4177166869/0 bytes=28 obj_id=3422035634
+4294967294:[12:58:51.322795]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3422035634, class id=4177166869, version=0 crc is the same, not update data
+SV	2	34217421	crc_skip	path=/spiffs/42623263/2721984319/0 bytes=78 obj_id=42623263
+4294967294:[12:58:51.323996]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=42623263, class id=2721984319, version=0 crc is the same, not update data
+SV	2	34218567	crc_skip	path=/spiffs/772495520/207799855/0 bytes=31 obj_id=772495520
+4294967294:[12:58:51.325148]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=772495520, class id=207799855, version=0 crc is the same, not update data
+SV	2	34219686	crc_skip	path=/spiffs/772495520/712345007/0 bytes=16 obj_id=772495520
+4294967294:[12:58:51.326275]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=772495520, class id=712345007, version=0 crc is the same, not update data
+SV	2	34221274	crc_skip	path=/spiffs/1300729825/2178182515/0 bytes=0 obj_id=1300729825
+4294967294:[12:58:51.328000]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1300729825, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34222689	write_begin	path=/spiffs/1300729825/2026002825/0 bytes=97 obj_id=1300729825
+SV	2	34227041	write_end	path=/spiffs/1300729825/2026002825/0 bytes=97 duration_us=4378
+ 309:[12:58:51.333845]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1300729825, class id=2026002825, version=0, data size=97
+SV	2	34228861	crc_skip	path=/spiffs/997852072/2178182515/0 bytes=0 obj_id=997852072
+4294967294:[12:58:51.335548]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=997852072, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34230676	write_begin	path=/spiffs/3114520366/2178182515/0 bytes=0 obj_id=3114520366
+SV	2	34271418	write_end	path=/spiffs/3114520366/2178182515/0 bytes=0 duration_us=40751
+ 309:[12:58:51.378159]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3114520366, class id=2178182515, version=0, data size=0
+SV	2	34273035	write_begin	path=/spiffs/3114520366/207799855/0 bytes=31 obj_id=3114520366
+SV	2	34322648	write_end	path=/spiffs/3114520366/207799855/0 bytes=31 duration_us=49683
+ 309:[12:58:51.429643]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3114520366, class id=207799855, version=0, data size=31
+SV	2	34324457	write_begin	path=/spiffs/3114520366/712345007/0 bytes=16 obj_id=3114520366
+SV	2	34372395	write_end	path=/spiffs/3114520366/712345007/0 bytes=16 duration_us=47989
+ 309:[12:58:51.479197]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3114520366, class id=712345007, version=0, data size=16
+SV	2	34373924	write_begin	path=/spiffs/997852072/4247110631/0 bytes=106 obj_id=997852072
+SV	2	34378775	write_end	path=/spiffs/997852072/4247110631/0 bytes=106 duration_us=4933
+ 309:[12:58:51.485582]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=997852072, class id=4247110631, version=0, data size=106
+SV	2	34381726	write_begin	path=/spiffs/753414741/1058537116/0 bytes=479 obj_id=753414741
+SV	2	34387984	write_end	path=/spiffs/753414741/1058537116/0 bytes=479 duration_us=6388
+ 309:[12:58:51.495162]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=753414741, class id=1058537116, version=0, data size=479
+SV	2	34390537	crc_skip	path=/spiffs/3/2178182515/0 bytes=0 obj_id=3
+4294967294:[12:58:51.497270]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3, class id=2178182515, version=0 crc is the same, not update data
+SV	2	34393082	write_begin	path=/spiffs/3/1105219716/0 bytes=2344 obj_id=3
+SV	2	34414940	write_end	path=/spiffs/3/1105219716/0 bytes=2344 duration_us=22153
+ 309:[12:58:51.521740]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3, class id=1105219716, version=0, data size=2344
+SV	2	34416627	crc_skip	path=/spiffs/1/3757268233/0 bytes=98 obj_id=1
+4294967294:[12:58:51.523230]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1, class id=3757268233, version=0 crc is the same, not update data
+SV	2	34438195	map_rewrite	path=/spiffs/object_map_dump bytes=1326
+SV	2	34438797	end	obj_id=1 duration_us=323937
+Metrics:
+Index,Invocations,Max Duration,Sum Duration,Min Duration
+309,10,2335,12459,973
+403,6,247823,315262,7635
+18,3,885,2582,841
+17,3,1010,2929,957
+54,3,771,1992,574
+402,7,2216,8267,843
+168,1,1155495,1155495,1155495
+310,65,2589,108470,1438
+4294967294,257,1120490,4991160,482
+22,1,556,556,556
+308,26,1067,22166,778
+55,3,939,2715,884
+3,1,734,734,734
+
+FULL CYCLE time_ms=3964
+I (34802) wifi:state: run -> init (0x0)
+I (34812) wifi:teardown, set twt_inactive_time_secs:6, sp_count:0
+I (34812) wifi:pm stop, total sleep time: 1516069 us / 2389046 us
+
+I (34812) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 5
+LC	2	34464066	EspWifiDriver	4	0x4083bc84	0	STA_DISCONNECTED	reason=8
+I (34812) EspWifiDriver: Event handler event_base WIFI_EVENT event_id 3
+I (34812) EspWifiDriver: Event handler event_base IP_EVENT event_id 10
+I (34852) wifi:flush txq
+I (34852) wifi:stop sw txq
+I (34852) wifi:lmac stop hw txq
+I (34852) wifi:Deinit lldesc rx mblock:10
+PREPARED_LOOP_START count=10
+I (34912) pp: pp rom version: 5b8dcfa
+I (34912) net80211: net80211 rom version: 5b8dcfa
+I (34922) wifi:wifi driver task: 4087f234, prio:23, stack:6656, core=0
+I (34922) wifi:wifi firmware version: 00ad238
+I (34922) wifi:wifi certification version: v7.0
+I (34922) wifi:config NVS flash: enabled
+I (34922) wifi:config nano formatting: disabled
+I (34922) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (34922) wifi:Init data frame dynamic rx buffer num: 32
+I (34922) wifi:Init static rx mgmt buffer num: 5
+I (34922) wifi:Init management short buffer num: 32
+I (34922) wifi:Init dynamic tx buffer num: 32
+I (34922) wifi:Init static tx FG buffer num: 2
+I (34922) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (34922) wifi:Init static rx buffer num: 10
+I (34922) wifi:Init dynamic rx buffer num: 32
+I (34922) wifi_init: accept mbox: 6
+I (34932) wifi_init: tcpip mbox: 32
+I (34932) wifi_init: udp mbox: 6
+I (34932) wifi_init: tcp mbox: 6
+I (34932) wifi_init: tcp tx win: 5760
+I (34932) wifi_init: tcp rx win: 5760
+I (34932) wifi_init: tcp mss: 1440
+I (34932) wifi_init: WiFi IRAM OP enabled
+I (34932) wifi_init: WiFi RX IRAM OP enabled
+I (34932) wifi_init: WiFi SLP IRAM OP enabled
+W (34932) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (34942) wifi:ifx:0, phymode(new:3, sta nvs: 7 ap nvs: 3)
+I (34942) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (34952) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (34952) wifi:enable tsf
+I (34952) wifi:Set ps type: 2, coexist: 0
+
+W (37352) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/1
+E (39762) prepared-send: Wi-Fi hot path retry limit reached; reason=201
+I (39762) wifi:flush txq
+I (39762) wifi:stop sw txq
+I (39772) wifi:lmac stop hw txq
+I (39772) wifi:Deinit lldesc rx mblock:10
+I (39782) pp: pp rom version: 5b8dcfa
+I (39782) net80211: net80211 rom version: 5b8dcfa
+I (39792) wifi:wifi driver task: 4087f3c8, prio:23, stack:6656, core=0
+I (39792) wifi:wifi firmware version: 00ad238
+I (39792) wifi:wifi certification version: v7.0
+I (39792) wifi:config NVS flash: enabled
+I (39792) wifi:config nano formatting: disabled
+I (39792) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (39792) wifi:Init data frame dynamic rx buffer num: 32
+I (39792) wifi:Init static rx mgmt buffer num: 5
+I (39792) wifi:Init management short buffer num: 32
+I (39792) wifi:Init dynamic tx buffer num: 32
+I (39792) wifi:Init static tx FG buffer num: 2
+I (39792) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (39792) wifi:Init static rx buffer num: 10
+I (39792) wifi:Init dynamic rx buffer num: 32
+I (39792) wifi_init: accept mbox: 6
+I (39792) wifi_init: tcpip mbox: 32
+I (39792) wifi_init: udp mbox: 6
+I (39792) wifi_init: tcp mbox: 6
+I (39802) wifi_init: tcp tx win: 5760
+I (39802) wifi_init: tcp rx win: 5760
+I (39802) wifi_init: tcp mss: 1440
+I (39802) wifi_init: WiFi IRAM OP enabled
+I (39802) wifi_init: WiFi RX IRAM OP enabled
+I (39802) wifi_init: WiFi SLP IRAM OP enabled
+W (39802) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (39812) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (39812) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (39812) wifi:enable tsf
+I (39822) wifi:Set ps type: 2, coexist: 0
+
+I (39852) wifi:new:<9,0>, old:<1,0>, ap:<255,255>, sta:<9,0>, prof:1, snd_ch_cfg:0x0
+I (39852) wifi:(connect)dot11_authmode:0x6, pairwise_cipher:0x3, group_cipher:0x3
+I (39852) wifi:state: init -> auth (0xb0)
+I (40002) wifi:state: auth -> assoc (0x0)
+I (40042) wifi:(assoc)RESP, Extended Capabilities length:8, operating_mode_notification:0
+I (40042) wifi:(assoc)RESP, Extended Capabilities, MBSSID:0, TWT Responder:0, OBSS Narrow Bandwidth RU In OFDMA Tolerance:0
+I (40042) wifi:Extended Capabilities length:8, operating_mode_notification:1
+I (40052) wifi:BSS max idle period:291(1000TU), protected keep alive:TRUE
+I (40052) wifi:state: assoc -> run (0x10)
+I (40052) wifi:(trc)phytype:CBW20-SGI, snr:48, maxRate:144, highestRateIdx:0
+W (40052) wifi:(trc)band:2G, phymode:3, highestRateIdx:0, lowestRateIdx:11, dataSchedTableSize:14
+I (40052) wifi:(trc)band:2G, rate(S-MCS7, rateIdx:0), ampdu(rate:S-MCS7, schedIdx(0, stop:8)), snr:48, ampduState:wait operational
+I (40052) wifi:ifidx:0, rssi:-48, nf:-96, phytype(0x3, CBW20-SGI), phymode(0x3, 11bgn), max_rate:144, he:0, vht:0, ht:1
+I (40052) wifi:(ht)max.RxAMPDULenExponent:3(65535 bytes), MMSS:0(no restriction)
+I (40102) wifi:connected with chirkov, aid = 21, channel 9, BW20, bssid = 30:68:93:39:02:74
+I (40102) wifi:security: WPA3-SAE H2E, phy: bgn, rssi: -48, cipher(pairwise:0x3, group:0x3), pmf:1
+I (40112) wifi:pm start, type: 2, twt_start:0
+
+I (40112) wifi:pm start, type:2, aid:0x15, trans-BSSID:30:68:93:39:02:74, BSSID[5]:0x74, mbssid(max-indicator:0, index:0), he:0
+I (40112) wifi:dp: 1, bi: 102400, li: 3, scale listen interval from 307200 us to 307200 us
+I (40112) wifi:set rx beacon pti, rx_bcn_pti: 10, bcn_timeout: 25000, mt_pti: 10, mt_time: 10000
+I (40152) wifi:AP's beacon interval = 102400 us, DTIM period = 1
+I (41172) esp_netif_handlers: sta ip: 192.168.68.92, mask: 255.255.252.0, gw: 192.168.68.1
+I (41172) prepared-send: Wi-Fi hot path GOT_IP after 0 retries
+I (41502) wifi:state: run -> init (0x0)
+I (41512) wifi:teardown, set twt_inactive_time_secs:6, sp_count:0
+I (41512) wifi:pm stop, total sleep time: 913846 us / 1399018 us
+
+I (41552) wifi:flush txq
+I (41552) wifi:stop sw txq
+I (41552) wifi:lmac stop hw txq
+I (41552) wifi:Deinit lldesc rx mblock:10
+PREPARED 1 time_ms=6650 status=sent message_left=9
+I (42562) pp: pp rom version: 5b8dcfa
+I (42562) net80211: net80211 rom version: 5b8dcfa
+I (42572) wifi:wifi driver task: 4087f408, prio:23, stack:6656, core=0
+I (42572) wifi:wifi firmware version: 00ad238
+I (42572) wifi:wifi certification version: v7.0
+I (42572) wifi:config NVS flash: enabled
+I (42572) wifi:config nano formatting: disabled
+I (42572) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (42572) wifi:Init data frame dynamic rx buffer num: 32
+I (42572) wifi:Init static rx mgmt buffer num: 5
+I (42572) wifi:Init management short buffer num: 32
+I (42572) wifi:Init dynamic tx buffer num: 32
+I (42572) wifi:Init static tx FG buffer num: 2
+I (42572) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (42572) wifi:Init static rx buffer num: 10
+I (42572) wifi:Init dynamic rx buffer num: 32
+I (42572) wifi_init: accept mbox: 6
+I (42582) wifi_init: tcpip mbox: 32
+I (42582) wifi_init: udp mbox: 6
+I (42582) wifi_init: tcp mbox: 6
+I (42582) wifi_init: tcp tx win: 5760
+I (42582) wifi_init: tcp rx win: 5760
+I (42582) wifi_init: tcp mss: 1440
+I (42582) wifi_init: WiFi IRAM OP enabled
+I (42582) wifi_init: WiFi RX IRAM OP enabled
+I (42582) wifi_init: WiFi SLP IRAM OP enabled
+W (42582) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (42592) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (42602) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (42602) wifi:enable tsf
+I (42602) wifi:Set ps type: 2, coexist: 0
+
+W (45012) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/1
+E (47422) prepared-send: Wi-Fi hot path retry limit reached; reason=201
+I (47442) wifi:flush txq
+I (47442) wifi:stop sw txq
+I (47442) wifi:lmac stop hw txq
+I (47452) wifi:Deinit lldesc rx mblock:10
+I (47462) pp: pp rom version: 5b8dcfa
+I (47462) net80211: net80211 rom version: 5b8dcfa
+I (47472) wifi:wifi driver task: 4087f408, prio:23, stack:6656, core=0
+I (47472) wifi:wifi firmware version: 00ad238
+I (47472) wifi:wifi certification version: v7.0
+I (47472) wifi:config NVS flash: enabled
+I (47472) wifi:config nano formatting: disabled
+I (47472) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (47472) wifi:Init data frame dynamic rx buffer num: 32
+I (47472) wifi:Init static rx mgmt buffer num: 5
+I (47472) wifi:Init management short buffer num: 32
+I (47472) wifi:Init dynamic tx buffer num: 32
+I (47472) wifi:Init static tx FG buffer num: 2
+I (47472) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (47472) wifi:Init static rx buffer num: 10
+I (47472) wifi:Init dynamic rx buffer num: 32
+I (47482) wifi_init: accept mbox: 6
+I (47482) wifi_init: tcpip mbox: 32
+I (47482) wifi_init: udp mbox: 6
+I (47482) wifi_init: tcp mbox: 6
+I (47482) wifi_init: tcp tx win: 5760
+I (47482) wifi_init: tcp rx win: 5760
+I (47482) wifi_init: tcp mss: 1440
+I (47482) wifi_init: WiFi IRAM OP enabled
+I (47482) wifi_init: WiFi RX IRAM OP enabled
+I (47482) wifi_init: WiFi SLP IRAM OP enabled
+W (47482) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (47502) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (47502) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (47502) wifi:enable tsf
+I (47532) wifi:Set ps type: 2, coexist: 0
+
+W (49932) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/10
+W (52352) prepared-send: Wi-Fi hot path disconnected reason=201; retry 2/10
+W (54772) prepared-send: Wi-Fi hot path disconnected reason=201; retry 3/10
+W (57192) prepared-send: Wi-Fi hot path disconnected reason=201; retry 4/10
+W (59602) prepared-send: Wi-Fi hot path disconnected reason=201; retry 5/10
+W (62022) prepared-send: Wi-Fi hot path disconnected reason=201; retry 6/10
+I (62532) wifi:flush txq
+I (62532) wifi:stop sw txq
+I (62532) wifi:lmac stop hw txq
+I (62532) wifi:Deinit lldesc rx mblock:10
+PREPARED 2 time_ms=19980 status=wifi-failed message_left=9
+I (63542) pp: pp rom version: 5b8dcfa
+I (63542) net80211: net80211 rom version: 5b8dcfa
+I (63552) wifi:wifi driver task: 4087f408, prio:23, stack:6656, core=0
+I (63552) wifi:wifi firmware version: 00ad238
+I (63552) wifi:wifi certification version: v7.0
+I (63552) wifi:config NVS flash: enabled
+I (63552) wifi:config nano formatting: disabled
+I (63552) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (63552) wifi:Init data frame dynamic rx buffer num: 32
+I (63552) wifi:Init static rx mgmt buffer num: 5
+I (63552) wifi:Init management short buffer num: 32
+I (63552) wifi:Init dynamic tx buffer num: 32
+I (63552) wifi:Init static tx FG buffer num: 2
+I (63552) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (63552) wifi:Init static rx buffer num: 10
+I (63552) wifi:Init dynamic rx buffer num: 32
+I (63552) wifi_init: accept mbox: 6
+I (63562) wifi_init: tcpip mbox: 32
+I (63562) wifi_init: udp mbox: 6
+I (63562) wifi_init: tcp mbox: 6
+I (63562) wifi_init: tcp tx win: 5760
+I (63562) wifi_init: tcp rx win: 5760
+I (63562) wifi_init: tcp mss: 1440
+I (63562) wifi_init: WiFi IRAM OP enabled
+I (63562) wifi_init: WiFi RX IRAM OP enabled
+I (63562) wifi_init: WiFi SLP IRAM OP enabled
+W (63562) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (63572) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (63572) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (63572) wifi:enable tsf
+I (63592) wifi:Set ps type: 2, coexist: 0
+
+W (66002) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/10
+W (68422) prepared-send: Wi-Fi hot path disconnected reason=201; retry 2/10
+W (70832) prepared-send: Wi-Fi hot path disconnected reason=201; retry 3/10
+W (73252) prepared-send: Wi-Fi hot path disconnected reason=201; retry 4/10
+W (75672) prepared-send: Wi-Fi hot path disconnected reason=201; retry 5/10
+W (78092) prepared-send: Wi-Fi hot path disconnected reason=201; retry 6/10
+I (78592) wifi:flush txq
+I (78592) wifi:stop sw txq
+I (78592) wifi:lmac stop hw txq
+I (78592) wifi:Deinit lldesc rx mblock:10
+PREPARED 3 time_ms=15060 status=wifi-failed message_left=9
+I (79602) pp: pp rom version: 5b8dcfa
+I (79602) net80211: net80211 rom version: 5b8dcfa
+I (79612) wifi:wifi driver task: 4087f408, prio:23, stack:6656, core=0
+I (79612) wifi:wifi firmware version: 00ad238
+I (79612) wifi:wifi certification version: v7.0
+I (79612) wifi:config NVS flash: enabled
+I (79612) wifi:config nano formatting: disabled
+I (79612) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (79612) wifi:Init data frame dynamic rx buffer num: 32
+I (79612) wifi:Init static rx mgmt buffer num: 5
+I (79612) wifi:Init management short buffer num: 32
+I (79612) wifi:Init dynamic tx buffer num: 32
+I (79612) wifi:Init static tx FG buffer num: 2
+I (79612) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (79612) wifi:Init static rx buffer num: 10
+I (79612) wifi:Init dynamic rx buffer num: 32
+I (79612) wifi_init: accept mbox: 6
+I (79622) wifi_init: tcpip mbox: 32
+I (79622) wifi_init: udp mbox: 6
+I (79622) wifi_init: tcp mbox: 6
+I (79622) wifi_init: tcp tx win: 5760
+I (79622) wifi_init: tcp rx win: 5760
+I (79622) wifi_init: tcp mss: 1440
+I (79622) wifi_init: WiFi IRAM OP enabled
+I (79622) wifi_init: WiFi RX IRAM OP enabled
+I (79622) wifi_init: WiFi SLP IRAM OP enabled
+W (79622) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (79632) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (79632) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (79632) wifi:enable tsf
+I (79652) wifi:Set ps type: 2, coexist: 0
+
+W (82062) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/10
+W (84482) prepared-send: Wi-Fi hot path disconnected reason=201; retry 2/10
+W (86892) prepared-send: Wi-Fi hot path disconnected reason=201; retry 3/10
+W (89312) prepared-send: Wi-Fi hot path disconnected reason=201; retry 4/10
+W (91732) prepared-send: Wi-Fi hot path disconnected reason=201; retry 5/10
+W (94152) prepared-send: Wi-Fi hot path disconnected reason=201; retry 6/10
+I (94652) wifi:flush txq
+I (94652) wifi:stop sw txq
+I (94652) wifi:lmac stop hw txq
+I (94652) wifi:Deinit lldesc rx mblock:10
+PREPARED 4 time_ms=15060 status=wifi-failed message_left=9
+I (95662) pp: pp rom version: 5b8dcfa
+I (95662) net80211: net80211 rom version: 5b8dcfa
+I (95672) wifi:wifi driver task: 4087f408, prio:23, stack:6656, core=0
+I (95672) wifi:wifi firmware version: 00ad238
+I (95672) wifi:wifi certification version: v7.0
+I (95672) wifi:config NVS flash: enabled
+I (95672) wifi:config nano formatting: disabled
+I (95672) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (95672) wifi:Init data frame dynamic rx buffer num: 32
+I (95672) wifi:Init static rx mgmt buffer num: 5
+I (95672) wifi:Init management short buffer num: 32
+I (95672) wifi:Init dynamic tx buffer num: 32
+I (95672) wifi:Init static tx FG buffer num: 2
+I (95672) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (95672) wifi:Init static rx buffer num: 10
+I (95672) wifi:Init dynamic rx buffer num: 32
+I (95672) wifi_init: accept mbox: 6
+I (95682) wifi_init: tcpip mbox: 32
+I (95682) wifi_init: udp mbox: 6
+I (95682) wifi_init: tcp mbox: 6
+I (95682) wifi_init: tcp tx win: 5760
+I (95682) wifi_init: tcp rx win: 5760
+I (95682) wifi_init: tcp mss: 1440
+I (95682) wifi_init: WiFi IRAM OP enabled
+I (95682) wifi_init: WiFi RX IRAM OP enabled
+I (95682) wifi_init: WiFi SLP IRAM OP enabled
+W (95682) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (95692) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (95692) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (95692) wifi:enable tsf
+I (95712) wifi:Set ps type: 2, coexist: 0
+
+W (98122) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/10
+W (100542) prepared-send: Wi-Fi hot path disconnected reason=201; retry 2/10
+W (102952) prepared-send: Wi-Fi hot path disconnected reason=201; retry 3/10
+W (105372) prepared-send: Wi-Fi hot path disconnected reason=201; retry 4/10
+W (107792) prepared-send: Wi-Fi hot path disconnected reason=201; retry 5/10
+W (110212) prepared-send: Wi-Fi hot path disconnected reason=201; retry 6/10
+I (110712) wifi:flush txq
+I (110712) wifi:stop sw txq
+I (110712) wifi:lmac stop hw txq
+I (110712) wifi:Deinit lldesc rx mblock:10
+PREPARED 5 time_ms=15060 status=wifi-failed message_left=9
+I (111722) pp: pp rom version: 5b8dcfa
+I (111722) net80211: net80211 rom version: 5b8dcfa
+I (111732) wifi:wifi driver task: 4087f408, prio:23, stack:6656, core=0
+I (111732) wifi:wifi firmware version: 00ad238
+I (111732) wifi:wifi certification version: v7.0
+I (111732) wifi:config NVS flash: enabled
+I (111732) wifi:config nano formatting: disabled
+I (111732) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (111732) wifi:Init data frame dynamic rx buffer num: 32
+I (111732) wifi:Init static rx mgmt buffer num: 5
+I (111732) wifi:Init management short buffer num: 32
+I (111732) wifi:Init dynamic tx buffer num: 32
+I (111732) wifi:Init static tx FG buffer num: 2
+I (111732) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (111732) wifi:Init static rx buffer num: 10
+I (111732) wifi:Init dynamic rx buffer num: 32
+I (111732) wifi_init: accept mbox: 6
+I (111742) wifi_init: tcpip mbox: 32
+I (111742) wifi_init: udp mbox: 6
+I (111742) wifi_init: tcp mbox: 6
+I (111742) wifi_init: tcp tx win: 5760
+I (111742) wifi_init: tcp rx win: 5760
+I (111742) wifi_init: tcp mss: 1440
+I (111742) wifi_init: WiFi IRAM OP enabled
+I (111742) wifi_init: WiFi RX IRAM OP enabled
+I (111742) wifi_init: WiFi SLP IRAM OP enabled
+W (111742) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (111752) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (111752) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (111752) wifi:enable tsf
+I (111772) wifi:Set ps type: 2, coexist: 0
+
+W (114182) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/10
+W (116602) prepared-send: Wi-Fi hot path disconnected reason=201; retry 2/10
+W (119012) prepared-send: Wi-Fi hot path disconnected reason=201; retry 3/10
+W (121432) prepared-send: Wi-Fi hot path disconnected reason=201; retry 4/10
+W (123852) prepared-send: Wi-Fi hot path disconnected reason=201; retry 5/10
+W (126272) prepared-send: Wi-Fi hot path disconnected reason=201; retry 6/10
+I (126772) wifi:flush txq
+I (126772) wifi:stop sw txq
+I (126772) wifi:lmac stop hw txq
+I (126772) wifi:Deinit lldesc rx mblock:10
+PREPARED 6 time_ms=15060 status=wifi-failed message_left=9
+I (127782) pp: pp rom version: 5b8dcfa
+I (127782) net80211: net80211 rom version: 5b8dcfa
+I (127792) wifi:wifi driver task: 4087f408, prio:23, stack:6656, core=0
+I (127792) wifi:wifi firmware version: 00ad238
+I (127792) wifi:wifi certification version: v7.0
+I (127792) wifi:config NVS flash: enabled
+I (127792) wifi:config nano formatting: disabled
+I (127792) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (127792) wifi:Init data frame dynamic rx buffer num: 32
+I (127792) wifi:Init static rx mgmt buffer num: 5
+I (127792) wifi:Init management short buffer num: 32
+I (127792) wifi:Init dynamic tx buffer num: 32
+I (127792) wifi:Init static tx FG buffer num: 2
+I (127792) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (127792) wifi:Init static rx buffer num: 10
+I (127792) wifi:Init dynamic rx buffer num: 32
+I (127802) wifi_init: accept mbox: 6
+I (127802) wifi_init: tcpip mbox: 32
+I (127802) wifi_init: udp mbox: 6
+I (127802) wifi_init: tcp mbox: 6
+I (127802) wifi_init: tcp tx win: 5760
+I (127802) wifi_init: tcp rx win: 5760
+I (127802) wifi_init: tcp mss: 1440
+I (127802) wifi_init: WiFi IRAM OP enabled
+I (127802) wifi_init: WiFi RX IRAM OP enabled
+I (127802) wifi_init: WiFi SLP IRAM OP enabled
+W (127802) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (127812) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (127812) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (127812) wifi:enable tsf
+I (127832) wifi:Set ps type: 2, coexist: 0
+
+W (130242) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/10
+W (132662) prepared-send: Wi-Fi hot path disconnected reason=201; retry 2/10
+W (135072) prepared-send: Wi-Fi hot path disconnected reason=201; retry 3/10
+W (137492) prepared-send: Wi-Fi hot path disconnected reason=201; retry 4/10
+W (139912) prepared-send: Wi-Fi hot path disconnected reason=201; retry 5/10
+W (142332) prepared-send: Wi-Fi hot path disconnected reason=201; retry 6/10
+I (142832) wifi:flush txq
+I (142832) wifi:stop sw txq
+I (142832) wifi:lmac stop hw txq
+I (142832) wifi:Deinit lldesc rx mblock:10
+PREPARED 7 time_ms=15060 status=wifi-failed message_left=9
+I (143842) pp: pp rom version: 5b8dcfa
+I (143842) net80211: net80211 rom version: 5b8dcfa
+I (143852) wifi:wifi driver task: 4087f3e8, prio:23, stack:6656, core=0
+I (143852) wifi:wifi firmware version: 00ad238
+I (143852) wifi:wifi certification version: v7.0
+I (143852) wifi:config NVS flash: enabled
+I (143852) wifi:config nano formatting: disabled
+I (143852) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (143852) wifi:Init data frame dynamic rx buffer num: 32
+I (143852) wifi:Init static rx mgmt buffer num: 5
+I (143852) wifi:Init management short buffer num: 32
+I (143852) wifi:Init dynamic tx buffer num: 32
+I (143852) wifi:Init static tx FG buffer num: 2
+I (143852) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (143852) wifi:Init static rx buffer num: 10
+I (143852) wifi:Init dynamic rx buffer num: 32
+I (143852) wifi_init: accept mbox: 6
+I (143862) wifi_init: tcpip mbox: 32
+I (143862) wifi_init: udp mbox: 6
+I (143862) wifi_init: tcp mbox: 6
+I (143862) wifi_init: tcp tx win: 5760
+I (143862) wifi_init: tcp rx win: 5760
+I (143862) wifi_init: tcp mss: 1440
+I (143862) wifi_init: WiFi IRAM OP enabled
+I (143862) wifi_init: WiFi RX IRAM OP enabled
+I (143862) wifi_init: WiFi SLP IRAM OP enabled
+W (143862) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (143872) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (143872) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (143872) wifi:enable tsf
+I (143892) wifi:Set ps type: 2, coexist: 0
+
+W (146302) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/10
+W (148722) prepared-send: Wi-Fi hot path disconnected reason=201; retry 2/10
+W (151132) prepared-send: Wi-Fi hot path disconnected reason=201; retry 3/10
+W (153552) prepared-send: Wi-Fi hot path disconnected reason=201; retry 4/10
+W (155972) prepared-send: Wi-Fi hot path disconnected reason=201; retry 5/10
+W (158392) prepared-send: Wi-Fi hot path disconnected reason=201; retry 6/10
+I (158892) wifi:flush txq
+I (158892) wifi:stop sw txq
+I (158892) wifi:lmac stop hw txq
+I (158892) wifi:Deinit lldesc rx mblock:10
+PREPARED 8 time_ms=15060 status=wifi-failed message_left=9
+I (159902) pp: pp rom version: 5b8dcfa
+I (159902) net80211: net80211 rom version: 5b8dcfa
+I (159912) wifi:wifi driver task: 4087f3e8, prio:23, stack:6656, core=0
+I (159912) wifi:wifi firmware version: 00ad238
+I (159912) wifi:wifi certification version: v7.0
+I (159912) wifi:config NVS flash: enabled
+I (159912) wifi:config nano formatting: disabled
+I (159912) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (159912) wifi:Init data frame dynamic rx buffer num: 32
+I (159912) wifi:Init static rx mgmt buffer num: 5
+I (159912) wifi:Init management short buffer num: 32
+I (159912) wifi:Init dynamic tx buffer num: 32
+I (159912) wifi:Init static tx FG buffer num: 2
+I (159912) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (159912) wifi:Init static rx buffer num: 10
+I (159912) wifi:Init dynamic rx buffer num: 32
+I (159912) wifi_init: accept mbox: 6
+I (159922) wifi_init: tcpip mbox: 32
+I (159922) wifi_init: udp mbox: 6
+I (159922) wifi_init: tcp mbox: 6
+I (159922) wifi_init: tcp tx win: 5760
+I (159922) wifi_init: tcp rx win: 5760
+I (159922) wifi_init: tcp mss: 1440
+I (159922) wifi_init: WiFi IRAM OP enabled
+I (159922) wifi_init: WiFi RX IRAM OP enabled
+I (159922) wifi_init: WiFi SLP IRAM OP enabled
+W (159922) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (159932) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (159932) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (159932) wifi:enable tsf
+I (159952) wifi:Set ps type: 2, coexist: 0
+
+W (162362) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/10
+W (164782) prepared-send: Wi-Fi hot path disconnected reason=201; retry 2/10
+W (167192) prepared-send: Wi-Fi hot path disconnected reason=201; retry 3/10
+W (169612) prepared-send: Wi-Fi hot path disconnected reason=201; retry 4/10
+W (172032) prepared-send: Wi-Fi hot path disconnected reason=201; retry 5/10
+W (174452) prepared-send: Wi-Fi hot path disconnected reason=201; retry 6/10
+I (174952) wifi:flush txq
+I (174952) wifi:stop sw txq
+I (174952) wifi:lmac stop hw txq
+I (174952) wifi:Deinit lldesc rx mblock:10
+PREPARED 9 time_ms=15060 status=wifi-failed message_left=9
+I (175962) pp: pp rom version: 5b8dcfa
+I (175962) net80211: net80211 rom version: 5b8dcfa
+I (175972) wifi:wifi driver task: 4087f3e8, prio:23, stack:6656, core=0
+I (175972) wifi:wifi firmware version: 00ad238
+I (175972) wifi:wifi certification version: v7.0
+I (175972) wifi:config NVS flash: enabled
+I (175972) wifi:config nano formatting: disabled
+I (175972) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (175972) wifi:Init data frame dynamic rx buffer num: 32
+I (175972) wifi:Init static rx mgmt buffer num: 5
+I (175972) wifi:Init management short buffer num: 32
+I (175972) wifi:Init dynamic tx buffer num: 32
+I (175972) wifi:Init static tx FG buffer num: 2
+I (175972) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (175972) wifi:Init static rx buffer num: 10
+I (175972) wifi:Init dynamic rx buffer num: 32
+I (175982) wifi_init: accept mbox: 6
+I (175982) wifi_init: tcpip mbox: 32
+I (175982) wifi_init: udp mbox: 6
+I (175982) wifi_init: tcp mbox: 6
+I (175982) wifi_init: tcp tx win: 5760
+I (175982) wifi_init: tcp rx win: 5760
+I (175982) wifi_init: tcp mss: 1440
+I (175982) wifi_init: WiFi IRAM OP enabled
+I (175982) wifi_init: WiFi RX IRAM OP enabled
+I (175982) wifi_init: WiFi SLP IRAM OP enabled
+W (175982) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (175992) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (175992) wifi:mode : sta (e4:b0:63:43:4f:38)
+I (175992) wifi:enable tsf
+I (176012) wifi:Set ps type: 2, coexist: 0
+
+W (178422) prepared-send: Wi-Fi hot path disconnected reason=201; retry 1/10
+W (180842) prepared-send: Wi-Fi hot path disconnected reason=201; retry 2/10
+W (183252) prepared-send: Wi-Fi hot path disconnected reason=201; retry 3/10
+W (185672) prepared-send: Wi-Fi hot path disconnected reason=201; retry 4/10
+W (188092) prepared-send: Wi-Fi hot path disconnected reason=201; retry 5/10
+W (190512) prepared-send: Wi-Fi hot path disconnected reason=201; retry 6/10
+I (191012) wifi:flush txq
+I (191012) wifi:stop sw txq
+I (191012) wifi:lmac stop hw txq
+I (191012) wifi:Deinit lldesc rx mblock:10
+PREPARED 10 time_ms=15060 status=wifi-failed message_left=9
+REGISTRATION
+  time_ms=30467
+FULL CYCLE
+  time_ms=3964
+PREPARED
+  raw=[6650]
+  min=6650
+  median=6650
+  p90=6650
+  max=6650
+  completed=1/10
+prepared block:
+  reserved=10
+  remaining=9
+PREPARED_E2E_DONE
