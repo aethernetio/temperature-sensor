@@ -109,6 +109,10 @@ elseif(AE_EXP_FULL_AETHER_AETHERNETIO)
   list(APPEND src_list
     "full_aether_aethernetio_loop.cpp"
   )
+elseif(AE_EXP_ORDINARY_FULL_READY_CONTROL)
+  list(APPEND src_list
+    "esp_ordinary_full_ready_control.cpp"
+  )
 elseif(AE_EXP_ADAPTIVE_WIFI_PROBE_A)
   list(APPEND src_list
     "adaptive_wifi_probe_phase_a.cpp"
@@ -277,7 +281,8 @@ else()
        AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1" OR
        AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1" OR
        AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1" OR
-       AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1")
+       AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1" OR
+       AE_EXP_ORDINARY_FULL_READY_CONTROL STREQUAL "1")
       message(STATUS "UDP/WiFi diag: adding nvs_flash esp_wifi to REQUIRES")
       list(APPEND _main_requires nvs_flash esp_wifi)
     endif()
@@ -313,7 +318,8 @@ else()
        AETHER_DIAG_UDP_LOW_POWER_1MIN_10 STREQUAL "1" OR
        AETHER_DIAG_UDP_VANILLA_100X_20S STREQUAL "1" OR
        AETHER_DIAG_WIFI_CONNECT_STAGE_100X STREQUAL "1" OR
-       AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1")
+       AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1" OR
+       AE_EXP_ORDINARY_FULL_READY_CONTROL STREQUAL "1")
       # Ensure Wi-Fi headers/libs even if REQUIRES expansion was incomplete.
       target_link_libraries(${TARGET_NAME} PUBLIC idf::esp_wifi idf::nvs_flash idf::lwip)
     endif()
@@ -344,7 +350,8 @@ else()
       include(../cmake/CPM.cmake)
       # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
       CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
-      if(AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1")
+      if(AETHER_DIAG_AETHER_HOT_100X_2S_PPK STREQUAL "1" OR
+         AE_EXP_ORDINARY_FULL_READY_CONTROL STREQUAL "1")
         ae_esp_strip_aether_c_api(aether)
       endif()
 
@@ -425,6 +432,9 @@ set(AE_EXP_PREPARED_FINAL_D1_5X50 "" CACHE STRING "Final D1 WIFI_STORAGE_RAM dee
 set(AE_EXP_PREPARED_AP_AETHERNETIO_3X10 "" CACHE STRING "aethernetio AP 3x10 1s deep sleep (set to 1)")
 set(AE_EXP_PREPARED_AP_AETHERNETIO_NOSLEEP_5X5 "" CACHE STRING "aethernetio no-sleep 5x5 reliability (set to 1)")
 set(AE_EXP_FULL_AETHER_AETHERNETIO "" CACHE STRING "Canonical FULL Aether aethernetio baseline (set to 1)")
+set(AE_EXP_ORDINARY_FULL_READY_CONTROL "" CACHE STRING "ESP one-shot ordinary FULL_READY to TCP receiver (set to 1)")
+set(AE_ORDINARY_FULL_READY_RUN_ID "920001" CACHE STRING "Reliability FULL_READY run_id for ordinary ESP control")
+set(AE_ORDINARY_FULL_READY_CLIENT_ID "reliability_full_v1" CACHE STRING "SelectClient id for ordinary ESP control")
 set(AE_EXP_ADAPTIVE_WIFI_PROBE_A "" CACHE STRING "Adaptive Wi-Fi probe Phase A ICMP matrix (set to 1)")
 set(AE_EXP_ADAPTIVE_WIFI_PROBE_B "" CACHE STRING "Adaptive Wi-Fi probe Phase B existing Ping (set to 1)")
 set(AE_EXP_ADAPTIVE_WIFI_PROBE_C "" CACHE STRING "Adaptive Wi-Fi probe Phase C prepared HOT sleep (set to 1)")
@@ -527,6 +537,7 @@ ae_exp_define_if_set(AE_EXP_PREPARED_FINAL_D1_5X50)
 ae_exp_define_if_set(AE_EXP_PREPARED_AP_AETHERNETIO_3X10)
 ae_exp_define_if_set(AE_EXP_PREPARED_AP_AETHERNETIO_NOSLEEP_5X5)
 ae_exp_define_if_set(AE_EXP_FULL_AETHER_AETHERNETIO)
+ae_exp_define_if_set(AE_EXP_ORDINARY_FULL_READY_CONTROL)
 ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_A)
 ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_B)
 ae_exp_define_if_set(AE_EXP_ADAPTIVE_WIFI_PROBE_C)
@@ -616,6 +627,11 @@ if(AE_EXP_ADAPTIVE_WIFI_PROBE_C)
       target_compile_definitions(${TARGET_NAME} PRIVATE "${_d}=${${_d}}")
     endif()
   endforeach()
+endif()
+if(AE_EXP_ORDINARY_FULL_READY_CONTROL)
+  target_compile_definitions(${TARGET_NAME} PRIVATE
+    "AE_ORDINARY_FULL_READY_RUN_ID=${AE_ORDINARY_FULL_READY_RUN_ID}"
+    "AE_ORDINARY_FULL_READY_CLIENT_ID=\"${AE_ORDINARY_FULL_READY_CLIENT_ID}\"")
 endif()
 if(AE_EXP_FULL_AETHER_AETHERNETIO)
   set(AE_RELIABILITY_MSG_COUNT "100" CACHE STRING "Ordinary P2P writes in FULL reliability session")

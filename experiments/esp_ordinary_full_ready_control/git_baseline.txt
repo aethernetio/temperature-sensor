@@ -1,0 +1,3 @@
+branch=diag/aether-hot-e2e-fix-100x-2s
+head=8677d0614ffefb41c27b7c8cc2cc1489901c9e3e
+note=Uncommitted work preserved; no reset/clean performed for this control run.
