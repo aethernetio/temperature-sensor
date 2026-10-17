@@ -1,7 +1,7 @@
 {
   "git_head_start": "20686e570b3b4bcadb700f113ca229cdf7efced6",
-  "git_head": "20686e570b3b4bcadb700f113ca229cdf7efced6",
-  "pushed": "pending",
+  "git_head": "0bc5d36de147f365987dfa6e63cc797a4d1a961d",
+  "pushed": "yes",
   "aether_pin": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
   "aether_local_patch": "deps/aether-client-cpp-157aadbe-diag (wifi driver + Server::RebuildChannelsFromAdapters)",
   "user_config": "main/user_config_full_vanilla.h",
