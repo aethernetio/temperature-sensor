@@ -19,6 +19,7 @@
 
 #if defined(ESP_PLATFORM)
 #  include <esp_attr.h>
+#  include <esp_event.h>
 #  include <esp_random.h>
 #  include <esp_sleep.h>
 #  include <esp_wifi.h>
@@ -267,11 +268,28 @@ void ConstructAether() {
   g_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
 #if AE_DISTILLATION
-          .AddAdapterFactory([&](ae::AetherAppContext const& ctx) {
-            return ae::WifiAdapter::ptr::Create(
-                ae::CreateWith{ctx.domain()}.with_id(ae::GlobalId::kWiFiAdapter),
-                ctx.aether(), ctx.poller(), ctx.dns_resolver(),
-                MakeVanillaWifiInit());
+          .AdaptersFactory([&](ae::AetherAppContext const& ctx) {
+            auto ap = ae::AdapterRegistry::ptr{ctx.aether()->adapter_registry};
+            if (!ap.is_valid()) {
+              ap = ae::AdapterRegistry::ptr::Create(
+                  ae::CreateWith{ctx.domain()}
+                      .with_id(ae::GlobalId::kAdapterRegistry)
+                      .with_flags(ae::ObjFlags::kUnloadedByDefault));
+            }
+            auto loaded_reg = ap.Load();
+            bool have_wifi = false;
+            for (auto const& adapter : loaded_reg->adapters()) {
+              if (ae::WifiAdapter::ptr{adapter}.is_valid()) {
+                have_wifi = true;
+                break;
+              }
+            }
+            if (!have_wifi) {
+              loaded_reg->Add(ae::WifiAdapter::ptr::Create(
+                  ae::CreateWith{ctx.domain()}, ctx.aether(), ctx.poller(),
+                  ctx.dns_resolver(), MakeVanillaWifiInit()));
+            }
+            return ap;
           })
 #endif
   );
@@ -432,9 +450,18 @@ void FinishCycleAndSleep() {
 
 void setup() {
   using namespace temp_sensor;
+  std::printf("BOOT THERM2_FULL_VANILLA setup begin\n");
+  std::fflush(stdout);
   nvs_flash_init();
+  esp_event_loop_delete_default();
   auto const reset = esp_reset_reason();
   if (reset == ESP_RST_POWERON || reset == ESP_RST_BROWNOUT) {
+#if defined(AE_EXP_BENCH_STAGE) && AE_EXP_BENCH_STAGE
+    // Cold campaign: stale NVS domain can hide FS_INIT clients (SelectClient err=2).
+    nvs_flash_erase();
+    nvs_flash_init();
+#endif
+    InitRtc(static_cast<std::uint32_t>(esp_random()));
     StageLog("BOOT cold_power_on");
     StageLog("AWAKE_USB_WINDOW begin 60s");
     vTaskDelay(pdMS_TO_TICKS(60000));
@@ -446,6 +473,9 @@ void setup() {
   if (!ValidRtc(g_rtc)) {
     InitRtc(static_cast<std::uint32_t>(esp_random()));
   }
+  std::printf("FS_INIT client_id=%s parent=%s\n", kBenchClientId,
+              "b1ac52c8-8d94-bd39-4c01-a631ac594165");
+  std::fflush(stdout);
 
   if (g_rtc.cycle >= AE_THERM_FULL_MEASURE_CYCLES &&
       g_rtc.measure_armed != 0) {

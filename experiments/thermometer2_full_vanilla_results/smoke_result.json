@@ -1,0 +1,14 @@
+{
+  "expected_run_ids": [
+    4093968385
+  ],
+  "matched_rx_run_ids": [],
+  "full_rx_count": 0,
+  "duplicate_rx": 0,
+  "journal_cycles": 0,
+  "panic": false,
+  "pass": false,
+  "firmware_sha256": "a294d3aca52ab60b6578622c43640e3d2c86d20733090de614de184911b3b3ab",
+  "receiver_uid": "f48d3493-8220-40be-81ff-5121a3fadc6e",
+  "usb_port": "COM5"
+}

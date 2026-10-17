@@ -15,6 +15,7 @@
  */
 
 #if defined ESP_PLATFORM
+#  include <cstdio>
 #  include <freertos/FreeRTOS.h>
 #  include <esp_log.h>
 #  include <esp_task_wdt.h>
@@ -28,6 +29,10 @@ extern void loop();
 #if defined ESP_PLATFORM
 extern "C" void app_main(void) {
   ExperimentEarlyAppEntry();
+#if defined(AE_EXP_THERMOMETER2_FULL_VANILLA) && AE_EXP_THERMOMETER2_FULL_VANILLA
+  std::printf("APP_MAIN therm2_full_vanilla\n");
+  std::fflush(stdout);
+#endif
 
   esp_task_wdt_config_t config_wdt = {
       /*.timeout_ms = */ 60000,

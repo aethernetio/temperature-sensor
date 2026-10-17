@@ -14,10 +14,16 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-
-import numpy as np
+from typing import Callable
 
 HERE = Path(__file__).resolve().parent
+_VENV_PY = Path(r"C:\Users\nickc\Projects\temperature-sensor-prepared") / "experiments" / "ppk2-venv" / "Scripts" / "python.exe"
+try:
+    import numpy as np
+except ModuleNotFoundError:
+    if _VENV_PY.is_file() and Path(sys.executable).resolve() != _VENV_PY.resolve():
+        os.execv(str(_VENV_PY), [str(_VENV_PY), *sys.argv])
+    raise
 ROOT = HERE.parent
 PREPARED_ROOT = Path(r"C:\Users\nickc\Projects\temperature-sensor-prepared")
 sys.path.insert(0, str(HERE))
@@ -58,6 +64,14 @@ RE_JOURNAL = re.compile(
     r"JOURNAL cycle=(\d+) run_id=(\d+) got_ip=(\d+) select_ok=(\d+) "
     r"write_called=(\d+) write_status=(\d+) fail_stage=(\d+) active_ms=(\d+)"
 )
+RE_JOURNAL_DUMP = re.compile(
+    r"JOURNAL_DUMP cycle=(\d+) run_id=(\d+) got_ip=(\d+) select_ok=(\d+) "
+    r"write_called=(\d+) write_status=(\d+) fail_stage=(\d+) active_ms=(\d+)"
+)
+RE_BOOT_RUN = re.compile(r"BOOT cycle=(\d+) session=\d+ run_id=(\d+)")
+ESPRESSIF_VID = 0x303A
+USB_RECOVERY_LOG = RESULTS / "usb_recovery.log"
+SMOKE_CYCLES = 3
 
 
 def load_wifi() -> tuple[str, str]:
@@ -109,7 +123,7 @@ def run_idf(extra: str) -> None:
         raise RuntimeError(f"idf failed code={r.returncode}")
 
 
-def build_esp(*, service_uid: str, ssid: str, password: str, smoke: bool, port: str, flash: bool) -> None:
+def build_esp(*, service_uid: str, ssid: str, password: str, smoke: bool) -> None:
     b = BUILD.as_posix()
     pwd = password.replace("'", "''")
     ssid_ps = ssid.replace("'", "''")
@@ -123,10 +137,13 @@ def build_esp(*, service_uid: str, ssid: str, password: str, smoke: bool, port: 
     )
     if smoke:
         sdk_defaults += f";{ROOT.as_posix()}/sdkconfig.defaults.bench"
+    sdkconfig_b = f"{b}/sdkconfig"
     extra = f"""
 $env:AETHER_WIFI_PASSWORD = '{pwd}'
+$env:SDKCONFIG = '{sdkconfig_b}'
 $common = @(
   '-B','{b}',
+  '-D','SDKCONFIG={sdkconfig_b}',
   '-D','SDKCONFIG_DEFAULTS={sdk_defaults}',
   '-D',"WIFI_SSID={ssid_ps}",
   '-D',"WIFI_PASSWORD=$env:AETHER_WIFI_PASSWORD",
@@ -155,11 +172,6 @@ $env:NINJA_STATUS = '[%f/%t] '
 idf.py @common reconfigure build
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
 """
-    if flash:
-        extra += f"""
-idf.py @common -p {port} flash
-if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
-"""
     run_idf(extra)
 
 
@@ -173,7 +185,7 @@ $vcvars = Join-Path $vs 'VC\\Auxiliary\\Build\\vcvars64.bat'
 $rxs = '{RX_SRC.as_posix()}'
 $rxb = '{RX_BUILD.as_posix()}'
 $ae = '{AETHER_LOCAL.as_posix()}'
-cmd /c "`"$vcvars`" && cmake -S %rxs% -B %rxb% -G Ninja -DCMAKE_BUILD_TYPE=Release -DCPM_aether-client-cpp_SOURCE=%ae% && cmake --build %rxb% --target aether_hot_tcp_receiver --parallel"
+cmd /c "`"$vcvars`" && cmake -S `"{RX_SRC.as_posix()}`" -B `"{RX_BUILD.as_posix()}`" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCPM_aether-client-cpp_SOURCE=`"{AETHER_LOCAL.as_posix()}`" && cmake --build `"{RX_BUILD.as_posix()}`" --target aether_hot_tcp_receiver --parallel"
 """
     r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], cwd=str(ROOT))
     if r.returncode != 0:
@@ -186,9 +198,6 @@ cmd /c "`"$vcvars`" && cmake -S %rxs% -B %rxb% -G Ninja -DCMAKE_BUILD_TYPE=Relea
 
 def start_receiver(exe: Path, session: Path) -> subprocess.Popen:
     session.mkdir(parents=True, exist_ok=True)
-    for f in session.glob("*"):
-        if f.is_file():
-            f.unlink()
     env = os.environ.copy()
     env["AE_RECEIVER_SESSION_DIR"] = str(session)
     log = RESULTS / "receiver.log"
@@ -212,44 +221,280 @@ def wait_uid(log: Path, timeout: float = 300.0) -> str:
     raise RuntimeError("receiver UID timeout")
 
 
-def find_com() -> str:
+def append_usb_log(lines: list[str]) -> None:
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).isoformat()
+    with USB_RECOVERY_LOG.open("a", encoding="utf-8") as f:
+        for line in lines:
+            f.write(f"{ts} {line}\n")
+
+
+def snapshot_usb_devices() -> list[str]:
+    lines: list[str] = []
+    sb.ensure_ppk_path()
+    from serial.tools import list_ports
+
+    for p in list_ports.comports():
+        vid = f"{p.vid:04X}" if p.vid is not None else "----"
+        pid = f"{p.pid:04X}" if p.pid is not None else "----"
+        tag = "ESP" if p.vid == ESPRESSIF_VID else "other"
+        lines.append(f"pyserial {tag} {p.device} VID={vid} PID={pid} {p.description}")
     r = subprocess.run(
-        ["powershell", "-NoProfile", "-Command",
-         "Get-CimInstance Win32_SerialPort | Where-Object { $_.PNPDeviceID -match 'VID_303A' } | Select-Object -ExpandProperty DeviceID -First 1"],
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_SerialPort | ForEach-Object { "
+            "$_.DeviceID + ' PNP=' + $_.PNPDeviceID }",
+        ],
         capture_output=True,
         text=True,
     )
-    port = (r.stdout or "").strip()
-    if not port:
-        raise RuntimeError("No Espressif COM port")
+    for line in (r.stdout or "").splitlines():
+        if line.strip():
+            lines.append(f"win32_serial {line.strip()}")
+    r2 = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match 'VID_303A|VID_1915' } | "
+            "ForEach-Object { $_.Class + ' ' + $_.Status + ' ' + $_.InstanceId }",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    for line in (r2.stdout or "").splitlines():
+        if line.strip():
+            lines.append(f"pnp {line.strip()}")
+    append_usb_log(lines)
+    for line in lines:
+        print(line, flush=True)
+    return lines
+
+
+def find_espressif_port_optional(*, verbose: bool = False) -> str | None:
+    sb.ensure_ppk_path()
+    from serial.tools import list_ports
+
+    for p in list_ports.comports():
+        if p.vid == ESPRESSIF_VID:
+            if verbose:
+                print(
+                    f"found ESPRESSIF {p.device} VID={p.vid:04X} PID={p.pid:04X} {p.description}",
+                    flush=True,
+                )
+            return p.device
+    return None
+
+
+def verify_esptool_chip(port: str) -> dict:
+    cmd = [
+        str(sb.IDF_PYTHON),
+        "-m",
+        "esptool",
+        "--chip",
+        "esp32c6",
+        "-p",
+        port,
+        "chip_id",
+    ]
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    out = (r.stdout or "") + (r.stderr or "")
+    append_usb_log([f"esptool chip_id port={port} rc={r.returncode}", out.strip()])
+    ok = r.returncode == 0 and "ESP32-C6" in out
+    return {"ok": ok, "rc": r.returncode, "output": out}
+
+
+def stop_stage1_serial_holders() -> None:
+    """Release PPK2 and ESP serial only for this stage-1 experiment."""
+    sb.stop_external_ppk_holders()
+    if sys.platform != "win32":
+        return
+    ps = r"""
+Get-Process -Name 'aether_hot_tcp_receiver' -ErrorAction SilentlyContinue |
+  Stop-Process -Force -ErrorAction SilentlyContinue
+Get-CimInstance Win32_Process |
+  Where-Object {
+    $_.CommandLine -and (
+      $_.CommandLine -match 'ppk2_hold_power|ppk2_log_power|ppk2_integrate_run|ppk2_power\.py' -or
+      ($_.CommandLine -match 'idf_monitor|esp_idf_monitor|esptool' -and
+       $_.CommandLine -match 'temperature-sensor-working-hot')
+    )
+  } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+"""
+    subprocess.run(
+        ["powershell", "-NoProfile", "-Command", ps],
+        capture_output=True,
+        check=False,
+    )
+    time.sleep(1.0)
+
+
+def open_ppk_session() -> sb.PpkSession:
+    last_err = "no attempt"
+    for i in range(5):
+        stop_stage1_serial_holders()
+        time.sleep(1.5)
+        try:
+            ppk = sb.PpkSession(VOLTAGE_MV)
+            ppk.open()
+            return ppk
+        except Exception as e:
+            last_err = str(e)
+            append_usb_log([f"ppk_open_fail attempt={i + 1} err={e}"])
+            time.sleep(2.0)
+    raise RuntimeError(f"PPK2 open failed: {last_err}")
+
+
+def cold_boot_dut(ppk: sb.PpkSession, *, off_s: float = 4.0, wait_com_s: float = 60.0) -> str | None:
+    """PPK power cycle for ESP_RST_POWERON so firmware keeps the 60s USB awake window."""
+    append_usb_log(["cold_boot_dut begin"])
+    ppk.set_off()
+    time.sleep(off_s)
+    append_usb_log([f"cold_boot_dut OFF held {off_s}s"])
+    ppk.set_on()
+    append_usb_log([f"cold_boot_dut ON mv={VOLTAGE_MV}"])
+    snapshot_usb_devices()
+    stop_stage1_serial_holders()
+    time.sleep(0.5)
+    port = sb.wait_espressif_com(timeout_s=wait_com_s)
+    if port:
+        append_usb_log([f"cold_boot_dut COM={port}"])
+    else:
+        append_usb_log(["cold_boot_dut NO_COM"])
     return port
 
 
-def capture(port: str, seconds: int, out: Path) -> None:
-    elf = BUILD / "temperature_sensor.elf"
-    mon = f"python $env:IDF_PATH/tools/idf_monitor.py -p {port} -b 115200 {elf.as_posix()}"
-    env = os.environ.copy()
-    env.pop("PYTHONPATH", None)
-    proc = subprocess.Popen(
-        idf_ps(mon),
-        stdout=open(out, "w", encoding="utf-8", errors="replace"),
-        stderr=subprocess.STDOUT,
+def recover_espressif_usb(ppk: sb.PpkSession, *, attempts: int = 3, wait_s: float = 60.0) -> str | None:
+    snapshot_usb_devices()
+    for i in range(attempts):
+        append_usb_log([f"=== power_cycle attempt {i + 1}/{attempts} ==="])
+        ppk.set_off()
+        time.sleep(4.0)
+        append_usb_log(["DUT_POWER=OFF held 4s"])
+        ppk.set_on()
+        append_usb_log([f"DUT_POWER=ON mv={VOLTAGE_MV}"])
+        snapshot_usb_devices()
+        port = sb.wait_espressif_com(timeout_s=wait_s)
+        if port:
+            stop_stage1_serial_holders()
+            time.sleep(0.8)
+            chip = verify_esptool_chip(port)
+            if chip["ok"]:
+                append_usb_log([f"ESPRESSIF_COM_CONFIRMED={port}"])
+                return port
+            append_usb_log([f"esptool_verify_fail port={port}"])
+        else:
+            append_usb_log(["NO_ESPRESSIF_COM within timeout"])
+    return None
+
+
+def flash_firmware(port: str) -> None:
+    sb.flash_port(port, BUILD)
+    sb.hard_reset(port)
+
+
+def save_build_provenance(*, service_uid: str, smoke: bool) -> dict:
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(ROOT), text=True).strip()
+    diff = subprocess.run(
+        ["git", "diff", "HEAD"],
         cwd=str(ROOT),
-        env=env,
+        capture_output=True,
+        text=True,
     )
+    ae_diff = ""
+    if AETHER_LOCAL.is_dir():
+        r = subprocess.run(["git", "diff"], cwd=str(AETHER_LOCAL), capture_output=True, text=True)
+        ae_diff = r.stdout or ""
+        if not ae_diff.strip():
+            r2 = subprocess.run(["git", "status", "--short"], cwd=str(AETHER_LOCAL), capture_output=True, text=True)
+            ae_diff = r2.stdout or ""
+    bin_path = BUILD / "temperature_sensor.bin"
+    elf_path = BUILD / "temperature_sensor.elf"
+    meta = {
+        "git_head": head,
+        "git_diff_len": len(diff.stdout or ""),
+        "aether_pin": AETHER_PIN,
+        "aether_local_diff_len": len(ae_diff),
+        "firmware_sha256": firmware_sha256(),
+        "elf_path": str(elf_path),
+        "service_uid": service_uid,
+        "smoke_build": smoke,
+        "cycles": SMOKE_CYCLES if smoke else MEASURED,
+    }
+    (RESULTS / "build_provenance.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    return meta
+
+
+def capture_serial_resilient(
+    seconds: int,
+    out: Path,
+    *,
+    stop_when: Callable[[str], bool] | None = None,
+) -> str:
+    """Capture ESP USB-serial; reopen pyserial when COM reappears after deep sleep."""
+    import serial  # type: ignore
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("", encoding="utf-8")
+    buf = ""
+    end = time.time() + seconds
+    last_port = ""
+    ser: serial.Serial | None = None
+
+    def close_ser() -> None:
+        nonlocal ser
+        if ser is not None:
+            try:
+                ser.close()
+            except Exception:
+                pass
+            ser = None
+
     try:
-        end = time.time() + seconds
         while time.time() < end:
-            if out.is_file() and "CAMPAIGN_DONE" in out.read_text(encoding="utf-8", errors="replace"):
-                time.sleep(3)
+            port = find_espressif_port_optional()
+            if port and port != last_port:
+                close_ser()
+                last_port = port
+                append_usb_log([f"serial_capture_start port={port}"])
+                try:
+                    ser = serial.Serial(port, 115200, timeout=0.25)
+                except Exception as exc:
+                    append_usb_log([f"serial_open_fail port={port} err={exc!r}"])
+                    ser = None
+                    last_port = ""
+                    time.sleep(0.3)
+                    continue
+            if ser is not None:
+                try:
+                    data = ser.read(8192)
+                except Exception as exc:
+                    append_usb_log([f"serial_read_fail port={last_port} err={exc!r}"])
+                    close_ser()
+                    last_port = ""
+                    time.sleep(0.2)
+                    continue
+                if data:
+                    text = data.decode("utf-8", errors="replace")
+                    buf += text
+                    with out.open("a", encoding="utf-8", errors="replace") as f:
+                        f.write(text)
+            if stop_when and stop_when(buf):
                 break
-            time.sleep(2)
+            if not port:
+                last_port = ""
+                close_ser()
+                time.sleep(0.2)
+            else:
+                time.sleep(0.05)
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        close_ser()
+    return buf
 
 
 def pct(vals: list[float], p: float) -> float:
@@ -271,20 +516,34 @@ def agg_stats(vals: list[float]) -> dict:
     }
 
 
+def _journal_row(m: re.Match[str]) -> dict:
+    return {
+        "run_id": int(m.group(2)),
+        "got_ip": int(m.group(3)),
+        "select_ok": int(m.group(4)),
+        "write_called": int(m.group(5)),
+        "write_status": int(m.group(6)),
+        "fail_stage": int(m.group(7)),
+        "active_ms": int(m.group(8)),
+    }
+
+
 def parse_journal(text: str) -> dict[int, dict]:
     out: dict[int, dict] = {}
     for m in RE_JOURNAL.finditer(text):
-        cycle = int(m.group(1))
-        out[cycle] = {
-            "run_id": int(m.group(2)),
-            "got_ip": int(m.group(3)),
-            "select_ok": int(m.group(4)),
-            "write_called": int(m.group(5)),
-            "write_status": int(m.group(6)),
-            "fail_stage": int(m.group(7)),
-            "active_ms": int(m.group(8)),
-        }
+        out[int(m.group(1))] = _journal_row(m)
     return out
+
+
+def parse_journal_merged(text: str) -> dict[int, dict]:
+    out = parse_journal(text)
+    for m in RE_JOURNAL_DUMP.finditer(text):
+        out[int(m.group(1))] = _journal_row(m)
+    return out
+
+
+def journal_field_status(entry: dict | None) -> str:
+    return "UNKNOWN" if not entry else "known"
 
 
 def load_raw_slice(raw_bin: Path, start: int, end: int) -> tuple[np.ndarray, np.ndarray]:
@@ -354,8 +613,8 @@ def build_measure_rows(
     prev_end: float | None = None
     for i, w in enumerate(ppk_w, start=1):
         base = integrate_window(raw_bin, w)
-        j = journal.get(i, {})
-        run_id = int(j.get("run_id", 0))
+        j = journal.get(i)
+        run_id = int(j["run_id"]) if j and j.get("run_id") is not None else 0
         sleep_d = w.wake_start_s - prev_end if prev_end is not None else None
         sleep_charge = None
         if prev_end is not None and sleep_d and sleep_d > 0:
@@ -367,7 +626,10 @@ def build_measure_rows(
                     sleep_charge = abs(float(np.trapezoid(us, ts))) / 1000.0
                 except AttributeError:
                     sleep_charge = abs(float(np.trapz(us, ts))) / 1000.0
-        write_ok = int(j.get("write_status", 255)) == 0
+        if j is None:
+            write_ok: bool | None = None
+        else:
+            write_ok = int(j.get("write_status", 255)) == 0
         rx = run_id in rx_run_ids if run_id else False
         rows.append(
             {
@@ -376,13 +638,14 @@ def build_measure_rows(
                 **base,
                 "sleep_duration_s": sleep_d,
                 "sleep_charge_mC": sleep_charge,
-                "got_ip": j.get("got_ip"),
-                "select_ok": j.get("select_ok"),
-                "write_called": j.get("write_called"),
+                "journal_status": journal_field_status(j),
+                "got_ip": j.get("got_ip") if j else None,
+                "select_ok": j.get("select_ok") if j else None,
+                "write_called": j.get("write_called") if j else None,
                 "write_terminal_ok": write_ok,
-                "fail_stage": j.get("fail_stage"),
+                "fail_stage": j.get("fail_stage") if j else None,
                 "receiver_received": rx,
-                "active_ms_esp": j.get("active_ms"),
+                "active_ms_esp": j.get("active_ms") if j else None,
             }
         )
         prev_end = w.wake_end_s
@@ -431,41 +694,54 @@ class ContinuousPpkCapture:
         self.segmenter.feed_chunk(arr)
 
 
-def capture_measure_serial(port: str, seconds: int, out: Path) -> None:
-    """Read compact JOURNAL lines after the 100-cycle campaign."""
-    try:
-        import serial  # type: ignore
-    except ImportError:
-        out.write_text("", encoding="utf-8")
-        return
-    out.parent.mkdir(parents=True, exist_ok=True)
-    buf = ""
-    with serial.Serial(port, 115200, timeout=0.3) as ser, out.open(
-        "w", encoding="utf-8", errors="replace"
-    ) as f:
-        end = time.time() + seconds
-        while time.time() < end:
-            data = ser.read(8192)
-            if data:
-                buf += data.decode("utf-8", errors="replace")
-                f.write(data.decode("utf-8", errors="replace"))
-                f.flush()
-                if "CAMPAIGN_DONE" in buf and buf.count("JOURNAL_DUMP cycle=") >= MEASURED:
+def parse_smoke_detailed(
+    esp_text: str, rx_text: str, *, expected_cycles: int = SMOKE_CYCLES
+) -> dict:
+    journal = parse_journal_merged(esp_text)
+    expected_run_ids: list[int] = []
+    for c in range(1, expected_cycles + 1):
+        if c in journal:
+            expected_run_ids.append(int(journal[c]["run_id"]))
+        else:
+            for bc, br in RE_BOOT_RUN.findall(esp_text):
+                if int(bc) == c:
+                    expected_run_ids.append(int(br))
                     break
-            time.sleep(0.05)
+    rx_hits: list[int] = []
+    dup = 0
+    seen_rx: set[int] = set()
+    for m in RE_FULL_RX.finditer(rx_text):
+        rid = int(m.group(1))
+        if rid not in expected_run_ids:
+            continue
+        rx_hits.append(rid)
+        if rid in seen_rx:
+            dup += 1
+        seen_rx.add(rid)
+    matched = sorted(seen_rx)
+    panic = "Guru Meditation" in esp_text or "assert failed" in esp_text
+    cycles_logged = sum(1 for c in range(1, expected_cycles + 1) if c in journal)
+    return {
+        "expected_run_ids": expected_run_ids,
+        "matched_rx_run_ids": matched,
+        "full_rx_count": len(matched),
+        "duplicate_rx": dup,
+        "journal_cycles": cycles_logged,
+        "panic": panic,
+        "pass": (
+            len(expected_run_ids) >= expected_cycles
+            and len(matched) >= expected_cycles
+            and dup == 0
+            and not panic
+            and all(r in matched for r in expected_run_ids[:expected_cycles])
+        ),
+    }
 
 
 def parse_smoke(esp_log: Path, rx_log: Path) -> dict:
     esp = esp_log.read_text(encoding="utf-8", errors="replace") if esp_log.is_file() else ""
     rx = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
-    run_ids = set(RE_RUN_ID.findall(esp))
-    full_rx = set(RE_FULL_RX.findall(rx))
-    return {
-        "esp_run_ids": sorted(run_ids, key=int),
-        "full_rx_run_ids": sorted(full_rx, key=int),
-        "full_rx_count": len(full_rx),
-        "panic": "Guru Meditation" in esp or "assert failed" in esp,
-    }
+    return parse_smoke_detailed(esp, rx, expected_cycles=SMOKE_CYCLES)
 
 
 def firmware_sha256() -> str:
@@ -522,44 +798,68 @@ def write_measure_artifacts(rows: list[dict], meta: dict) -> None:
     )
 
 
-def run_measure(port: str, uid: str, ssid: str, pwd: str) -> int:
+def count_valid_ppk_windows(windows: list[CycleWindow]) -> int:
+    ordered = measured_ppk_windows(windows, MEASURED)
+    n = 0
+    for w in ordered:
+        if w.close_reason == CloseReason.SLEEP_EDGE:
+            n += 1
+    return n
+
+
+def run_measure(uid: str, ssid: str, pwd: str, rx_log: Path) -> int:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     raw_bin = RAW_DIR / "full_vanilla_100.bin"
     meta_bin = raw_bin.with_suffix(".json")
-    sb.stop_external_ppk_holders()
-    ppk = sb.PpkSession(VOLTAGE_MV)
-    ppk.open()
-    rx_log = RESULTS / "receiver.log"
+    build_esp(service_uid=uid, ssid=ssid, password=pwd, smoke=False)
+    prov = save_build_provenance(service_uid=uid, smoke=False)
+    ppk = open_ppk_session()
     try:
-        build_esp(service_uid=uid, ssid=ssid, password=pwd, smoke=False, port=port, flash=True)
-        fw_sha = firmware_sha256()
+        port = recover_espressif_usb(ppk, attempts=3, wait_s=60.0)
+        if not port:
+            _write_blocked_handoff("USB_ACCESS=BLOCKED", uid, prov)
+            return 2
+        flash_firmware(port)
         cap = ContinuousPpkCapture(ppk, raw_bin, meta_bin)
         cap.start()
-        ppk.power_cycle()
-        deadline = time.time() + COLD_BOOT_S + MEASURED * (65.0 + SLEEP_S) + 120.0
+        sb.hard_reset(port)
+        deadline = time.time() + COLD_BOOT_S + MEASURED * (65.0 + SLEEP_S) + 180.0
+        esp_log = RESULTS / "measure_esp.log"
+        esp_log.write_text("", encoding="utf-8")
+        journal_done = False
         while time.time() < deadline:
             cap.drain()
-            if len(cap.segmenter.windows_closed) >= MEASURED:
-                time.sleep(30.0)
-                cap.drain()
+            if not journal_done and count_valid_ppk_windows(cap.segmenter.windows_closed) >= MEASURED:
+                capture_serial_resilient(
+                    120,
+                    esp_log,
+                    stop_when=lambda b: b.count("JOURNAL_DUMP cycle=") >= MEASURED
+                    and "CAMPAIGN_DONE" in b,
+                )
+                journal_done = True
+            if journal_done and count_valid_ppk_windows(cap.segmenter.windows_closed) >= MEASURED:
+                trailing = time.time() + 25.0
+                while time.time() < trailing:
+                    cap.drain()
+                    time.sleep(0.002)
                 break
             time.sleep(0.002)
         cap.stop()
-        esp_log = RESULTS / "measure_esp.log"
-        capture_measure_serial(port, 180, esp_log)
         esp_text = esp_log.read_text(encoding="utf-8", errors="replace") if esp_log.is_file() else ""
-        journal = parse_journal(esp_text)
+        journal = parse_journal_merged(esp_text)
         rx_text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
         rx_ids = set(int(x) for x in RE_FULL_RX.findall(rx_text))
         rows = build_measure_rows(cap.segmenter.windows_closed, raw_bin, journal, rx_ids)
-        git_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(ROOT), text=True).strip()
+        valid_ppk = count_valid_ppk_windows(cap.segmenter.windows_closed)
+        git_head = prov["git_head"]
         meta = {
             "git_head": git_head,
-            "firmware_sha256": fw_sha,
+            "firmware_sha256": prov["firmware_sha256"],
             "aether_pin": AETHER_PIN,
             "receiver_uid": uid,
-            "ppk_windows": len(cap.segmenter.windows_closed),
-            "journal_lines": len(journal),
+            "ppk_windows_total": len(cap.segmenter.windows_closed),
+            "ppk_sleep_edge_windows": valid_ppk,
+            "journal_cycles": len(journal),
             "wifi_config": {
                 "AE_EXP_WIFI_CANONICAL": 1,
                 "AE_EXP_WIFI_FEAT_*": "all unset/0",
@@ -572,9 +872,69 @@ def run_measure(port: str, uid: str, ssid: str, pwd: str) -> int:
             "WIFI_CACHE_USED": "no",
         }
         write_measure_artifacts(rows, meta)
+        rx_n = sum(1 for r in rows if r.get("receiver_received"))
         active_charge = [r["charge_mC"] for r in rows if r.get("valid")]
-        print(json.dumps({"rx": sum(1 for r in rows if r.get("receiver_received")), "stats": agg_stats(active_charge)}, indent=2))
-        return 0
+        sleep_charge = [r["sleep_charge_mC"] for r in rows if r.get("sleep_charge_mC") is not None]
+        summary = {
+            "rx": rx_n,
+            "ppk_sleep_edge": valid_ppk,
+            "charge_stats": agg_stats(active_charge),
+            "energy_stats": agg_stats([r["energy_mJ"] for r in rows if r.get("valid")]),
+            "sleep_charge_stats": agg_stats(sleep_charge),
+        }
+        (RESULTS / "measure_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        print(json.dumps(summary, indent=2), flush=True)
+        ok = rx_n >= MEASURED and valid_ppk >= MEASURED
+        return 0 if ok else 1
+    finally:
+        ppk.set_off()
+
+
+def _write_blocked_handoff(usb_status: str, uid: str, prov: dict) -> None:
+    rep = {
+        "USB_ACCESS": usb_status,
+        "SMOKE": "NOT_RUN",
+        "MEASURE": "NOT_RUN",
+        "receiver_uid": uid,
+        "git_head": prov.get("git_head"),
+        "firmware_sha256": prov.get("firmware_sha256"),
+        "manual_action": "Connect Thermometer 2 USB to host (or fix DUT wiring); ensure PPK2 sources 3V and DUT VDD/USB share ground.",
+    }
+    (RESULTS / "STAGE1_HANDOFF.json").write_text(json.dumps(rep, indent=2), encoding="utf-8")
+    print(json.dumps(rep, indent=2), flush=True)
+
+
+def run_smoke(uid: str, ssid: str, pwd: str, rx_log: Path) -> int:
+    build_esp(service_uid=uid, ssid=ssid, password=pwd, smoke=True)
+    prov = save_build_provenance(service_uid=uid, smoke=True)
+    ppk = open_ppk_session()
+    try:
+        port = recover_espressif_usb(ppk, attempts=3, wait_s=60.0)
+        if not port:
+            _write_blocked_handoff("USB_ACCESS=BLOCKED", uid, prov)
+            return 2
+        flash_firmware(port)
+        port = cold_boot_dut(ppk) or port
+        if not port:
+            _write_blocked_handoff("USB_ACCESS=BLOCKED after flash cold boot", uid, prov)
+            return 2
+        esp_log = RESULTS / "smoke_esp.log"
+        esp_log.write_text("", encoding="utf-8")
+
+        def smoke_done(buf: str) -> bool:
+            j = parse_journal_merged(buf)
+            return len(j) >= SMOKE_CYCLES and all(
+                c in j for c in (1, 2, 3)
+            )
+
+        capture_serial_resilient(720, esp_log, stop_when=smoke_done)
+        res = parse_smoke(esp_log, rx_log)
+        res["firmware_sha256"] = prov["firmware_sha256"]
+        res["receiver_uid"] = uid
+        res["usb_port"] = port
+        (RESULTS / "smoke_result.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
+        print(json.dumps(res, indent=2), flush=True)
+        return 0 if res.get("pass") else 1
     finally:
         ppk.set_off()
 
@@ -587,6 +947,7 @@ def main() -> int:
     ap.add_argument("--build-only", action="store_true")
     args = ap.parse_args()
 
+    stop_stage1_serial_holders()
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(ROOT), text=True).strip()
     RESULTS.mkdir(parents=True, exist_ok=True)
     (RESULTS / "branch_head.json").write_text(
@@ -600,14 +961,12 @@ def main() -> int:
             service_uid="00000000-0000-0000-0000-000000000001",
             ssid=ssid,
             password=pwd,
-            smoke=args.smoke,
-            port="COM5",
-            flash=False,
+            smoke=args.smoke or args.measure,
         )
         print(f"FIRMWARE_SHA256={firmware_sha256()}", flush=True)
+        print("NOTE=build-only uses placeholder SERVICE_UID; do not flash this binary.", flush=True)
         return 0
 
-    port = find_com()
     exe = build_receiver()
     rx_log = RESULTS / "receiver.log"
     session = HERE / "thermometer2_full_vanilla_rx_session"
@@ -616,19 +975,20 @@ def main() -> int:
         uid = wait_uid(rx_log)
         print(f"RECEIVER_UID={uid}", flush=True)
         if args.measure:
-            return run_measure(port, uid, ssid, pwd)
-        build_esp(service_uid=uid, ssid=ssid, password=pwd, smoke=args.smoke, port=port, flash=args.flash)
-        print(f"FIRMWARE_SHA256={firmware_sha256()}", flush=True)
-        esp_log = RESULTS / "smoke_esp.log"
-        capture(port, 600 if args.smoke else 7200, esp_log)
+            smoke_json = RESULTS / "smoke_result.json"
+            if smoke_json.is_file():
+                prev = json.loads(smoke_json.read_text(encoding="utf-8"))
+                if not prev.get("pass"):
+                    print("SMOKE_NOT_PASS=1 refusing --measure", flush=True)
+                    return 1
+            else:
+                print("SMOKE_MISSING=1 refusing --measure", flush=True)
+                return 1
+            return run_measure(uid, ssid, pwd, rx_log)
         if args.smoke:
-            res = parse_smoke(esp_log, rx_log)
-            out = RESULTS / "smoke_result.json"
-            out.write_text(json.dumps(res, indent=2), encoding="utf-8")
-            print(json.dumps(res, indent=2), flush=True)
-            ok = res["full_rx_count"] >= 3 and not res["panic"]
-            return 0 if ok else 1
-        return 0
+            return run_smoke(uid, ssid, pwd, rx_log)
+        print("Specify --smoke or --measure", flush=True)
+        return 2
     finally:
         proc.terminate()
 

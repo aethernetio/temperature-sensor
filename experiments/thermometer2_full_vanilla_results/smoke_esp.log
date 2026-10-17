@@ -1,0 +1,5 @@
+AWAKE_USB_WINDOW end
+FS_INIT client_id=reliability_full_v1 parent=b1ac52c8-8d94-bd39-4c01-a631ac594165
+BOOT cycle=1 session=2143024133 run_id=4093968385
+WIFI_START
+SELECT_CLIENT_RESULT ok=0 err=2
