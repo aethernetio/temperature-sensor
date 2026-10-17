@@ -1,0 +1,17 @@
+{
+  "expected_run_ids": [1128267777, 1128267778, 1128267779],
+  "matched_rx_run_ids": [1128267777, 1128267778, 1128267779],
+  "full_rx_count": 3,
+  "duplicate_rx": 0,
+  "journal_cycles": 3,
+  "bootstrap_ok": true,
+  "select_ok_events": 2,
+  "sender_uid_stored": "e90f2ab3-09d0-449b-9275-8daa1f5bfcc3",
+  "panic": false,
+  "pass": true,
+  "firmware_sha256": "06f2aff56b272e259ea6fa191a384a6d1ce0fa03877bfea01999adba3d6abd70",
+  "receiver_uid": "35a645ca-932e-451b-9f53-89649449b173",
+  "usb_port": "COM5",
+  "registration_enabled": true,
+  "run_note": "2026-10-17 terminal 545484"
+}

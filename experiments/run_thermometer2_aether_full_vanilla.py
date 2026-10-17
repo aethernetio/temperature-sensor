@@ -922,14 +922,34 @@ def count_valid_ppk_windows(windows: list[CycleWindow]) -> int:
     return n
 
 
+def smoke_service_uid() -> str:
+    path = RESULTS / "smoke_result.json"
+    if not path.is_file():
+        raise RuntimeError("smoke_result.json missing; run --smoke first")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not data.get("pass"):
+        raise RuntimeError("smoke did not pass; refusing --measure")
+    uid = data.get("receiver_uid")
+    if not uid:
+        raise RuntimeError("smoke_result.json missing receiver_uid")
+    return str(uid)
+
+
 def run_measure(
     uid: str, ssid: str, pwd: str, rx_log: Path, rx_proc: subprocess.Popen
 ) -> int:
+    service_uid = smoke_service_uid()
+    if uid.lower() != service_uid.lower():
+        print(
+            f"WARN receiver_uid={uid} != smoke SERVICE_UID={service_uid}; "
+            "flashing firmware with smoke SERVICE_UID (required for ESP client identity).",
+            flush=True,
+        )
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     raw_bin = RAW_DIR / "full_vanilla_100.bin"
     meta_bin = raw_bin.with_suffix(".json")
-    build_esp(service_uid=uid, ssid=ssid, password=pwd, smoke=False)
-    prov = save_build_provenance(service_uid=uid, smoke=False)
+    build_esp(service_uid=service_uid, ssid=ssid, password=pwd, smoke=False)
+    prov = save_build_provenance(service_uid=service_uid, smoke=False)
     ensure_receiver_alive(rx_proc, uid, rx_log)
     ppk = open_ppk_session()
     try:
@@ -941,7 +961,7 @@ def run_measure(
         cap = ContinuousPpkCapture(ppk, raw_bin, meta_bin)
         cap.start()
         sb.hard_reset(port)
-        deadline = time.time() + COLD_BOOT_S + MEASURED * (65.0 + SLEEP_S) + 180.0
+        deadline = time.time() + COLD_BOOT_S + MEASURED * (90.0 + SLEEP_S) + 600.0
         esp_log = RESULTS / "measure_esp.log"
         esp_log.write_text("", encoding="utf-8")
         journal_done = False
@@ -965,7 +985,13 @@ def run_measure(
         cap.stop()
         esp_text = esp_log.read_text(encoding="utf-8", errors="replace") if esp_log.is_file() else ""
         journal = parse_journal_merged(esp_text)
-        rx_text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
+        rx_parts: list[str] = []
+        rx_prev = rx_log.with_suffix(".log.prev")
+        if rx_prev.is_file():
+            rx_parts.append(rx_prev.read_text(encoding="utf-8", errors="replace"))
+        if rx_log.is_file():
+            rx_parts.append(rx_log.read_text(encoding="utf-8", errors="replace"))
+        rx_text = "\n".join(rx_parts)
         rx_ids = set(int(x) for x in RE_FULL_RX.findall(rx_text))
         rows = build_measure_rows(cap.segmenter.windows_closed, raw_bin, journal, rx_ids)
         valid_ppk = count_valid_ppk_windows(cap.segmenter.windows_closed)
@@ -1146,6 +1172,13 @@ def main() -> int:
     try:
         uid = wait_uid(rx_log)
         print(f"RECEIVER_UID={uid}", flush=True)
+        if args.smoke and args.measure:
+            rc = run_smoke(uid, ssid, pwd, rx_log, proc)
+            if rc != 0:
+                return rc
+            return run_measure(uid, ssid, pwd, rx_log, proc)
+        if args.smoke:
+            return run_smoke(uid, ssid, pwd, rx_log, proc)
         if args.measure:
             smoke_json = RESULTS / "smoke_result.json"
             if smoke_json.is_file():
@@ -1158,9 +1191,7 @@ def main() -> int:
                 return 1
             ensure_receiver_alive(proc, uid, rx_log)
             return run_measure(uid, ssid, pwd, rx_log, proc)
-        if args.smoke:
-            return run_smoke(uid, ssid, pwd, rx_log, proc)
-        print("Specify --smoke or --measure", flush=True)
+        print("Specify --smoke and/or --measure", flush=True)
         return 2
     finally:
         proc.terminate()
