@@ -1,0 +1,76 @@
+diff --git a/aether/adapters/wifi_adapter.cpp b/aether/adapters/wifi_adapter.cpp
+index 173df64..3a2e9cc 100644
+--- a/aether/adapters/wifi_adapter.cpp
++++ b/aether/adapters/wifi_adapter.cpp
+@@ -87,5 +87,17 @@ WifiDriver& WifiAdapter::driver() {
+   }
+   return *wifi_driver_;
+ }
++
++#  if (defined(AE_EXP_PREPARED_MESSAGE_E2E) && AE_EXP_PREPARED_MESSAGE_E2E) || \
++    (defined(AE_EXP_THERMOMETER2_FULL_VANILLA) && AE_EXP_THERMOMETER2_FULL_VANILLA)
++void WifiAdapter::ReleaseOwnedDriverForPhaseHandoff() {
++  if (!wifi_driver_) {
++    return;
++  }
++  AE_EXP_LC("WifiAdapter", ExpId(), this, 0, "driver_release", "driver=%p",
++            static_cast<void*>(wifi_driver_.get()));
++  wifi_driver_.reset();
++}
++#  endif
+ }  // namespace ae
+ #endif
+diff --git a/aether/adapters/wifi_adapter.h b/aether/adapters/wifi_adapter.h
+index 4608565..4efbbbc 100644
+--- a/aether/adapters/wifi_adapter.h
++++ b/aether/adapters/wifi_adapter.h
+@@ -49,6 +49,11 @@ class WifiAdapter final : public ParentWifiAdapter {
+ 
+   WifiDriver& driver();
+ 
++#if (defined(AE_EXP_PREPARED_MESSAGE_E2E) && AE_EXP_PREPARED_MESSAGE_E2E) || \
++    (defined(AE_EXP_THERMOMETER2_FULL_VANILLA) && AE_EXP_THERMOMETER2_FULL_VANILLA)
++  void ReleaseOwnedDriverForPhaseHandoff();
++#endif
++
+   std::uint32_t ExpId() const {
+ #  if defined(AE_EXP_DIAG)
+     return exp_id_;
+diff --git a/aether/server.cpp b/aether/server.cpp
+index 2ebcfde..0aff82e 100644
+--- a/aether/server.cpp
++++ b/aether/server.cpp
+@@ -64,4 +64,19 @@ void Server::AddChannels(AccessPoint::ptr const& access_point) {
+   channels_changed_.Emit();
+ }
+ 
++void Server::RebuildChannelsFromAdapters() {
++  channels.clear();
++  if (!adapter_registry_.is_valid()) {
++    return;
++  }
++  adapter_registry_.WithLoaded([&](auto const& ar) {
++    for (auto const& adapter : ar->adapters()) {
++      for (auto const& ap : adapter->access_points()) {
++        AddChannels(ap);
++      }
++    }
++  });
++  channels_changed_.Emit();
++}
++
+ }  // namespace ae
+diff --git a/aether/server.h b/aether/server.h
+index cf1f3ac..92bf330 100644
+--- a/aether/server.h
++++ b/aether/server.h
+@@ -54,6 +54,9 @@ class Server : public Obj {
+ 
+   ChannelsChanged::Subscriber channels_changed();
+ 
++  // Rebind cloud server channels to live adapters (e.g. Wi-Fi after SPIFFS load).
++  void RebuildChannelsFromAdapters();
++
+   ServerId server_id{};
+   std::vector<Endpoint> endpoints;
+   std::vector<Channel::ptr> channels;

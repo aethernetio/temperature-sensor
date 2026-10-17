@@ -11,7 +11,6 @@
 
 #include "aether/all.h"
 #include "aether/adapters/wifi_adapter.h"
-#include "aether/client_connectivity_policy.h"
 #include "aether/ae_exp_wifi.h"
 #include "aether/config.h"
 #include "aether/env.h"
@@ -133,6 +132,10 @@ bool g_cycle_active = false;
 FailStage g_fail = FailStage::kNone;
 std::int64_t g_active_t0_us = 0;
 std::int64_t g_deadline_us = 0;
+std::int64_t g_write_terminal_us = 0;
+std::int64_t g_hold_end_us = 0;
+std::int64_t g_save_begin_us = 0;
+std::int64_t g_save_end_us = 0;
 
 [[noreturn]] void IdleAfterCampaign();
 
@@ -154,22 +157,39 @@ extern "C" void ae_exp_on_wifi_got_ip(void) {
   g_got_ip_logged = true;
 }
 
+void LogJournalDumpEntry(int cycle_one_based, CycleJournalEntry const& e) {
+  std::printf(
+      "JOURNAL_DUMP cycle=%d run_id=%lu got_ip=%u select_ok=%u write_called=%u "
+      "write_status=%u fail_stage=%u active_total_ms=%lu\n",
+      cycle_one_based, static_cast<unsigned long>(e.run_id),
+      static_cast<unsigned>(e.got_ip), static_cast<unsigned>(e.select_ok),
+      static_cast<unsigned>(e.write_called),
+      static_cast<unsigned>(e.write_status),
+      static_cast<unsigned>(e.fail_stage),
+      static_cast<unsigned long>(e.active_ms));
+}
+
 void DumpJournalAndIdle() {
   std::printf("JOURNAL_DUMP count=%d\n", AE_THERM_FULL_MEASURE_CYCLES);
   for (int i = 0; i < AE_THERM_FULL_MEASURE_CYCLES; ++i) {
-    auto const& e = g_journal[static_cast<std::size_t>(i)];
-    std::printf(
-        "JOURNAL_DUMP cycle=%d run_id=%lu got_ip=%u select_ok=%u write_called=%u "
-        "write_status=%u fail_stage=%u active_ms=%lu\n",
-        i + 1, static_cast<unsigned long>(e.run_id),
-        static_cast<unsigned>(e.got_ip), static_cast<unsigned>(e.select_ok),
-        static_cast<unsigned>(e.write_called),
-        static_cast<unsigned>(e.write_status),
-        static_cast<unsigned>(e.fail_stage),
-        static_cast<unsigned long>(e.active_ms));
+    LogJournalDumpEntry(i + 1, g_journal[static_cast<std::size_t>(i)]);
   }
   std::fflush(stdout);
   IdleAfterCampaign();
+}
+
+void LogJournalRecapThrough(std::uint16_t through_cycle) {
+  if (through_cycle == 0) {
+    return;
+  }
+  auto const n = std::min<std::uint16_t>(
+      through_cycle, static_cast<std::uint16_t>(AE_THERM_FULL_MEASURE_CYCLES));
+  std::printf("JOURNAL_RECAP count=%u\n", static_cast<unsigned>(n));
+  for (std::uint16_t c = 1; c <= n; ++c) {
+    LogJournalDumpEntry(static_cast<int>(c),
+                        g_journal[static_cast<std::size_t>(c - 1)]);
+  }
+  std::fflush(stdout);
 }
 
 std::uint32_t Crc32(void const* data, std::size_t len) {
@@ -263,6 +283,96 @@ bool SenderUidMatchesRtc(ae::Uid const& uid) {
 void OnClientReady(ae::Client::ptr client_ptr);
 void LogWifiIfConnected();
 
+char const* ResetReasonName(esp_reset_reason_t r) {
+  switch (r) {
+    case ESP_RST_POWERON:
+      return "POWERON";
+    case ESP_RST_EXT:
+      return "EXT";
+    case ESP_RST_SW:
+      return "SW";
+    case ESP_RST_PANIC:
+      return "PANIC";
+    case ESP_RST_INT_WDT:
+      return "INT_WDT";
+    case ESP_RST_TASK_WDT:
+      return "TASK_WDT";
+    case ESP_RST_WDT:
+      return "WDT";
+    case ESP_RST_DEEPSLEEP:
+      return "DEEPSLEEP";
+    case ESP_RST_BROWNOUT:
+      return "BROWNOUT";
+    case ESP_RST_SDIO:
+      return "SDIO";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+void LogWakeContext(char const* tag) {
+  auto const r = esp_reset_reason();
+  std::printf(
+      "WAKE_CTX tag=%s reset=%d name=%s rtc_valid=%u bootstrap=%u cycle=%u "
+      "measure_armed=%u\n",
+      tag, static_cast<int>(r), ResetReasonName(r),
+      static_cast<unsigned>(ValidRtc(g_rtc) ? 1 : 0),
+      static_cast<unsigned>(g_rtc.bootstrap_complete),
+      static_cast<unsigned>(g_rtc.cycle),
+      static_cast<unsigned>(g_rtc.measure_armed));
+  std::fflush(stdout);
+}
+
+void PrepareRegisteredClientForWifi(ae::Client& client) {
+  auto cloud = client.cloud().Load();
+  if (!cloud) {
+    std::printf("CLOUD_PREP cloud_load_failed=1\n");
+    std::fflush(stdout);
+    return;
+  }
+  for (auto& [sid, cs] : cloud->servers()) {
+    auto server = cs.server.Load();
+    if (!server) {
+      continue;
+    }
+    auto const before = server->channels.size();
+    server->RebuildChannelsFromAdapters();
+    std::printf("CLOUD_PREP sid=%u channels %zu->%zu endpoints=%zu\n",
+                static_cast<unsigned>(sid), before, server->channels.size(),
+                server->endpoints.size());
+    std::fflush(stdout);
+  }
+}
+
+void LogPhaseTimings(std::uint16_t cycle_index) {
+  auto const now_us = esp_timer_get_time();
+  auto const ms = [&](std::int64_t t0) -> unsigned long {
+    if (t0 <= 0) {
+      return 0;
+    }
+    return static_cast<unsigned long>((now_us - t0) / 1000);
+  };
+  std::printf(
+      "PHASE cycle=%u write_to_hold_ms=%lu hold_ms=%lu save_ms=%lu "
+      "active_to_sleep_ms=%lu hold_cfg_ms=10000 save_pump_ms=8000\n",
+      static_cast<unsigned>(cycle_index),
+      g_write_terminal_us > 0
+          ? static_cast<unsigned long>((g_hold_end_us > 0 ? g_hold_end_us
+                                                           : now_us) -
+                                       g_write_terminal_us) /
+                1000
+          : 0UL,
+      g_hold_end_us > 0 && g_write_terminal_us > 0
+          ? static_cast<unsigned long>((g_hold_end_us - g_write_terminal_us) /
+                                       1000)
+          : 0UL,
+      g_save_end_us > 0 && g_save_begin_us > 0
+          ? static_cast<unsigned long>((g_save_end_us - g_save_begin_us) / 1000)
+          : 0UL,
+      ms(g_active_t0_us));
+  std::fflush(stdout);
+}
+
 void LogStorageBackend(char const* tag) {
 #if defined(FS_INIT)
   std::printf("AETHER_STORAGE tag=%s backend=FS_INIT static+rw\n", tag);
@@ -344,7 +454,7 @@ void LogCycleJournal(std::uint16_t cycle_index) {
   };
   std::printf(
       "JOURNAL cycle=%u run_id=%lu got_ip=%u select_ok=%u write_called=%u "
-      "write_status=%u fail_stage=%u active_ms=%lu\n",
+      "write_status=%u fail_stage=%u active_total_ms=%lu\n",
       static_cast<unsigned>(cycle_index),
       static_cast<unsigned long>(MessageRunId()),
       static_cast<unsigned>(g_got_ip_logged ? 1 : 0),
@@ -484,8 +594,10 @@ void MaybeWrite() {
   g_write_sub = wa.status_event().Subscribe([](ae::WriteAction::Status st) {
     g_write_status = st;
     if (st == ae::WriteAction::Status::kSuccess ||
-        st == ae::WriteAction::Status::kFail) {
+        st == ae::WriteAction::Status::kFail ||
+        st == ae::WriteAction::Status::kStop) {
       g_write_terminal = true;
+      g_write_terminal_us = esp_timer_get_time();
       std::printf("WRITE_TERMINAL status=%d run_id=%lu\n",
                   static_cast<int>(st),
                   static_cast<unsigned long>(MessageRunId()));
@@ -498,14 +610,26 @@ void PumpAppFor(std::int64_t hold_ms) {
   if (!g_app || hold_ms <= 0) {
     return;
   }
-  auto const hold_until =
+  auto const hold_until_us =
       esp_timer_get_time() + hold_ms * static_cast<std::int64_t>(1000);
-  while (esp_timer_get_time() < hold_until) {
+  while (esp_timer_get_time() < hold_until_us) {
+    if (esp_timer_get_time() >= g_deadline_us) {
+      break;
+    }
     auto const t = g_app->Update(ae::Now());
     auto wait_until = t;
     auto const cap = PumpDeadlineTimePoint();
+    auto const hold_cap =
+        ae::Now() +
+        std::chrono::microseconds(hold_until_us - esp_timer_get_time());
     if (wait_until > cap) {
       wait_until = cap;
+    }
+    if (wait_until > hold_cap) {
+      wait_until = hold_cap;
+    }
+    if (wait_until <= ae::Now()) {
+      break;
     }
     g_app->WaitUntil(wait_until);
     LogWifiIfConnected();
@@ -516,23 +640,25 @@ void HoldForCloudDelivery(std::int64_t hold_ms) {
   if (!g_app || hold_ms <= 0) {
     return;
   }
-  auto const hold_until =
-      esp_timer_get_time() + hold_ms * static_cast<std::int64_t>(1000);
-  while (esp_timer_get_time() < hold_until) {
-    if (esp_timer_get_time() >= g_deadline_us) {
-      break;
-    }
-    PumpAppFor(50);
-  }
+  auto const remain_ms = std::max<std::int64_t>(
+      0, (g_deadline_us - esp_timer_get_time()) / 1000);
+  PumpAppFor(std::min(hold_ms, remain_ms));
+  g_hold_end_us = esp_timer_get_time();
 }
 
 void FlushAetherSave() {
   if (!g_app || !g_app->aether()) {
     return;
   }
+  g_save_begin_us = esp_timer_get_time();
   ae::AeExpSaveSetCaller(ae::AeExpSaveCaller::kNone);
   g_app->aether().Save();
   PumpAppFor(8000);
+  g_save_end_us = esp_timer_get_time();
+  std::printf("SAVE_DONE save_pump_ms=%lu\n",
+              static_cast<unsigned long>((g_save_end_us - g_save_begin_us) /
+                                         1000));
+  std::fflush(stdout);
 }
 
 void OnClientReady(ae::Client::ptr client_ptr) {
@@ -541,6 +667,7 @@ void OnClientReady(ae::Client::ptr client_ptr) {
   }
   g_client = std::move(client_ptr);
   auto client = g_client.Load();
+  PrepareRegisteredClientForWifi(*client);
   auto handle = client->message_stream_manager().CreatePort(kServiceUid);
   g_stream = std::make_unique<ae::P2pStream>(*g_app, client, kServiceUid,
                                              std::move(handle));
@@ -623,12 +750,16 @@ void FinishBootstrapAndSleep() {
 }
 
 void FinishCycleAndSleep() {
-  LogCycleJournal(g_rtc.cycle);
   g_cycle_active = false;
   FlushAetherSave();
   StageLog("STATE_SAVED");
   ReleaseApp();
   StageLog("NETWORK_STOPPED");
+  LogPhaseTimings(g_rtc.cycle);
+  LogCycleJournal(g_rtc.cycle);
+  if (g_rtc.cycle == AE_THERM_FULL_MEASURE_CYCLES) {
+    LogJournalRecapThrough(g_rtc.cycle);
+  }
   BoardPrepareDeepSleep(1);
   esp_sleep_enable_timer_wakeup(kSleepUs);
   StoreRtc();
@@ -663,13 +794,17 @@ void setup() {
   nvs_flash_init();
   esp_event_loop_delete_default();
   auto const reset = esp_reset_reason();
+  LogWakeContext("setup");
   if (reset == ESP_RST_POWERON || reset == ESP_RST_BROWNOUT) {
     StageLog("BOOT cold_power_on");
     StageLog("AWAKE_USB_WINDOW begin 60s");
     vTaskDelay(pdMS_TO_TICKS(60000));
     StageLog("AWAKE_USB_WINDOW end");
-  } else {
+  } else if (reset == ESP_RST_DEEPSLEEP) {
     StageLog("BOOT timer_wake");
+  } else {
+    std::printf("BOOT unexpected_reset name=%s\n", ResetReasonName(reset));
+    std::fflush(stdout);
   }
 
   if (!ValidRtc(g_rtc)) {
@@ -719,18 +854,26 @@ void loop() {
       std::fflush(stdout);
       IdleAfterCampaign();
     }
-    if (g_select_done && g_select_ok && g_write_terminal &&
-        g_write_status == ae::WriteAction::Status::kSuccess) {
-      HoldForCloudDelivery(10000);
-      if (g_client.is_valid()) {
-        auto const uid = g_client.Load()->uid();
-        StoreSenderUid(uid);
-        std::printf("SENDER_UID_RTC stored=%s\n", ae::Format("{}", uid).c_str());
+    if (g_write_terminal) {
+      if (g_write_status == ae::WriteAction::Status::kSuccess) {
+        HoldForCloudDelivery(10000);
+        if (g_client.is_valid()) {
+          auto const uid = g_client.Load()->uid();
+          StoreSenderUid(uid);
+          std::printf("SENDER_UID_RTC stored=%s\n",
+                      ae::Format("{}", uid).c_str());
+          std::fflush(stdout);
+        }
+        g_rtc.bootstrap_complete = 1;
+        StoreRtc();
+        FinishBootstrapAndSleep();
+      } else {
+        g_fail = FailStage::kWriteTerminal;
+        std::printf("BOOTSTRAP_FAIL stage=write_terminal status=%d\n",
+                    static_cast<int>(g_write_status));
         std::fflush(stdout);
+        IdleAfterCampaign();
       }
-      g_rtc.bootstrap_complete = 1;
-      StoreRtc();
-      FinishBootstrapAndSleep();
     }
     return;
   }

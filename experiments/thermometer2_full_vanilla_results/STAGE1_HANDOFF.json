@@ -1,39 +1,27 @@
 {
+  "stage": "thermometer2_full_vanilla_stage1",
   "branch": "diag/thermometer2-aether-full-vanilla",
-  "git_head_at_handoff": "20686e570b3b4bcadb700f113ca229cdf7efced6",
-  "library_pin": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
-  "registration_enabled": true,
-  "client_absence_root_cause": "user_config_full_quiet.h had AE_SUPPORT_REGISTRATION=0; CMakeLists also forced quiet config until fixed",
-  "bootstrap_success": true,
-  "sender_uid": "e90f2ab3-09d0-449b-9275-8daa1f5bfcc3",
-  "smoke_best": {
-    "pass": true,
-    "smoke_rx": "3/3",
-    "firmware_sha256": "06f2aff56b272e259ea6fa191a384a6d1ce0fa03877bfea01999adba3d6abd70",
-    "receiver_uid": "35a645ca-932e-451b-9f53-89649449b173",
-    "artifacts": "smoke_result.json (superseded by later failed runs — see smoke_pass_run.json if present)"
-  },
-  "smoke_latest": {
-    "pass": false,
-    "smoke_rx": "0/3",
-    "journal_cycles": 3,
-    "receiver_uid": "4c5a8f09-9968-4bc4-a27c-a027af129af6"
-  },
-  "measure": {
-    "status": "INCOMPLETE",
-    "full_rx": "0/100",
-    "complete_ppk_windows": "83/100",
-    "note": "Standalone --measure flashed new SERVICE_UID vs smoke receiver; use --smoke --measure in one process or lock SERVICE_UID from passing smoke"
-  },
-  "charge_mean_mC": 1357.13,
-  "charge_median_mC": 1266.73,
-  "charge_p95_mC": 2501.96,
-  "energy_mean_mJ": 4071.38,
-  "energy_median_mJ": 3800.19,
-  "energy_p95_mJ": 7505.89,
-  "sleep_charge_median_mC": 155.84,
-  "pushed": "pending",
-  "artifacts_dir": "experiments/thermometer2_full_vanilla_results",
+  "git_head": "3815ac3fefd701390790bf044a37372cff51447a",
+  "aether_sdk_pin": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
+  "aether_patch": "experiments/patches/aether-157aadbe-full-vanilla-stage1.patch",
+  "aether_patch_sha256": "7f0c2642638142ed0c5eebc63e3b244ffaff6da5e93f046145617f85a54b888c",
+  "repro_note": "Firmware git SHA alone is not sufficient; apply aether patch at pin before build (ensure_aether_patched).",
+  "receiver_source_root": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\temperature_receiver",
+  "receiver_build_dir": "experiments/thermometer2_full_vanilla_rx_build",
   "build_dir": "build-thermometer2-full-vanilla-v2",
-  "user_config": "main/user_config_full_vanilla.h"
+  "user_config": "main/user_config_full_vanilla.h",
+  "SMOKE": "FAIL_LAST",
+  "MEASURE": "NOT_RUN",
+  "HOT": "NOT_RUN",
+  "last_smoke_run_id": "20261017T160227Z",
+  "last_smoke_run_dir": "experiments/thermometer2_full_vanilla_results/runs/smoke_20261017T160227Z",
+  "last_smoke_firmware_sha256": "14573d906521f7f1ac562c36428b18236666e876370dd09c664633d3fb57bc81",
+  "last_smoke_rx": "3/3_matched_ids_but_parser_pass_false",
+  "last_smoke_panic": false,
+  "last_smoke_failure_reason": "Serial capture lost cycles 1-2 JOURNAL lines; parser required full journal before fix. Follow-up run blocked: PPK2 COM3 access denied.",
+  "best_historical_smoke": "experiments/thermometer2_full_vanilla_results/smoke_pass_run.json (06f2aff5..., 3/3, different receiver session)",
+  "artifacts_immutable": [
+    "experiments/patches/aether-157aadbe-full-vanilla-stage1.patch",
+    "experiments/thermometer2_full_vanilla_results/runs/"
+  ]
 }
