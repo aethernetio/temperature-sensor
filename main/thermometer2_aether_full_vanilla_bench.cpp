@@ -3,6 +3,7 @@
  * 20 s deep sleep between cycles. No prepared/HOT/cache path.
  */
 
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -10,6 +11,7 @@
 
 #include "aether/all.h"
 #include "aether/adapters/wifi_adapter.h"
+#include "aether/client_connectivity_policy.h"
 #include "aether/ae_exp_wifi.h"
 #include "aether/config.h"
 #include "aether/env.h"
@@ -61,7 +63,7 @@ static constexpr auto kServiceUid =
 #endif
 
 static constexpr std::uint32_t kRtcMagic = 0x54465631u;  // TFV1
-static constexpr std::uint16_t kRtcVersion = 1;
+static constexpr std::uint16_t kRtcVersion = 2;
 static constexpr std::uint64_t kSleepUs =
     static_cast<std::uint64_t>(AE_THERM_FULL_VANILLA_SLEEP_S) * 1000000ull;
 
@@ -81,8 +83,10 @@ struct RtcState {
   std::uint16_t cycle;  // next cycle index (1-based after increment)
   std::uint32_t session;
   std::uint8_t measure_armed;
+  std::uint8_t bootstrap_complete;
   std::uint8_t last_fail_stage;
-  std::uint8_t pad[2];
+  std::uint8_t pad;
+  std::uint8_t sender_uid[16];
   std::uint32_t crc;
 };
 
@@ -119,6 +123,8 @@ ae::Subscription g_write_sub;
 
 bool g_select_done = false;
 bool g_select_ok = false;
+int g_select_err = 0;
+bool g_bootstrap_active = false;
 bool g_write_armed = false;
 bool g_write_terminal = false;
 ae::WriteAction::Status g_write_status = ae::WriteAction::Status::kStop;
@@ -200,7 +206,119 @@ void InitRtc(std::uint32_t session) {
   g_rtc.cycle = 0;
   g_rtc.session = session;
   g_rtc.measure_armed = 0;
+  g_rtc.bootstrap_complete = 0;
+  std::memset(g_rtc.sender_uid, 0, sizeof(g_rtc.sender_uid));
   StoreRtc();
+}
+
+void LogBuildConfig() {
+  std::printf(
+      "BUILD_CFG registration=%d cloud_dns=%d tcp=%d udp=%d spifs=%d "
+      "fs_init=%d\n",
+#if AE_SUPPORT_REGISTRATION
+      1,
+#else
+      0,
+#endif
+#if AE_SUPPORT_CLOUD_DNS
+      1,
+#else
+      0,
+#endif
+#if AE_SUPPORT_TCP
+      1,
+#else
+      0,
+#endif
+#if AE_SUPPORT_UDP
+      1,
+#else
+      0,
+#endif
+#if AE_SUPPORT_SPIFS_FS
+      1,
+#else
+      0,
+#endif
+#ifdef FS_INIT
+      1
+#else
+      0
+#endif
+  );
+  std::fflush(stdout);
+}
+
+void StoreSenderUid(ae::Uid const& uid) {
+  std::memcpy(g_rtc.sender_uid, uid.value.data(), ae::Uid::kSize);
+}
+
+bool SenderUidMatchesRtc(ae::Uid const& uid) {
+  if (g_rtc.bootstrap_complete == 0) {
+    return true;
+  }
+  return std::memcmp(g_rtc.sender_uid, uid.value.data(), ae::Uid::kSize) == 0;
+}
+
+void OnClientReady(ae::Client::ptr client_ptr);
+void LogWifiIfConnected();
+
+void LogStorageBackend(char const* tag) {
+#if defined(FS_INIT)
+  std::printf("AETHER_STORAGE tag=%s backend=FS_INIT static+rw\n", tag);
+#else
+#  if AE_SUPPORT_SPIFS_FS
+  std::printf("AETHER_STORAGE tag=%s backend=SPIFFS registration=%d\n", tag,
+#    if AE_SUPPORT_REGISTRATION
+              1
+#    else
+              0
+#    endif
+  );
+#  else
+  std::printf("AETHER_STORAGE tag=%s backend=other\n", tag);
+#  endif
+#endif
+  std::fflush(stdout);
+}
+
+void LogClientMap(char const* tag) {
+  std::printf("AETHER_PROBE tag=%s client_id=%s select_pending=1\n", tag,
+              kBenchClientId);
+  std::fflush(stdout);
+}
+
+void SubscribeSelectClient() {
+  g_select_sub = g_app->aether()
+                     ->SelectClient(kParentUid, kBenchClientId)
+                     .result_event()
+                     .Subscribe([](ae::Result<ae::Client::ptr, int> res) {
+                       g_select_done = true;
+                       if (res) {
+                         if (g_client.is_valid()) {
+                           return;
+                         }
+                         g_select_ok = true;
+                         g_select_err = 0;
+                         auto uid = res.value()->uid();
+                         if (!SenderUidMatchesRtc(uid)) {
+                           g_select_ok = false;
+                           g_select_err = -1;
+                           std::printf("SELECT_CLIENT_RESULT ok=0 err=uid_mismatch\n");
+                           std::fflush(stdout);
+                           return;
+                         }
+                         std::printf("SELECT_CLIENT_RESULT ok=1 uid=%s err=0\n",
+                                     ae::Format("{}", uid).c_str());
+                         std::fflush(stdout);
+                         OnClientReady(std::move(res).value());
+                       } else {
+                         g_select_err = res.error();
+                         std::printf("SELECT_CLIENT_RESULT ok=0 err=%d\n",
+                                     g_select_err);
+                         std::fflush(stdout);
+                       }
+                     });
 }
 
 std::uint32_t MessageRunId() {
@@ -295,18 +413,35 @@ void ConstructAether() {
   );
 }
 
+ae::TimePoint PumpDeadlineTimePoint() {
+  auto const remain_us = g_deadline_us - esp_timer_get_time();
+  if (remain_us <= 0) {
+    return ae::Now();
+  }
+  return ae::Now() + std::chrono::microseconds(remain_us);
+}
+
 template <typename Pred>
 void PumpUntil(Pred&& done) {
   while (!done()) {
-    auto const now = ae::Now();
+    if (g_select_done && !g_select_ok) {
+      return;
+    }
     if (esp_timer_get_time() >= g_deadline_us) {
       return;
     }
+    auto const now = ae::Now();
     auto const t = g_app->Update(now);
+    LogWifiIfConnected();
     if (done()) {
       return;
     }
-    g_app->WaitUntil(t);
+    auto wait_until = t;
+    auto const cap = PumpDeadlineTimePoint();
+    if (wait_until > cap) {
+      wait_until = cap;
+    }
+    g_app->WaitUntil(wait_until);
   }
 }
 
@@ -338,8 +473,8 @@ void MaybeWrite() {
     return;
   }
   temp_sensor::bench::ReliabilityPayload p{};
-  p.type = static_cast<std::uint8_t>(temp_sensor::bench::ReliabilityMsgType::kFull);
-  // Receiver (157aadbe) treats Reliability type 1 as FULL (kFullReady alias).
+  p.type = static_cast<std::uint8_t>(
+      temp_sensor::bench::ReliabilityMsgType::kFullReady);
   p.run_id = MessageRunId();
   p.seq = 0;
   auto payload = temp_sensor::bench::EncodeReliability<ae::DataBuffer>(p);
@@ -347,11 +482,10 @@ void MaybeWrite() {
   StageLog("WRITE_BEGIN");
   auto& wa = g_stream->Write(std::move(payload));
   g_write_sub = wa.status_event().Subscribe([](ae::WriteAction::Status st) {
+    g_write_status = st;
     if (st == ae::WriteAction::Status::kSuccess ||
-        st == ae::WriteAction::Status::kFail ||
-        st == ae::WriteAction::Status::kStop) {
+        st == ae::WriteAction::Status::kFail) {
       g_write_terminal = true;
-      g_write_status = st;
       std::printf("WRITE_TERMINAL status=%d run_id=%lu\n",
                   static_cast<int>(st),
                   static_cast<unsigned long>(MessageRunId()));
@@ -360,7 +494,51 @@ void MaybeWrite() {
   });
 }
 
+void PumpAppFor(std::int64_t hold_ms) {
+  if (!g_app || hold_ms <= 0) {
+    return;
+  }
+  auto const hold_until =
+      esp_timer_get_time() + hold_ms * static_cast<std::int64_t>(1000);
+  while (esp_timer_get_time() < hold_until) {
+    auto const t = g_app->Update(ae::Now());
+    auto wait_until = t;
+    auto const cap = PumpDeadlineTimePoint();
+    if (wait_until > cap) {
+      wait_until = cap;
+    }
+    g_app->WaitUntil(wait_until);
+    LogWifiIfConnected();
+  }
+}
+
+void HoldForCloudDelivery(std::int64_t hold_ms) {
+  if (!g_app || hold_ms <= 0) {
+    return;
+  }
+  auto const hold_until =
+      esp_timer_get_time() + hold_ms * static_cast<std::int64_t>(1000);
+  while (esp_timer_get_time() < hold_until) {
+    if (esp_timer_get_time() >= g_deadline_us) {
+      break;
+    }
+    PumpAppFor(50);
+  }
+}
+
+void FlushAetherSave() {
+  if (!g_app || !g_app->aether()) {
+    return;
+  }
+  ae::AeExpSaveSetCaller(ae::AeExpSaveCaller::kNone);
+  g_app->aether().Save();
+  PumpAppFor(8000);
+}
+
 void OnClientReady(ae::Client::ptr client_ptr) {
+  if (g_client.is_valid()) {
+    return;
+  }
   g_client = std::move(client_ptr);
   auto client = g_client.Load();
   auto handle = client->message_stream_manager().CreatePort(kServiceUid);
@@ -372,9 +550,31 @@ void OnClientReady(ae::Client::ptr client_ptr) {
   MaybeWrite();
 }
 
-void StartCycle() {
+void StartBootstrap() {
+  g_bootstrap_active = true;
   g_select_done = false;
   g_select_ok = false;
+  g_select_err = 0;
+  g_write_armed = false;
+  g_write_terminal = false;
+  g_got_ip_logged = false;
+  g_fail = FailStage::kNone;
+  g_active_t0_us = esp_timer_get_time();
+  g_deadline_us = g_active_t0_us + static_cast<std::int64_t>(120) * 1000000;
+  StageLog("BOOTSTRAP_START");
+  ConstructAether();
+  LogBuildConfig();
+  LogStorageBackend("bootstrap_after_construct");
+  LogClientMap("bootstrap_after_construct");
+  SubscribeSelectClient();
+  g_cycle_active = true;
+}
+
+void StartCycle() {
+  g_bootstrap_active = false;
+  g_select_done = false;
+  g_select_ok = false;
+  g_select_err = 0;
   g_write_armed = false;
   g_write_terminal = false;
   g_got_ip_logged = false;
@@ -394,35 +594,39 @@ void StartCycle() {
 
   StageLog("WIFI_START");
   ConstructAether();
-  g_select_sub = g_app->aether()
-                     ->SelectClient(kParentUid, kBenchClientId)
-                     .result_event()
-                     .Subscribe([](ae::Result<ae::Client::ptr, int> res) {
-                       g_select_done = true;
-                       if (res) {
-                         g_select_ok = true;
-                         std::printf("SELECT_CLIENT_RESULT ok=1 uid=%s\n",
-                                     ae::Format("{}", res.value()->uid())
-                                         .c_str());
-                         std::fflush(stdout);
-                         OnClientReady(std::move(res).value());
-                       } else {
-                         std::printf("SELECT_CLIENT_RESULT ok=0 err=%d\n",
-                                     res.error());
-                         std::fflush(stdout);
-                       }
-                     });
+  LogStorageBackend("cycle_after_construct");
+  LogClientMap("cycle_after_construct");
+  SubscribeSelectClient();
   g_cycle_active = true;
+}
+
+void FinishBootstrapAndSleep() {
+  StageLog("BOOTSTRAP_FINISH_BEGIN");
+  g_cycle_active = false;
+  g_bootstrap_active = false;
+  FlushAetherSave();
+  StageLog("BOOTSTRAP_SAVE");
+  ReleaseApp();
+  StageLog("NETWORK_STOPPED");
+  BoardPrepareDeepSleep(1);
+  esp_sleep_enable_timer_wakeup(kSleepUs);
+  StoreRtc();
+  std::printf("BOOTSTRAP_DONE sender_uid_stored=1\n");
+  std::fflush(stdout);
+  std::printf("DEEP_SLEEP_ENTER sleep_s=%d\n", AE_THERM_FULL_VANILLA_SLEEP_S);
+  std::fflush(stdout);
+  (void)esp_deep_sleep_try_to_start();
+  esp_deep_sleep_start();
+  std::printf("DEEP_SLEEP_FAILED tag=bootstrap\n");
+  std::fflush(stdout);
+  esp_restart();
 }
 
 void FinishCycleAndSleep() {
   LogCycleJournal(g_rtc.cycle);
   g_cycle_active = false;
-  if (g_app && g_app->aether()) {
-    ae::AeExpSaveSetCaller(ae::AeExpSaveCaller::kNone);
-    g_app->aether().Save();
-    StageLog("STATE_SAVED");
-  }
+  FlushAetherSave();
+  StageLog("STATE_SAVED");
   ReleaseApp();
   StageLog("NETWORK_STOPPED");
   BoardPrepareDeepSleep(1);
@@ -432,6 +636,10 @@ void FinishCycleAndSleep() {
   std::fflush(stdout);
   (void)esp_deep_sleep_try_to_start();
   esp_deep_sleep_start();
+  std::printf("DEEP_SLEEP_FAILED tag=cycle cycle=%u\n",
+              static_cast<unsigned>(g_rtc.cycle));
+  std::fflush(stdout);
+  esp_restart();
 }
 
 [[noreturn]] void IdleAfterCampaign() {
@@ -456,12 +664,6 @@ void setup() {
   esp_event_loop_delete_default();
   auto const reset = esp_reset_reason();
   if (reset == ESP_RST_POWERON || reset == ESP_RST_BROWNOUT) {
-#if defined(AE_EXP_BENCH_STAGE) && AE_EXP_BENCH_STAGE
-    // Cold campaign: stale NVS domain can hide FS_INIT clients (SelectClient err=2).
-    nvs_flash_erase();
-    nvs_flash_init();
-#endif
-    InitRtc(static_cast<std::uint32_t>(esp_random()));
     StageLog("BOOT cold_power_on");
     StageLog("AWAKE_USB_WINDOW begin 60s");
     vTaskDelay(pdMS_TO_TICKS(60000));
@@ -473,16 +675,19 @@ void setup() {
   if (!ValidRtc(g_rtc)) {
     InitRtc(static_cast<std::uint32_t>(esp_random()));
   }
-  std::printf("FS_INIT client_id=%s parent=%s\n", kBenchClientId,
-              "b1ac52c8-8d94-bd39-4c01-a631ac594165");
-  std::fflush(stdout);
+  LogBuildConfig();
 
   if (g_rtc.cycle >= AE_THERM_FULL_MEASURE_CYCLES &&
       g_rtc.measure_armed != 0) {
     DumpJournalAndIdle();
   }
 
-  if (g_rtc.cycle == 0) {
+  if (g_rtc.bootstrap_complete == 0) {
+    StartBootstrap();
+    return;
+  }
+
+  if (g_rtc.measure_armed == 0) {
     g_rtc.measure_armed = 1;
     StoreRtc();
   }
@@ -496,7 +701,46 @@ void loop() {
     return;
   }
 
-  PumpUntil([]() { return g_select_done && g_write_terminal; });
+  if (g_bootstrap_active) {
+    PumpUntil([]() {
+      if (g_select_done && !g_select_ok) {
+        return true;
+      }
+      return g_select_done && g_write_terminal;
+    });
+    if (g_select_done && !g_select_ok) {
+      g_fail = FailStage::kSelectClient;
+      std::printf("BOOTSTRAP_FAIL stage=select_client err=%d\n", g_select_err);
+      std::fflush(stdout);
+      IdleAfterCampaign();
+    }
+    if (esp_timer_get_time() >= g_deadline_us && !g_write_terminal) {
+      std::printf("BOOTSTRAP_FAIL stage=timeout\n");
+      std::fflush(stdout);
+      IdleAfterCampaign();
+    }
+    if (g_select_done && g_select_ok && g_write_terminal &&
+        g_write_status == ae::WriteAction::Status::kSuccess) {
+      HoldForCloudDelivery(10000);
+      if (g_client.is_valid()) {
+        auto const uid = g_client.Load()->uid();
+        StoreSenderUid(uid);
+        std::printf("SENDER_UID_RTC stored=%s\n", ae::Format("{}", uid).c_str());
+        std::fflush(stdout);
+      }
+      g_rtc.bootstrap_complete = 1;
+      StoreRtc();
+      FinishBootstrapAndSleep();
+    }
+    return;
+  }
+
+  PumpUntil([]() {
+    if (g_select_done && !g_select_ok) {
+      return true;
+    }
+    return g_select_done && g_write_terminal;
+  });
   LogWifiIfConnected();
 
   if (esp_timer_get_time() >= g_deadline_us && !g_write_terminal) {
@@ -512,8 +756,8 @@ void loop() {
     g_fail = FailStage::kSelectClient;
     g_rtc.last_fail_stage = static_cast<std::uint8_t>(g_fail);
     StoreRtc();
-    std::printf("CYCLE_FAIL stage=select_client cycle=%u\n",
-                static_cast<unsigned>(g_rtc.cycle));
+    std::printf("CYCLE_FAIL stage=select_client err=%d cycle=%u\n",
+                g_select_err, static_cast<unsigned>(g_rtc.cycle));
     std::fflush(stdout);
     FinishCycleAndSleep();
     return;
@@ -538,13 +782,7 @@ void loop() {
     return;
   }
 
-  auto const hold_until =
-      esp_timer_get_time() + static_cast<std::int64_t>(1000) * 1000;
-  while (esp_timer_get_time() < hold_until) {
-    auto const t = g_app->Update(ae::Now());
-    g_app->WaitUntil(t);
-    LogWifiIfConnected();
-  }
+  HoldForCloudDelivery(10000);
 
   FinishCycleAndSleep();
 }

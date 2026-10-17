@@ -29,7 +29,8 @@ PREPARED_ROOT = Path(r"C:\Users\nickc\Projects\temperature-sensor-prepared")
 sys.path.insert(0, str(HERE))
 if str(PREPARED_ROOT / "experiments") not in sys.path:
     sys.path.append(str(PREPARED_ROOT / "experiments"))
-BUILD = ROOT / "build-thermometer2-aether-full-vanilla"
+BUILD = ROOT / "build-thermometer2-full-vanilla-v2"
+USER_CONFIG_VANILLA = ROOT / "main" / "user_config_full_vanilla.h"
 RESULTS = HERE / "thermometer2_full_vanilla_results"
 MEASURED = 100
 SLEEP_S = 20
@@ -53,7 +54,7 @@ from ppk_stream_cycle_segmenter import (  # noqa: E402
 RX_SRC = PREPARED_ROOT / "temperature_receiver"
 RX_BUILD = HERE / "thermometer2_full_vanilla_rx_build"
 AETHER_LOCAL = ROOT / "deps" / "aether-client-cpp-157aadbe-diag"
-FS_INIT = HERE / "preprovision" / "sender_fs_157aadbe.h"
+# FS_INIT intentionally not used for FULL vanilla (registration + SPIFFS path).
 AETHER_PIN = "157aadbec8e7b852d0f89274307ff7cb8103e5f7"
 BENCH_CLIENT_ID = "reliability_full_v1"
 
@@ -69,6 +70,9 @@ RE_JOURNAL_DUMP = re.compile(
     r"write_called=(\d+) write_status=(\d+) fail_stage=(\d+) active_ms=(\d+)"
 )
 RE_BOOT_RUN = re.compile(r"BOOT cycle=(\d+) session=\d+ run_id=(\d+)")
+RE_WRITE_TERMINAL = re.compile(r"WRITE_TERMINAL status=(\d+) run_id=(\d+)")
+RE_SELECT_OK = re.compile(r"SELECT_CLIENT_RESULT ok=1 uid=([0-9a-f-]{36})")
+RE_SENDER_UID_RTC = re.compile(r"SENDER_UID_RTC stored=([0-9a-f-]{36})")
 ESPRESSIF_VID = 0x303A
 USB_RECOVERY_LOG = RESULTS / "usb_recovery.log"
 SMOKE_CYCLES = 3
@@ -123,12 +127,61 @@ def run_idf(extra: str) -> None:
         raise RuntimeError(f"idf failed code={r.returncode}")
 
 
+def audit_aether_compile_macros() -> dict:
+    cc = BUILD / "compile_commands.json"
+    if not cc.is_file():
+        return {"compile_commands": "missing"}
+    try:
+        data = json.loads(cc.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {"compile_commands": "invalid_json"}
+    needles = (
+        "AE_SUPPORT_REGISTRATION",
+        "AE_SUPPORT_CLOUD_DNS",
+        "AE_SUPPORT_TCP",
+        "AE_SUPPORT_UDP",
+        "FS_INIT",
+    )
+    hits: dict[str, list[str]] = {n: [] for n in needles}
+    for ent in data:
+        cmd = ent.get("command") or ent.get("arguments") or ""
+        if isinstance(cmd, list):
+            cmd = " ".join(str(x) for x in cmd)
+        if "aether-client-cpp" not in cmd and "/aether/" not in cmd.replace("\\", "/"):
+            if "thermometer2_aether_full_vanilla_bench.cpp" not in cmd:
+                continue
+        for n in needles:
+            if n in cmd:
+                hits[n].append(cmd[:240])
+    out: dict[str, str | int] = {
+        "user_config": str(USER_CONFIG_VANILLA),
+        "fs_init_cmake": "not_set",
+        "domain_storage": "AE_SUPPORT_SPIFS_FS (via USER_CONFIG)",
+    }
+    for n in needles:
+        out[f"aether_compile_mentions_{n}"] = len(hits[n])
+        if hits[n]:
+            out[f"sample_{n}"] = hits[n][0]
+    main_hits = [
+        e
+        for e in data
+        if "thermometer2_aether_full_vanilla_bench.cpp" in (e.get("file") or "")
+    ]
+    if main_hits:
+        cmd = main_hits[0].get("command") or ""
+        out["main_fs_init_defined"] = 1 if "FS_INIT=" in cmd else 0
+        out["main_registration"] = (
+            1 if "AE_SUPPORT_REGISTRATION=1" in cmd or '-DAE_SUPPORT_REGISTRATION=1' in cmd else 0
+        )
+    return out
+
+
 def build_esp(*, service_uid: str, ssid: str, password: str, smoke: bool) -> None:
     b = BUILD.as_posix()
     pwd = password.replace("'", "''")
     ssid_ps = ssid.replace("'", "''")
-    fs = FS_INIT.as_posix() if FS_INIT.is_file() else ""
     aether = AETHER_LOCAL.as_posix() if AETHER_LOCAL.is_dir() else ""
+    ucfg = USER_CONFIG_VANILLA.as_posix()
     cycles = "3" if smoke else "100"
     stage = "1" if smoke else "0"
     sdk_defaults = (
@@ -157,12 +210,17 @@ $common = @(
   '-D','AE_THERM_FULL_VANILLA_SLEEP_S=20',
   '-D','AE_THERM_FULL_ACTIVE_TIMEOUT_MS=60000',
   '-D','CPM_aether-client-cpp_SOURCE={aether}',
-  '-D','USER_CONFIG={ROOT.as_posix()}/main/user_config_full_quiet.h'
+  '-D','USER_CONFIG={ucfg}'
 )
 """
-    if fs:
-        extra += f"$common += @('-D','FS_INIT={fs}')\n"
     extra += f"""
+if (Test-Path '{b}/CMakeCache.txt') {{
+  $ok = Select-String -Path '{b}/CMakeCache.txt' -Pattern 'user_config_full_vanilla.h' -Quiet
+  if (-not $ok) {{
+    Write-Host 'USER_CONFIG cache mismatch; removing build dir'
+    Remove-Item -LiteralPath '{b}' -Recurse -Force
+  }}
+}}
 if (-not (Test-Path '{b}/CMakeCache.txt')) {{
   idf.py @common set-target esp32c6
   if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
@@ -175,8 +233,11 @@ if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
     run_idf(extra)
 
 
-def build_receiver() -> Path:
+def build_receiver(*, force: bool = False) -> Path:
     RX_BUILD.mkdir(parents=True, exist_ok=True)
+    exe = RX_BUILD / "aether_hot_tcp_receiver.exe"
+    if not force and exe.is_file():
+        return exe
     ps = f"""
 $ErrorActionPreference='Stop'
 $vswhere = "${{env:ProgramFiles(x86)}}\\Microsoft Visual Studio\\Installer\\vswhere.exe"
@@ -190,7 +251,6 @@ cmd /c "`"$vcvars`" && cmake -S `"{RX_SRC.as_posix()}`" -B `"{RX_BUILD.as_posix(
     r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], cwd=str(ROOT))
     if r.returncode != 0:
         raise RuntimeError("receiver build failed")
-    exe = RX_BUILD / "aether_hot_tcp_receiver.exe"
     if not exe.is_file():
         raise RuntimeError(f"missing {exe}")
     return exe
@@ -202,12 +262,31 @@ def start_receiver(exe: Path, session: Path) -> subprocess.Popen:
     env["AE_RECEIVER_SESSION_DIR"] = str(session)
     log = RESULTS / "receiver.log"
     RESULTS.mkdir(parents=True, exist_ok=True)
+    if log.is_file():
+        prev = log.read_text(encoding="utf-8", errors="replace")
+        if prev.strip():
+            log.with_suffix(".log.prev").write_text(prev, encoding="utf-8")
     return subprocess.Popen(
         [str(exe), "--require-tcp"],
         stdout=open(log, "w", encoding="utf-8", errors="replace"),
         stderr=subprocess.STDOUT,
         env=env,
     )
+
+
+def ensure_receiver_alive(proc: subprocess.Popen, uid: str, rx_log: Path) -> None:
+    if proc.poll() is not None:
+        raise RuntimeError(
+            f"receiver process exited code={proc.returncode} (infrastructure failure)"
+        )
+    text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
+    uids = RE_RX_UID.findall(text)
+    if not any(u.lower() == uid.lower() for u in uids):
+        raise RuntimeError(
+            f"receiver UID missing from log expected={uid} seen={uids[-1] if uids else None}"
+        )
+    if "RX_TRANSPORT=TCP" not in text and "tcp_up=1" not in text:
+        raise RuntimeError("receiver TCP transport not confirmed in log")
 
 
 def wait_uid(log: Path, timeout: float = 300.0) -> str:
@@ -314,8 +393,6 @@ def stop_stage1_serial_holders() -> None:
     if sys.platform != "win32":
         return
     ps = r"""
-Get-Process -Name 'aether_hot_tcp_receiver' -ErrorAction SilentlyContinue |
-  Stop-Process -Force -ErrorAction SilentlyContinue
 Get-CimInstance Win32_Process |
   Where-Object {
     $_.CommandLine -and (
@@ -425,6 +502,9 @@ def save_build_provenance(*, service_uid: str, smoke: bool) -> dict:
         "service_uid": service_uid,
         "smoke_build": smoke,
         "cycles": SMOKE_CYCLES if smoke else MEASURED,
+        "user_config": str(USER_CONFIG_VANILLA),
+        "build_dir": str(BUILD),
+        "aether_compile_audit": audit_aether_compile_macros(),
     }
     (RESULTS / "build_provenance.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return meta
@@ -699,6 +779,7 @@ def parse_smoke_detailed(
 ) -> dict:
     journal = parse_journal_merged(esp_text)
     expected_run_ids: list[int] = []
+    write_terminal_ids = [int(rid) for _, rid in RE_WRITE_TERMINAL.findall(esp_text)]
     for c in range(1, expected_cycles + 1):
         if c in journal:
             expected_run_ids.append(int(journal[c]["run_id"]))
@@ -707,6 +788,13 @@ def parse_smoke_detailed(
                 if int(bc) == c:
                     expected_run_ids.append(int(br))
                     break
+    if len(expected_run_ids) < expected_cycles and len(write_terminal_ids) >= expected_cycles:
+        # Skip bootstrap write if present (first terminal before first BOOT cycle).
+        boot_ids = [int(br) for _, br in RE_BOOT_RUN.findall(esp_text)]
+        candidates = write_terminal_ids
+        if boot_ids and write_terminal_ids[0] not in boot_ids:
+            candidates = write_terminal_ids[1:]
+        expected_run_ids = candidates[:expected_cycles]
     rx_hits: list[int] = []
     dup = 0
     seen_rx: set[int] = set()
@@ -721,18 +809,39 @@ def parse_smoke_detailed(
     matched = sorted(seen_rx)
     panic = "Guru Meditation" in esp_text or "assert failed" in esp_text
     cycles_logged = sum(1 for c in range(1, expected_cycles + 1) if c in journal)
+    bootstrap_ok = (
+        "BOOTSTRAP_DONE" in esp_text
+        or "SENDER_UID_RTC stored=" in esp_text
+        or ("BOOTSTRAP_SAVE" in esp_text and "DEEP_SLEEP_ENTER" in esp_text)
+    )
+    select_ok_count = len(RE_SELECT_OK.findall(esp_text))
+    sender_uids = RE_SENDER_UID_RTC.findall(esp_text)
+    sender_uid_after_sleep = sender_uids[-1] if sender_uids else None
+    if journal:
+        select_ok_per_cycle = all(
+            journal.get(c, {}).get("select_ok") == 1
+            for c in range(1, expected_cycles + 1)
+            if c in journal
+        ) and cycles_logged >= expected_cycles
+    else:
+        select_ok_per_cycle = select_ok_count >= expected_cycles + 1
     return {
         "expected_run_ids": expected_run_ids,
         "matched_rx_run_ids": matched,
         "full_rx_count": len(matched),
         "duplicate_rx": dup,
         "journal_cycles": cycles_logged,
+        "bootstrap_ok": bootstrap_ok,
+        "select_ok_events": select_ok_count,
+        "sender_uid_stored": sender_uid_after_sleep,
         "panic": panic,
         "pass": (
-            len(expected_run_ids) >= expected_cycles
+            bootstrap_ok
+            and len(expected_run_ids) >= expected_cycles
             and len(matched) >= expected_cycles
             and dup == 0
             and not panic
+            and select_ok_per_cycle
             and all(r in matched for r in expected_run_ids[:expected_cycles])
         ),
     }
@@ -740,7 +849,13 @@ def parse_smoke_detailed(
 
 def parse_smoke(esp_log: Path, rx_log: Path) -> dict:
     esp = esp_log.read_text(encoding="utf-8", errors="replace") if esp_log.is_file() else ""
-    rx = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
+    rx_parts: list[str] = []
+    prev = rx_log.with_suffix(".log.prev")
+    if prev.is_file():
+        rx_parts.append(prev.read_text(encoding="utf-8", errors="replace"))
+    if rx_log.is_file():
+        rx_parts.append(rx_log.read_text(encoding="utf-8", errors="replace"))
+    rx = "\n".join(rx_parts)
     return parse_smoke_detailed(esp, rx, expected_cycles=SMOKE_CYCLES)
 
 
@@ -807,12 +922,15 @@ def count_valid_ppk_windows(windows: list[CycleWindow]) -> int:
     return n
 
 
-def run_measure(uid: str, ssid: str, pwd: str, rx_log: Path) -> int:
+def run_measure(
+    uid: str, ssid: str, pwd: str, rx_log: Path, rx_proc: subprocess.Popen
+) -> int:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     raw_bin = RAW_DIR / "full_vanilla_100.bin"
     meta_bin = raw_bin.with_suffix(".json")
     build_esp(service_uid=uid, ssid=ssid, password=pwd, smoke=False)
     prov = save_build_provenance(service_uid=uid, smoke=False)
+    ensure_receiver_alive(rx_proc, uid, rx_log)
     ppk = open_ppk_session()
     try:
         port = recover_espressif_usb(ppk, attempts=3, wait_s=60.0)
@@ -904,9 +1022,12 @@ def _write_blocked_handoff(usb_status: str, uid: str, prov: dict) -> None:
     print(json.dumps(rep, indent=2), flush=True)
 
 
-def run_smoke(uid: str, ssid: str, pwd: str, rx_log: Path) -> int:
+def run_smoke(
+    uid: str, ssid: str, pwd: str, rx_log: Path, rx_proc: subprocess.Popen
+) -> int:
     build_esp(service_uid=uid, ssid=ssid, password=pwd, smoke=True)
     prov = save_build_provenance(service_uid=uid, smoke=True)
+    ensure_receiver_alive(rx_proc, uid, rx_log)
     ppk = open_ppk_session()
     try:
         port = recover_espressif_usb(ppk, attempts=3, wait_s=60.0)
@@ -914,6 +1035,7 @@ def run_smoke(uid: str, ssid: str, pwd: str, rx_log: Path) -> int:
             _write_blocked_handoff("USB_ACCESS=BLOCKED", uid, prov)
             return 2
         flash_firmware(port)
+        ensure_receiver_alive(rx_proc, uid, rx_log)
         port = cold_boot_dut(ppk) or port
         if not port:
             _write_blocked_handoff("USB_ACCESS=BLOCKED after flash cold boot", uid, prov)
@@ -922,17 +1044,42 @@ def run_smoke(uid: str, ssid: str, pwd: str, rx_log: Path) -> int:
         esp_log.write_text("", encoding="utf-8")
 
         def smoke_done(buf: str) -> bool:
+            detail = parse_smoke_detailed(buf, "", expected_cycles=SMOKE_CYCLES)
+            if not detail.get("bootstrap_ok"):
+                return False
+            if detail.get("full_rx_count", 0) >= SMOKE_CYCLES:
+                return True
             j = parse_journal_merged(buf)
-            return len(j) >= SMOKE_CYCLES and all(
-                c in j for c in (1, 2, 3)
-            )
+            if len(j) >= SMOKE_CYCLES and all(c in j for c in (1, 2, 3)):
+                return True
+            wt = RE_WRITE_TERMINAL.findall(buf)
+            boots = RE_BOOT_RUN.findall(buf)
+            if len(wt) >= SMOKE_CYCLES + 1 and len(boots) >= SMOKE_CYCLES:
+                return True
+            return False
 
-        capture_serial_resilient(720, esp_log, stop_when=smoke_done)
-        res = parse_smoke(esp_log, rx_log)
+        capture_serial_resilient(960, esp_log, stop_when=smoke_done)
+        rx_text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
+        esp_text = esp_log.read_text(encoding="utf-8", errors="replace") if esp_log.is_file() else ""
+        res = parse_smoke_detailed(esp_text, rx_text, expected_cycles=SMOKE_CYCLES)
         res["firmware_sha256"] = prov["firmware_sha256"]
         res["receiver_uid"] = uid
+        res["receiver_pid"] = rx_proc.pid
         res["usb_port"] = port
+        res["registration_enabled"] = True
         (RESULTS / "smoke_result.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
+        handoff = {
+            "git_head": prov.get("git_head"),
+            "registration_enabled": True,
+            "bootstrap_ok": res.get("bootstrap_ok"),
+            "sender_uid_stored": res.get("sender_uid_stored"),
+            "receiver_alive": rx_proc.poll() is None,
+            "receiver_uid": uid,
+            "smoke_rx": f"{res.get('full_rx_count', 0)}/3",
+            "smoke_pass": res.get("pass"),
+            "artifacts": str(RESULTS),
+        }
+        (RESULTS / "STAGE1_HANDOFF.json").write_text(json.dumps(handoff, indent=2), encoding="utf-8")
         print(json.dumps(res, indent=2), flush=True)
         return 0 if res.get("pass") else 1
     finally:
@@ -950,6 +1097,31 @@ def main() -> int:
     stop_stage1_serial_holders()
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(ROOT), text=True).strip()
     RESULTS.mkdir(parents=True, exist_ok=True)
+    audit_path = RESULTS / "client_config_audit.json"
+    if not audit_path.is_file():
+        audit_path.write_text(
+            json.dumps(
+                {
+                    "before_change": {
+                        "user_config": "main/user_config_full_quiet.h",
+                        "AE_SUPPORT_REGISTRATION": 0,
+                        "AE_SUPPORT_CLOUD_DNS": 0,
+                        "AE_SUPPORT_TCP": 0,
+                        "AE_SUPPORT_UDP": 1,
+                        "FS_INIT": "experiments/preprovision/sender_fs_157aadbe.h",
+                        "select_err_observed": 2,
+                        "select_err_meaning": "no clients in map (registration disabled)",
+                    },
+                    "after_change": {
+                        "user_config": str(USER_CONFIG_VANILLA.relative_to(ROOT)),
+                        "FS_INIT": "not_used",
+                        "build_dir": str(BUILD.relative_to(ROOT)),
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
     (RESULTS / "branch_head.json").write_text(
         json.dumps({"branch": "diag/thermometer2-aether-full-vanilla", "head": head}, indent=2),
         encoding="utf-8",
@@ -984,9 +1156,10 @@ def main() -> int:
             else:
                 print("SMOKE_MISSING=1 refusing --measure", flush=True)
                 return 1
-            return run_measure(uid, ssid, pwd, rx_log)
+            ensure_receiver_alive(proc, uid, rx_log)
+            return run_measure(uid, ssid, pwd, rx_log, proc)
         if args.smoke:
-            return run_smoke(uid, ssid, pwd, rx_log)
+            return run_smoke(uid, ssid, pwd, rx_log, proc)
         print("Specify --smoke or --measure", flush=True)
         return 2
     finally:

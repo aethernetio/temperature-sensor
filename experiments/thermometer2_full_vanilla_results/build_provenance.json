@@ -1,11 +1,25 @@
 {
-  "git_head": "87e1550beb9ea2ade74191ec97c8531164895afa",
-  "git_diff_len": 37937,
+  "git_head": "20686e570b3b4bcadb700f113ca229cdf7efced6",
+  "git_diff_len": 2826958,
   "aether_pin": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
-  "aether_local_diff_len": 10030,
-  "firmware_sha256": "a294d3aca52ab60b6578622c43640e3d2c86d20733090de614de184911b3b3ab",
-  "elf_path": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\build-thermometer2-aether-full-vanilla\\temperature_sensor.elf",
-  "service_uid": "f48d3493-8220-40be-81ff-5121a3fadc6e",
+  "aether_local_diff_len": 11113,
+  "firmware_sha256": "06f2aff56b272e259ea6fa191a384a6d1ce0fa03877bfea01999adba3d6abd70",
+  "elf_path": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\build-thermometer2-full-vanilla-v2\\temperature_sensor.elf",
+  "service_uid": "35a645ca-932e-451b-9f53-89649449b173",
   "smoke_build": true,
-  "cycles": 3
+  "cycles": 3,
+  "user_config": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\main\\user_config_full_vanilla.h",
+  "build_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\build-thermometer2-full-vanilla-v2",
+  "aether_compile_audit": {
+    "user_config": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\main\\user_config_full_vanilla.h",
+    "fs_init_cmake": "not_set",
+    "domain_storage": "AE_SUPPORT_SPIFS_FS (via USER_CONFIG)",
+    "aether_compile_mentions_AE_SUPPORT_REGISTRATION": 0,
+    "aether_compile_mentions_AE_SUPPORT_CLOUD_DNS": 0,
+    "aether_compile_mentions_AE_SUPPORT_TCP": 0,
+    "aether_compile_mentions_AE_SUPPORT_UDP": 0,
+    "aether_compile_mentions_FS_INIT": 0,
+    "main_fs_init_defined": 0,
+    "main_registration": 0
+  }
 }

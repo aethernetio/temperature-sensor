@@ -1,0 +1,17 @@
+{
+  "before_change": {
+    "user_config": "main/user_config_full_quiet.h",
+    "AE_SUPPORT_REGISTRATION": 0,
+    "AE_SUPPORT_CLOUD_DNS": 0,
+    "AE_SUPPORT_TCP": 0,
+    "AE_SUPPORT_UDP": 1,
+    "FS_INIT": "experiments/preprovision/sender_fs_157aadbe.h",
+    "select_err_observed": 2,
+    "select_err_meaning": "no clients in map (registration disabled)"
+  },
+  "after_change": {
+    "user_config": "main\\user_config_full_vanilla.h",
+    "FS_INIT": "not_used",
+    "build_dir": "build-thermometer2-full-vanilla-v2"
+  }
+}
