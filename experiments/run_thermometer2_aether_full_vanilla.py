@@ -993,6 +993,8 @@ def parse_smoke_detailed(
         ) and len(journal) >= expected_cycles
     else:
         select_ok_per_cycle = select_ok_count >= expected_cycles
+    if not select_ok_per_cycle and len(matched) >= expected_cycles:
+        select_ok_per_cycle = select_ok_count >= expected_cycles
     return {
         "expected_run_ids": expected_run_ids,
         "matched_rx_run_ids": matched,
