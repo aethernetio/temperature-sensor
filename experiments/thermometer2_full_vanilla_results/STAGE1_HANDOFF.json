@@ -48,5 +48,6 @@
   },
   "run_state": "experiments/thermometer2_full_vanilla_results/run.json",
   "manual_action": "Connect Thermometer 2 USB (VID_303A) for flash/monitor; PPK 3V Source Meter; re-run: python experiments/run_thermometer2_aether_full_vanilla.py --smoke --measure",
-  "pushed": "95954a5 on origin; bootstrap fix commit pending"
+  "git_head": "3631990",
+  "pushed": "yes (3631990 on origin/diag/thermometer2-aether-full-vanilla)"
 }
