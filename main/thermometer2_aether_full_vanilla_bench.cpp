@@ -328,26 +328,6 @@ char const* ResetReasonName(esp_reset_reason_t r) {
   }
 }
 
-void PrepareRegisteredClientForWifi(ae::Client& client) {
-  auto cloud = client.cloud().Load();
-  if (!cloud) {
-    std::printf("CLOUD_PREP cloud_load_failed=1\n");
-    std::fflush(stdout);
-    return;
-  }
-  for (auto& [sid, cs] : cloud->servers()) {
-    auto server = cs.server.Load();
-    if (!server) {
-      continue;
-    }
-    auto const before = server->channels.size();
-    server->RebuildChannelsFromAdapters();
-    std::printf("CLOUD_PREP sid=%u channels %zu->%zu\n",
-                static_cast<unsigned>(sid), before, server->channels.size());
-    std::fflush(stdout);
-  }
-}
-
 void LogWakeContext(char const* tag) {
   auto const r = esp_reset_reason();
   std::printf(
@@ -684,7 +664,6 @@ void OnClientReady(ae::Client::ptr client_ptr) {
   }
   g_client = std::move(client_ptr);
   auto client = g_client.Load();
-  PrepareRegisteredClientForWifi(*client);
   auto handle = client->message_stream_manager().CreatePort(kServiceUid);
   g_stream = std::make_unique<ae::P2pStream>(*g_app, client, kServiceUid,
                                              std::move(handle));

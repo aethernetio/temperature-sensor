@@ -1,19 +1,44 @@
 {
   "stage": "FULL_VANILLA_STAGE1",
-  "git_head": "d9bf3bd0e71d71ffb20becbfbb8ca289a0c1e4b3",
   "worktree": "temperature-sensor-working-hot",
   "branch": "diag/thermometer2-aether-full-vanilla",
-  "latest_campaign": "20261018T225226Z",
   "profile_guard": "enabled (build_profile + BENCH_MODE banner)",
   "wrong_profile_hot_archived": "experiments/thermometer2_full_vanilla_results/archive/wrong_profile_aether_hot_20261018.json",
+  "wrong_hot_delivery": {
+    "note": "Do not merge into FULL vanilla results",
+    "hot_rx": "0/100",
+    "actual_attempts": "UNKNOWN",
+    "energy_confirmed": false
+  },
+  "sdk": {
+    "aether_git": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
+    "stage1_patch_hash": "see branch_head.json / build_profile"
+  },
+  "campaigns": [
+    {
+      "id": "20261018T225226Z",
+      "outcome": "FAIL",
+      "smoke_rx": "0/3",
+      "panic": true,
+      "failure_stage": "BOOTSTRAP SelectClient / RebuildChannelsFromAdapters (Load access fault @0x24)",
+      "firmware_sha256": "ccc6be8736a4579eb8b2061cbf91c09eaacdb84f26d926ab28736b6046a280c1",
+      "receiver_uid": "da5395d6-b1ba-44ef-9ca1-8f176de6dc88",
+      "measure": "NOT_RUN"
+    },
+    {
+      "id": "20261018T231844Z",
+      "outcome": "FAIL",
+      "usb_access": "NO_ESPRESSIF_COM (host saw only PPK VID_1915 COM3/COM4)",
+      "smoke": "NOT_RUN",
+      "measure": "NOT_RUN",
+      "firmware_sha256_built": "cdb9ef907e3e5bd2f8c94d7797bf63b3191435ec1eae5ec2113ba0f9143cda71",
+      "receiver_uid": "1cfabe1a-8ff2-4ff7-a1b9-7eb175e6ecf2",
+      "fix_pending_flash": "removed PrepareRegisteredClientForWifi / RebuildChannelsFromAdapters (bootstrap panic fix)"
+    }
+  ],
   "smoke_latest": {
     "pass": false,
     "smoke_rx": "0/3",
-    "receiver_uid": "da5395d6-b1ba-44ef-9ca1-8f176de6dc88",
-    "firmware_sha256": "ccc6be8736a4579eb8b2061cbf91c09eaacdb84f26d926ab28736b6046a280c1",
-    "bootstrap_ok": false,
-    "panic": true,
-    "failure_stage": "BOOTSTRAP_START Load access fault (see smoke_esp.log)",
     "measure": "NOT_RUN"
   },
   "measure_100": {
@@ -22,5 +47,6 @@
     "ppk_complete_windows": "UNKNOWN"
   },
   "run_state": "experiments/thermometer2_full_vanilla_results/run.json",
-  "pushed": "pending"
+  "manual_action": "Connect Thermometer 2 USB (VID_303A) for flash/monitor; PPK 3V Source Meter; re-run: python experiments/run_thermometer2_aether_full_vanilla.py --smoke --measure",
+  "pushed": "95954a5 on origin; bootstrap fix commit pending"
 }
