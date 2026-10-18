@@ -1111,9 +1111,15 @@ def smoke_service_uid() -> str:
 
 
 def run_measure(
-    uid: str, ssid: str, pwd: str, rx_log: Path, rx_proc: subprocess.Popen
+    uid: str,
+    ssid: str,
+    pwd: str,
+    rx_log: Path,
+    rx_proc: subprocess.Popen,
+    *,
+    service_uid_locked: str | None = None,
 ) -> int:
-    service_uid = smoke_service_uid()
+    service_uid = service_uid_locked or smoke_service_uid()
     if uid.lower() != service_uid.lower():
         print(
             f"WARN receiver_uid={uid} != smoke SERVICE_UID={service_uid}; "
@@ -1138,23 +1144,26 @@ def run_measure(
         cap = ContinuousPpkCapture(ppk, raw_bin, meta_bin)
         cap.start()
         sb.hard_reset(port)
-        deadline = time.time() + COLD_BOOT_S + MEASURED * (90.0 + SLEEP_S) + 600.0
+        # Quiet measure firmware may omit USB journal; PPK sleep edges are authoritative.
+        deadline = time.time() + COLD_BOOT_S + MEASURED * (120.0 + SLEEP_S) + 900.0
+        rx_mark = rx_log.stat().st_size if rx_log.is_file() else 0
         esp_log = RESULTS / "measure_esp.log"
         esp_log.write_text("", encoding="utf-8")
         journal_done = False
         while time.time() < deadline:
             cap.drain()
-            if not journal_done and count_valid_ppk_windows(cap.segmenter.windows_closed) >= MEASURED:
+            ppk_n = count_valid_ppk_windows(cap.segmenter.windows_closed)
+            if not journal_done and ppk_n >= min(MEASURED, 10):
                 capture_serial_resilient(
-                    120,
+                    90,
                     esp_log,
-                    stop_when=lambda b: b.count("JOURNAL_DUMP cycle=") >= MEASURED
-                    and "CAMPAIGN_DONE" in b,
+                    stop_when=lambda b: "CAMPAIGN_DONE" in b
+                    or b.count("JOURNAL_DUMP cycle=") >= MEASURED,
                     tick=lambda: cap.drain(),
                 )
                 journal_done = True
-            if journal_done and count_valid_ppk_windows(cap.segmenter.windows_closed) >= MEASURED:
-                trailing = time.time() + 25.0
+            if ppk_n >= MEASURED:
+                trailing = time.time() + 30.0
                 while time.time() < trailing:
                     cap.drain()
                     time.sleep(0.002)
@@ -1163,14 +1172,13 @@ def run_measure(
         cap.stop()
         esp_text = esp_log.read_text(encoding="utf-8", errors="replace") if esp_log.is_file() else ""
         journal = parse_journal_merged(esp_text)
-        rx_parts: list[str] = []
-        rx_prev = rx_log.with_suffix(".log.prev")
-        if rx_prev.is_file():
-            rx_parts.append(rx_prev.read_text(encoding="utf-8", errors="replace"))
+        rx_text = ""
         if rx_log.is_file():
-            rx_parts.append(rx_log.read_text(encoding="utf-8", errors="replace"))
-        rx_text = "\n".join(rx_parts)
+            with rx_log.open("r", encoding="utf-8", errors="replace") as f:
+                f.seek(rx_mark)
+                rx_text = f.read()
         rx_ids = set(int(x) for x in RE_FULL_RX.findall(rx_text))
+        measure_full_rx = len(rx_ids)
         rows = build_measure_rows(cap.segmenter.windows_closed, raw_bin, journal, rx_ids)
         valid_ppk = count_valid_ppk_windows(cap.segmenter.windows_closed)
         git_head = prov["git_head"]
@@ -1284,11 +1292,17 @@ def run_smoke(
         esp_log.write_text("", encoding="utf-8")
 
         def smoke_done(buf: str) -> bool:
-            if not smoke_serial_complete(buf):
-                return False
-            return "DEEP_SLEEP_ENTER sleep_s=" in buf.split("JOURNAL cycle=3 ")[-1]
+            if smoke_serial_complete(buf):
+                return True
+            j = parse_journal_merged(buf)
+            if len(j) >= SMOKE_CYCLES and all(c in j for c in (1, 2, 3)):
+                return True
+            detail = parse_smoke_detailed(buf, "", expected_cycles=SMOKE_CYCLES)
+            return detail.get("full_rx_count", 0) >= SMOKE_CYCLES and detail.get(
+                "bootstrap_ok"
+            )
 
-        capture_serial_resilient(960, esp_log, stop_when=smoke_done)
+        capture_serial_resilient(1200, esp_log, stop_when=smoke_done)
         post_collect_receiver(rx_proc, uid, rx_log, SMOKE_RX_POST_COLLECT_S)
         if rx_log.is_file():
             rx_log_run.write_text(
@@ -1406,7 +1420,9 @@ def main() -> int:
             rc = run_smoke(uid, ssid, pwd, rx_log, proc)
             if rc != 0:
                 return rc
-            return run_measure(uid, ssid, pwd, rx_log, proc)
+            return run_measure(
+                uid, ssid, pwd, rx_log, proc, service_uid_locked=uid
+            )
         if args.smoke:
             return run_smoke(uid, ssid, pwd, rx_log, proc)
         if args.measure:

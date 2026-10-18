@@ -1,15 +1,28 @@
 {
-  "expected_run_ids": [902561793, 902561794, 902561795],
-  "matched_rx_run_ids": [902561795],
-  "full_rx_count": 1,
+  "expected_run_ids": [
+    4264427521,
+    4264427522,
+    4264427523
+  ],
+  "matched_rx_run_ids": [
+    4264427521,
+    4264427522,
+    4264427523
+  ],
+  "full_rx_count": 3,
   "duplicate_rx": 0,
-  "journal_cycles": 3,
+  "journal_cycles": 0,
   "bootstrap_ok": true,
-  "select_ok_events": 4,
+  "select_ok_events": 3,
   "sender_uid_stored": "e90f2ab3-09d0-449b-9275-8daa1f5bfcc3",
   "panic": false,
-  "pass": false,
-  "firmware_sha256": "da3cdd4e878f2e0b4c0b039be9f42025c4ddfa9b7ac7eaf4ad1299e7b33d054d",
-  "receiver_uid": "89ee334d-4919-494b-9285-694d5170d40a",
-  "note": "Best observed smoke before cmake/regression; not PASS"
+  "bootstrap_write_run_id": 3280732160,
+  "pass": true,
+  "firmware_sha256": "a407f2a5379c945b4f5216ef034de106f71b0754a2ffde8b1eae89e5d2819cce",
+  "receiver_uid": "ebb3384f-cd3a-4534-b821-00b58f8fc7e6",
+  "receiver_pid": 52564,
+  "usb_port": "COM5",
+  "registration_enabled": true,
+  "run_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\experiments\\thermometer2_full_vanilla_results\\runs\\smoke_20261017T183742Z",
+  "run_id": "20261017T183742Z"
 }

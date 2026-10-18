@@ -1,27 +1,11 @@
 {
-  "stage": "thermometer2_full_vanilla_stage1",
-  "branch": "diag/thermometer2-aether-full-vanilla",
-  "git_head": "3815ac3fefd701390790bf044a37372cff51447a",
-  "aether_sdk_pin": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
-  "aether_patch": "experiments/patches/aether-157aadbe-full-vanilla-stage1.patch",
-  "aether_patch_sha256": "7f0c2642638142ed0c5eebc63e3b244ffaff6da5e93f046145617f85a54b888c",
-  "repro_note": "Firmware git SHA alone is not sufficient; apply aether patch at pin before build (ensure_aether_patched).",
-  "receiver_source_root": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\temperature_receiver",
-  "receiver_build_dir": "experiments/thermometer2_full_vanilla_rx_build",
-  "build_dir": "build-thermometer2-full-vanilla-v2",
-  "user_config": "main/user_config_full_vanilla.h",
-  "SMOKE": "FAIL_LAST",
-  "MEASURE": "NOT_RUN",
-  "HOT": "NOT_RUN",
-  "last_smoke_run_id": "20261017T160227Z",
-  "last_smoke_run_dir": "experiments/thermometer2_full_vanilla_results/runs/smoke_20261017T160227Z",
-  "last_smoke_firmware_sha256": "14573d906521f7f1ac562c36428b18236666e876370dd09c664633d3fb57bc81",
-  "last_smoke_rx": "3/3_matched_ids_but_parser_pass_false",
-  "last_smoke_panic": false,
-  "last_smoke_failure_reason": "Serial capture lost cycles 1-2 JOURNAL lines; parser required full journal before fix. Follow-up run blocked: PPK2 COM3 access denied.",
-  "best_historical_smoke": "experiments/thermometer2_full_vanilla_results/smoke_pass_run.json (06f2aff5..., 3/3, different receiver session)",
-  "artifacts_immutable": [
-    "experiments/patches/aether-157aadbe-full-vanilla-stage1.patch",
-    "experiments/thermometer2_full_vanilla_results/runs/"
-  ]
+  "git_head": "c7f60310a6da2a870e9acc75fd7c75b8a3dfd7cf",
+  "registration_enabled": true,
+  "bootstrap_ok": true,
+  "sender_uid_stored": "e90f2ab3-09d0-449b-9275-8daa1f5bfcc3",
+  "receiver_alive": true,
+  "receiver_uid": "ebb3384f-cd3a-4534-b821-00b58f8fc7e6",
+  "smoke_rx": "3/3",
+  "smoke_pass": true,
+  "artifacts": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\experiments\\thermometer2_full_vanilla_results"
 }

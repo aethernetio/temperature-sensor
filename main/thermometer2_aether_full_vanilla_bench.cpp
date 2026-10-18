@@ -323,27 +323,6 @@ void LogWakeContext(char const* tag) {
   std::fflush(stdout);
 }
 
-void PrepareRegisteredClientForWifi(ae::Client& client) {
-  auto cloud = client.cloud().Load();
-  if (!cloud) {
-    std::printf("CLOUD_PREP cloud_load_failed=1\n");
-    std::fflush(stdout);
-    return;
-  }
-  for (auto& [sid, cs] : cloud->servers()) {
-    auto server = cs.server.Load();
-    if (!server) {
-      continue;
-    }
-    auto const before = server->channels.size();
-    server->RebuildChannelsFromAdapters();
-    std::printf("CLOUD_PREP sid=%u channels %zu->%zu endpoints=%zu\n",
-                static_cast<unsigned>(sid), before, server->channels.size(),
-                server->endpoints.size());
-    std::fflush(stdout);
-  }
-}
-
 void LogPhaseTimings(std::uint16_t cycle_index) {
   auto const now_us = esp_timer_get_time();
   auto const ms = [&](std::int64_t t0) -> unsigned long {
@@ -667,7 +646,6 @@ void OnClientReady(ae::Client::ptr client_ptr) {
   }
   g_client = std::move(client_ptr);
   auto client = g_client.Load();
-  PrepareRegisteredClientForWifi(*client);
   auto handle = client->message_stream_manager().CreatePort(kServiceUid);
   g_stream = std::make_unique<ae::P2pStream>(*g_app, client, kServiceUid,
                                              std::move(handle));
@@ -733,7 +711,11 @@ void FinishBootstrapAndSleep() {
   g_bootstrap_active = false;
   FlushAetherSave();
   StageLog("BOOTSTRAP_SAVE");
+  std::printf("RELEASE_APP_BEGIN tag=bootstrap\n");
+  std::fflush(stdout);
   ReleaseApp();
+  std::printf("RELEASE_APP_DONE tag=bootstrap\n");
+  std::fflush(stdout);
   StageLog("NETWORK_STOPPED");
   BoardPrepareDeepSleep(1);
   esp_sleep_enable_timer_wakeup(kSleepUs);
