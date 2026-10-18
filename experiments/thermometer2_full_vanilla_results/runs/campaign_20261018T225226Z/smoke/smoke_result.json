@@ -1,0 +1,21 @@
+{
+  "expected_run_ids": [],
+  "matched_rx_run_ids": [],
+  "full_rx_count": 0,
+  "duplicate_rx": 0,
+  "journal_cycles": 0,
+  "bootstrap_ok": false,
+  "select_ok_events": 0,
+  "sender_uid_stored": null,
+  "panic": true,
+  "bootstrap_write_run_id": null,
+  "journal_complete": false,
+  "pass": false,
+  "firmware_sha256": "ccc6be8736a4579eb8b2061cbf91c09eaacdb84f26d926ab28736b6046a280c1",
+  "receiver_uid": "da5395d6-b1ba-44ef-9ca1-8f176de6dc88",
+  "receiver_pid": 3168,
+  "usb_port": "COM5",
+  "registration_enabled": true,
+  "run_dir": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\experiments\\thermometer2_full_vanilla_results\\runs\\campaign_20261018T225226Z\\smoke",
+  "run_id": "smoke"
+}

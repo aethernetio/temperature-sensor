@@ -1,0 +1,13 @@
+{
+  "note": "Wrong profile \u2014 not Stage 1 FULL vanilla. Do not merge into vanilla results.",
+  "runner": "run_aether_hot_100x_2s_ppk_tcp_rx.py",
+  "branch": "diag/aether-hot-e2e-fix-100x-2s",
+  "sha": "6de41ff0775f50028b5762a7d34f92930a0ef952",
+  "RX": 0,
+  "actual_attempts": "UNKNOWN",
+  "energy_confirmed": false,
+  "hot_rx_run1": 0,
+  "full_ready_run1": false,
+  "receiver_uid": "5aade50f-00d9-4624-b097-e203cdcf1e38",
+  "source_json": "C:\\Users\\nickc\\Projects\\temperature-sensor-prepared\\experiments\\power_factor_results\\aether_hot_100x_2s_ppk_tcp_rx.json"
+}

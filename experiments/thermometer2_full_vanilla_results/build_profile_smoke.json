@@ -1,0 +1,22 @@
+{
+  "expected_cycles": 3,
+  "expected_sleep_s": 20,
+  "service_uid": "da5395d6-b1ba-44ef-9ca1-8f176de6dc88",
+  "firmware_sha256": "ccc6be8736a4579eb8b2061cbf91c09eaacdb84f26d926ab28736b6046a280c1",
+  "elf_path": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\build-thermometer2-full-vanilla-v2\\temperature_sensor.elf",
+  "git_head": "d9bf3bd0e71d71ffb20becbfbb8ca289a0c1e4b3",
+  "aether_patch_sha256": "7f0c2642638142ed0c5eebc63e3b244ffaff6da5e93f046145617f85a54b888c",
+  "mismatches": [],
+  "compile_audit": {
+    "user_config": "C:\\Users\\nickc\\Projects\\temperature-sensor-working-hot\\main\\user_config_full_vanilla.h",
+    "fs_init_cmake": "not_set",
+    "domain_storage": "AE_SUPPORT_SPIFS_FS (via USER_CONFIG)",
+    "aether_compile_mentions_AE_SUPPORT_REGISTRATION": 0,
+    "aether_compile_mentions_AE_SUPPORT_CLOUD_DNS": 0,
+    "aether_compile_mentions_AE_SUPPORT_TCP": 0,
+    "aether_compile_mentions_AE_SUPPORT_UDP": 0,
+    "aether_compile_mentions_FS_INIT": 0,
+    "main_fs_init_defined": 0,
+    "main_registration": 0
+  }
+}

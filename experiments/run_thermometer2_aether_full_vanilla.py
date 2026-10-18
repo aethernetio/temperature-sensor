@@ -81,6 +81,21 @@ RE_SENDER_UID_RTC = re.compile(r"SENDER_UID_RTC stored=([0-9a-f-]{36})")
 ESPRESSIF_VID = 0x303A
 USB_RECOVERY_LOG = RESULTS / "usb_recovery.log"
 SMOKE_CYCLES = 3
+RUNNER_LOCK = RESULTS / ".stage1_runner.lock"
+CONFIRMED_SMOKE_PASS_RUN = RESULTS / "runs" / "smoke_20261017T160227Z"
+WRONG_PROFILE_HOT_ARCHIVE = RESULTS / "archive" / "wrong_profile_aether_hot_20261018.json"
+RUN_STATE_PATH = RESULTS / "run.json"
+PATCH_SHA256_EXPECTED = (
+    "7f0c2642638142ed0c5eebc63e3b244ffaff6da5e93f046145617f85a54b888c"
+)
+RE_BENCH_MODE = re.compile(r"BENCH_MODE=FULL_VANILLA")
+RE_BENCH_CYCLES = re.compile(r"cycles=(\d+)")
+RE_BENCH_SLEEP = re.compile(r"sleep_s=(\d+)")
+RE_BENCH_SVC = re.compile(r"service_uid=([0-9a-f-]{36})", re.I)
+RE_BENCH_HOT = re.compile(r"hot_prepared=([01])")
+SMOKE_CAPTURE_MAX_S = 1200.0
+BOOTSTRAP_MAX_S = 180.0
+MEASURE_DEADLINE_S = COLD_BOOT_S + MEASURED * (120.0 + SLEEP_S) + 1500.0
 
 
 def load_wifi() -> tuple[str, str]:
@@ -426,6 +441,264 @@ def wait_uid(log: Path, timeout: float = 300.0) -> str:
                 return m.group(1)
         time.sleep(1.0)
     raise RuntimeError("receiver UID timeout")
+
+
+def acquire_runner_lock() -> None:
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    if RUNNER_LOCK.is_file():
+        try:
+            info = json.loads(RUNNER_LOCK.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            info = {}
+        pid = int(info.get("pid") or 0)
+        if pid > 0:
+            r = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                capture_output=True,
+                text=True,
+            )
+            if str(pid) in (r.stdout or ""):
+                raise RuntimeError(
+                    f"Stage 1 runner already active pid={pid} started={info.get('started_utc')}"
+                )
+        RUNNER_LOCK.unlink(missing_ok=True)
+    RUNNER_LOCK.write_text(
+        json.dumps(
+            {
+                "pid": os.getpid(),
+                "started_utc": datetime.now(timezone.utc).isoformat(),
+                "argv": sys.argv,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
+def release_runner_lock() -> None:
+    if not RUNNER_LOCK.is_file():
+        return
+    try:
+        info = json.loads(RUNNER_LOCK.read_text(encoding="utf-8"))
+        if int(info.get("pid") or 0) == os.getpid():
+            RUNNER_LOCK.unlink(missing_ok=True)
+    except (json.JSONDecodeError, OSError):
+        RUNNER_LOCK.unlink(missing_ok=True)
+
+
+def new_campaign_run_dir() -> tuple[Path, str]:
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    d = RESULTS / "runs" / f"campaign_{run_id}"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "manifest.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "started_utc": datetime.now(timezone.utc).isoformat(),
+                "kind": "smoke_and_measure",
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return d, run_id
+
+
+def new_smoke_run_dir(parent: Path | None = None) -> Path:
+    if parent is not None:
+        parent.mkdir(parents=True, exist_ok=True)
+        if not (parent / "manifest.json").is_file():
+            (parent / "manifest.json").write_text(
+                json.dumps(
+                    {
+                        "run_id": parent.name,
+                        "started_utc": datetime.now(timezone.utc).isoformat(),
+                        "smoke_cycles": SMOKE_CYCLES,
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        return parent
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    d = RESULTS / "runs" / f"smoke_{run_id}"
+    d.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "run_id": run_id,
+        "started_utc": datetime.now(timezone.utc).isoformat(),
+        "smoke_cycles": SMOKE_CYCLES,
+    }
+    (d / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return d
+
+
+def archive_wrong_profile_hot_run() -> None:
+    """Keep mistaken HOT benchmark separate from FULL vanilla Stage 1."""
+    src = Path(
+        r"C:\Users\nickc\Projects\temperature-sensor-prepared\experiments\power_factor_results\aether_hot_100x_2s_ppk_tcp_rx.json"
+    )
+    WRONG_PROFILE_HOT_ARCHIVE.parent.mkdir(parents=True, exist_ok=True)
+    if WRONG_PROFILE_HOT_ARCHIVE.is_file():
+        return
+    payload = {
+        "note": "Wrong profile — not Stage 1 FULL vanilla. Do not merge into vanilla results.",
+        "runner": "run_aether_hot_100x_2s_ppk_tcp_rx.py",
+        "branch": "diag/aether-hot-e2e-fix-100x-2s",
+        "sha": "6de41ff0775f50028b5762a7d34f92930a0ef952",
+        "RX": 0,
+        "actual_attempts": "UNKNOWN",
+        "energy_confirmed": False,
+    }
+    if src.is_file():
+        try:
+            hot = json.loads(src.read_text(encoding="utf-8"))
+            r1 = hot.get("run1") or {}
+            payload["hot_rx_run1"] = r1.get("hot_rx")
+            payload["full_ready_run1"] = r1.get("full_ready")
+            payload["receiver_uid"] = r1.get("receiver_uid")
+            payload["source_json"] = str(src)
+        except json.JSONDecodeError:
+            payload["source_json"] = str(src)
+    WRONG_PROFILE_HOT_ARCHIVE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def update_run_state(**fields: object) -> None:
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    state: dict = {}
+    if RUN_STATE_PATH.is_file():
+        try:
+            state = json.loads(RUN_STATE_PATH.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            state = {}
+    state.setdefault("profile", "FULL_VANILLA_STAGE1")
+    state["updated_utc"] = datetime.now(timezone.utc).isoformat()
+    state.update(fields)
+    RUN_STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+
+def _main_bench_compile_command() -> str:
+    cc = BUILD / "compile_commands.json"
+    if not cc.is_file():
+        return ""
+    try:
+        data = json.loads(cc.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ""
+    for ent in data:
+        f = (ent.get("file") or "").replace("\\", "/")
+        if "thermometer2_aether_full_vanilla_bench.cpp" in f:
+            cmd = ent.get("command") or ent.get("arguments") or ""
+            if isinstance(cmd, list):
+                return " ".join(str(x) for x in cmd)
+            return str(cmd)
+    return ""
+
+
+def verify_build_profile(*, service_uid: str, smoke: bool) -> dict:
+    """Pre-flash audit: refuse HOT/prepared/FS_INIT or wrong cycle count."""
+    expected_cycles = SMOKE_CYCLES if smoke else MEASURED
+    cmd = _main_bench_compile_command()
+    mismatches: list[str] = []
+    if not cmd:
+        mismatches.append("compile_commands missing thermometer2 bench entry")
+    forbidden = (
+        "AETHER_DIAG_AETHER_HOT",
+        "AE_EXP_PREPARED",
+        "AETHER_POWER_BENCH_HOT",
+        "AETHER_DIAG_AETHER_HOT_CACHED",
+        "FS_INIT=",
+    )
+    for token in forbidden:
+        if token in cmd:
+            mismatches.append(f"forbidden macro in bench build: {token}")
+    if "AE_EXP_THERMOMETER2_FULL_VANILLA=1" not in cmd and (
+        "-DAE_EXP_THERMOMETER2_FULL_VANILLA=1" not in cmd
+    ):
+        mismatches.append("AE_EXP_THERMOMETER2_FULL_VANILLA not enabled")
+    if f"AE_THERM_FULL_MEASURE_CYCLES={expected_cycles}" not in cmd:
+        mismatches.append(
+            f"AE_THERM_FULL_MEASURE_CYCLES != {expected_cycles} in compile line"
+        )
+    if "AE_THERM_FULL_VANILLA_SLEEP_S=20" not in cmd:
+        mismatches.append("sleep_s not 20 in compile definitions")
+    if f"SERVICE_UID={service_uid}" not in cmd and f"SERVICE_UID={service_uid.upper()}" not in cmd:
+        if service_uid.lower() not in cmd.lower():
+            mismatches.append(f"SERVICE_UID mismatch expected={service_uid}")
+    patch_sha = file_sha256(AETHER_PATCH)
+    if patch_sha and patch_sha != PATCH_SHA256_EXPECTED:
+        mismatches.append(f"aether patch sha256 mismatch got={patch_sha}")
+    if str(BUILD).replace("\\", "/").find("aether-hot") >= 0:
+        mismatches.append(f"build dir looks like HOT profile: {BUILD}")
+    sdk = BUILD / "sdkconfig"
+    sdk_text = sdk.read_text(encoding="utf-8", errors="replace") if sdk.is_file() else ""
+    audit = {
+        "expected_cycles": expected_cycles,
+        "expected_sleep_s": SLEEP_S,
+        "service_uid": service_uid,
+        "firmware_sha256": firmware_sha256(),
+        "elf_path": str(BUILD / "temperature_sensor.elf"),
+        "git_head": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=str(ROOT), text=True
+        ).strip(),
+        "aether_patch_sha256": patch_sha,
+        "mismatches": mismatches,
+        "compile_audit": audit_aether_compile_macros(),
+    }
+    audit_path = RESULTS / (
+        "build_profile_smoke.json" if smoke else "build_profile_measure.json"
+    )
+    audit_path.write_text(json.dumps(audit, indent=2), encoding="utf-8")
+    if mismatches:
+        update_run_state(phase="CONFIG_MISMATCH", status="ABORTED", audit=audit)
+        raise RuntimeError("CONFIG_MISMATCH: " + "; ".join(mismatches))
+    return audit
+
+
+def parse_bench_profile_banner(text: str) -> dict:
+    out: dict[str, str | int] = {}
+    if RE_BENCH_MODE.search(text):
+        out["bench_mode"] = "FULL_VANILLA"
+    m = RE_BENCH_CYCLES.search(text)
+    if m:
+        out["cycles"] = int(m.group(1))
+    m = RE_BENCH_SLEEP.search(text)
+    if m:
+        out["sleep_s"] = int(m.group(1))
+    m = RE_BENCH_SVC.search(text)
+    if m:
+        out["service_uid"] = m.group(1)
+    m = RE_BENCH_HOT.search(text)
+    if m:
+        out["hot_prepared"] = int(m.group(1))
+    return out
+
+
+def verify_serial_bench_banner(text: str, *, service_uid: str, smoke: bool) -> None:
+    banner = parse_bench_profile_banner(text)
+    expected_cycles = SMOKE_CYCLES if smoke else MEASURED
+    mismatches: list[str] = []
+    if banner.get("bench_mode") != "FULL_VANILLA":
+        mismatches.append("missing BENCH_MODE=FULL_VANILLA in serial banner")
+    if banner.get("cycles") != expected_cycles:
+        mismatches.append(
+            f"banner cycles={banner.get('cycles')} expected={expected_cycles}"
+        )
+    if banner.get("sleep_s") != SLEEP_S:
+        mismatches.append(f"banner sleep_s={banner.get('sleep_s')} expected={SLEEP_S}")
+    if banner.get("hot_prepared") == 1:
+        mismatches.append("hot_prepared=1 in banner")
+    bs = banner.get("service_uid")
+    if bs and str(bs).lower() != service_uid.lower():
+        mismatches.append(f"banner service_uid={bs} expected={service_uid}")
+    if mismatches:
+        raise RuntimeError("CONFIG_MISMATCH serial: " + "; ".join(mismatches))
+
+
+def preserve_confirmed_smoke_pass() -> None:
+    src = CONFIRMED_SMOKE_PASS_RUN / "smoke_result.json"
+    dst = RESULTS / "smoke_pass_run_20261017T160227Z.json"
+    if src.is_file() and not dst.is_file():
+        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 def append_usb_log(lines: list[str]) -> None:
@@ -828,6 +1101,8 @@ def build_measure_rows(
     raw_bin: Path,
     journal: dict[int, dict],
     rx_run_ids: set[int],
+    *,
+    ordered_rx: list[int] | None = None,
 ) -> list[dict]:
     ppk_w = measured_ppk_windows(windows, MEASURED)
     rows: list[dict] = []
@@ -835,7 +1110,11 @@ def build_measure_rows(
     for i, w in enumerate(ppk_w, start=1):
         base = integrate_window(raw_bin, w)
         j = journal.get(i)
-        run_id = int(j["run_id"]) if j and j.get("run_id") is not None else 0
+        run_id: int | None = None
+        if j and j.get("run_id") is not None:
+            run_id = int(j["run_id"])
+        elif ordered_rx and i <= len(ordered_rx):
+            run_id = ordered_rx[i - 1]
         sleep_d = w.wake_start_s - prev_end if prev_end is not None else None
         sleep_charge = None
         if prev_end is not None and sleep_d and sleep_d > 0:
@@ -851,11 +1130,11 @@ def build_measure_rows(
             write_ok: bool | None = None
         else:
             write_ok = int(j.get("write_status", 255)) == 0
-        rx = run_id in rx_run_ids if run_id else False
+        rx = run_id in rx_run_ids if run_id is not None else False
         rows.append(
             {
                 "cycle": i,
-                "run_id": run_id,
+                "run_id": run_id if run_id is not None else "",
                 **base,
                 "sleep_duration_s": sleep_d,
                 "sleep_charge_mC": sleep_charge,
@@ -993,8 +1272,7 @@ def parse_smoke_detailed(
         ) and len(journal) >= expected_cycles
     else:
         select_ok_per_cycle = select_ok_count >= expected_cycles
-    if not select_ok_per_cycle and len(matched) >= expected_cycles:
-        select_ok_per_cycle = select_ok_count >= expected_cycles
+    journal_complete = all(c in journal for c in range(1, expected_cycles + 1))
     return {
         "expected_run_ids": expected_run_ids,
         "matched_rx_run_ids": matched,
@@ -1006,8 +1284,10 @@ def parse_smoke_detailed(
         "sender_uid_stored": sender_uid_after_sleep,
         "panic": panic,
         "bootstrap_write_run_id": bootstrap_rid,
+        "journal_complete": journal_complete,
         "pass": (
             bootstrap_ok
+            and journal_complete
             and len(expected_run_ids) >= expected_cycles
             and len(matched) >= expected_cycles
             and dup == 0
@@ -1041,8 +1321,14 @@ def firmware_sha256() -> str:
     return hashlib.sha256(bin_path.read_bytes()).hexdigest()
 
 
-def write_measure_artifacts(rows: list[dict], meta: dict) -> None:
-    RESULTS.mkdir(parents=True, exist_ok=True)
+def write_measure_artifacts(
+    rows: list[dict],
+    meta: dict,
+    *,
+    csv_out: Path = CSV_OUT,
+    json_out: Path = JSON_OUT,
+) -> None:
+    csv_out.parent.mkdir(parents=True, exist_ok=True)
     fields = [
         "cycle",
         "run_id",
@@ -1063,12 +1349,12 @@ def write_measure_artifacts(rows: list[dict], meta: dict) -> None:
         "invalid_reason",
         "close_reason",
     ]
-    with CSV_OUT.open("w", encoding="utf-8", newline="") as f:
+    with csv_out.open("w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
         for r in rows:
             w.writerow(r)
-    JSON_OUT.write_text(json.dumps({"meta": meta, "cycles": rows}, indent=2), encoding="utf-8")
+    json_out.write_text(json.dumps({"meta": meta, "cycles": rows}, indent=2), encoding="utf-8")
     rx_n = sum(1 for r in rows if r.get("receiver_received"))
     valid_ppk = sum(1 for r in rows if r.get("valid"))
     MD_OUT.write_text(
@@ -1118,6 +1404,8 @@ def run_measure(
     rx_proc: subprocess.Popen,
     *,
     service_uid_locked: str | None = None,
+    ppk: sb.PpkSession | None = None,
+    campaign_dir: Path | None = None,
 ) -> int:
     service_uid = service_uid_locked or smoke_service_uid()
     if uid.lower() != service_uid.lower():
@@ -1126,15 +1414,31 @@ def run_measure(
             "flashing firmware with smoke SERVICE_UID (required for ESP client identity).",
             flush=True,
         )
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
-    raw_bin = RAW_DIR / "full_vanilla_100.bin"
+    out_base = campaign_dir if campaign_dir else RESULTS
+    raw_dir = out_base / "ppk_raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    raw_bin = raw_dir / "full_vanilla_100.bin"
     meta_bin = raw_bin.with_suffix(".json")
     build_esp(service_uid=service_uid, ssid=ssid, password=pwd, smoke=False)
+    verify_build_profile(service_uid=service_uid, smoke=False)
     prov = save_build_provenance(
         service_uid=service_uid, smoke=False, aether_meta=ensure_aether_patched()
     )
+    update_run_state(
+        phase="measure",
+        status="RUNNING",
+        service_uid=service_uid,
+        measure_firmware_sha256=prov.get("firmware_sha256"),
+    )
+    if campaign_dir:
+        (campaign_dir / "measure_build_manifest.json").write_text(
+            json.dumps(prov, indent=2), encoding="utf-8"
+        )
     ensure_receiver_alive(rx_proc, uid, rx_log)
-    ppk = open_ppk_session()
+    own_ppk = ppk is None
+    if own_ppk:
+        ppk = open_ppk_session()
+    assert ppk is not None
     try:
         port = recover_espressif_usb(ppk, attempts=3, wait_s=60.0)
         if not port:
@@ -1145,9 +1449,9 @@ def run_measure(
         cap.start()
         sb.hard_reset(port)
         # Quiet measure firmware may omit USB journal; PPK sleep edges are authoritative.
-        deadline = time.time() + COLD_BOOT_S + MEASURED * (120.0 + SLEEP_S) + 900.0
+        deadline = time.time() + COLD_BOOT_S + MEASURED * (120.0 + SLEEP_S) + 1200.0
         rx_mark = rx_log.stat().st_size if rx_log.is_file() else 0
-        esp_log = RESULTS / "measure_esp.log"
+        esp_log = out_base / "measure_esp.log"
         esp_log.write_text("", encoding="utf-8")
         journal_done = False
         while time.time() < deadline:
@@ -1155,7 +1459,7 @@ def run_measure(
             ppk_n = count_valid_ppk_windows(cap.segmenter.windows_closed)
             if not journal_done and ppk_n >= min(MEASURED, 10):
                 capture_serial_resilient(
-                    90,
+                    180,
                     esp_log,
                     stop_when=lambda b: "CAMPAIGN_DONE" in b
                     or b.count("JOURNAL_DUMP cycle=") >= MEASURED,
@@ -1163,10 +1467,13 @@ def run_measure(
                 )
                 journal_done = True
             if ppk_n >= MEASURED:
-                trailing = time.time() + 30.0
-                while time.time() < trailing:
-                    cap.drain()
-                    time.sleep(0.002)
+                post_collect_receiver(
+                    rx_proc,
+                    uid,
+                    rx_log,
+                    SMOKE_RX_POST_COLLECT_S,
+                    tick=lambda: cap.drain(),
+                )
                 break
             time.sleep(0.002)
         cap.stop()
@@ -1177,9 +1484,16 @@ def run_measure(
             with rx_log.open("r", encoding="utf-8", errors="replace") as f:
                 f.seek(rx_mark)
                 rx_text = f.read()
-        rx_ids = set(int(x) for x in RE_FULL_RX.findall(rx_text))
+        ordered_rx = [int(x) for x in RE_FULL_RX.findall(rx_text)]
+        rx_ids = set(ordered_rx)
         measure_full_rx = len(rx_ids)
-        rows = build_measure_rows(cap.segmenter.windows_closed, raw_bin, journal, rx_ids)
+        rows = build_measure_rows(
+            cap.segmenter.windows_closed,
+            raw_bin,
+            journal,
+            rx_ids,
+            ordered_rx=ordered_rx,
+        )
         valid_ppk = count_valid_ppk_windows(cap.segmenter.windows_closed)
         git_head = prov["git_head"]
         meta = {
@@ -1201,23 +1515,29 @@ def run_measure(
             "HOT_USED": "no",
             "WIFI_CACHE_USED": "no",
         }
-        write_measure_artifacts(rows, meta)
+        csv_out = out_base / "thermometer2_full_vanilla_100.csv"
+        json_out = out_base / "thermometer2_full_vanilla_100.json"
+        write_measure_artifacts(rows, meta, csv_out=csv_out, json_out=json_out)
         rx_n = sum(1 for r in rows if r.get("receiver_received"))
         active_charge = [r["charge_mC"] for r in rows if r.get("valid")]
         sleep_charge = [r["sleep_charge_mC"] for r in rows if r.get("sleep_charge_mC") is not None]
         summary = {
             "rx": rx_n,
+            "full_rx_unique_in_measure_log": measure_full_rx,
             "ppk_sleep_edge": valid_ppk,
             "charge_stats": agg_stats(active_charge),
             "energy_stats": agg_stats([r["energy_mJ"] for r in rows if r.get("valid")]),
             "sleep_charge_stats": agg_stats(sleep_charge),
         }
+        summary_path = out_base / "measure_summary.json"
+        summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
         (RESULTS / "measure_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
         print(json.dumps(summary, indent=2), flush=True)
-        ok = rx_n >= MEASURED and valid_ppk >= MEASURED
+        ok = valid_ppk >= MEASURED and measure_full_rx >= MEASURED
         return 0 if ok else 1
     finally:
-        ppk.set_off()
+        if own_ppk:
+            ppk.set_off()
 
 
 def _write_blocked_handoff(usb_status: str, uid: str, prov: dict) -> None:
@@ -1247,103 +1567,201 @@ def smoke_serial_complete(buf: str) -> bool:
     return "DEEP_SLEEP_ENTER" in after or "NETWORK_STOPPED" in after
 
 
-def post_collect_receiver(rx_proc: subprocess.Popen, uid: str, rx_log: Path, seconds: float) -> None:
+def post_collect_receiver(
+    rx_proc: subprocess.Popen,
+    uid: str,
+    rx_log: Path,
+    seconds: float,
+    *,
+    tick: Callable[[], None] | None = None,
+) -> None:
     end = time.time() + seconds
     while time.time() < end:
+        if tick is not None:
+            tick()
         ensure_receiver_alive(rx_proc, uid, rx_log)
         time.sleep(0.5)
 
 
-def new_smoke_run_dir() -> Path:
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    d = RESULTS / "runs" / f"smoke_{run_id}"
-    d.mkdir(parents=True, exist_ok=True)
-    manifest = {
-        "run_id": run_id,
-        "started_utc": datetime.now(timezone.utc).isoformat(),
-        "smoke_cycles": SMOKE_CYCLES,
-    }
-    (d / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    return d
-
-
 def run_smoke(
-    uid: str, ssid: str, pwd: str, rx_log: Path, rx_proc: subprocess.Popen
+    uid: str,
+    ssid: str,
+    pwd: str,
+    rx_log: Path,
+    rx_proc: subprocess.Popen,
+    *,
+    ppk: sb.PpkSession | None = None,
+    run_dir: Path | None = None,
 ) -> int:
-    run_dir = new_smoke_run_dir()
+    run_dir = new_smoke_run_dir(run_dir)
     esp_log = run_dir / "smoke_esp.log"
     rx_log_run = run_dir / "receiver.log"
     aether_meta = ensure_aether_patched()
     build_esp(service_uid=uid, ssid=ssid, password=pwd, smoke=True)
+    verify_build_profile(service_uid=uid, smoke=True)
     prov = save_build_provenance(service_uid=uid, smoke=True, aether_meta=aether_meta)
+    update_run_state(
+        phase="smoke",
+        status="RUNNING",
+        service_uid=uid,
+        firmware_sha256=prov.get("firmware_sha256"),
+    )
     ensure_receiver_alive(rx_proc, uid, rx_log)
+    own_ppk = ppk is None
+    if own_ppk:
+        ppk = open_ppk_session()
+    assert ppk is not None
+    try:
+        try:
+            port = recover_espressif_usb(ppk, attempts=3, wait_s=60.0)
+            if not port:
+                _write_blocked_handoff("USB_ACCESS=BLOCKED", uid, prov)
+                return 2
+            flash_firmware(port)
+            ensure_receiver_alive(rx_proc, uid, rx_log)
+            port = cold_boot_dut(ppk) or port
+            if not port:
+                _write_blocked_handoff("USB_ACCESS=BLOCKED after flash cold boot", uid, prov)
+                return 2
+            banner_log = run_dir / "bench_banner.log"
+            capture_serial_resilient(
+                90,
+                banner_log,
+                stop_when=lambda b: "BENCH_MODE=FULL_VANILLA" in b,
+            )
+            banner_text = (
+                banner_log.read_text(encoding="utf-8", errors="replace")
+                if banner_log.is_file()
+                else ""
+            )
+            verify_serial_bench_banner(banner_text, service_uid=uid, smoke=True)
+            esp_log.write_text(banner_text, encoding="utf-8")
+
+            def smoke_done(buf: str) -> bool:
+                return smoke_serial_complete(buf)
+
+            capture_serial_resilient(
+                int(SMOKE_CAPTURE_MAX_S),
+                esp_log,
+                stop_when=smoke_done,
+            )
+            post_collect_receiver(rx_proc, uid, rx_log, SMOKE_RX_POST_COLLECT_S)
+            if rx_log.is_file():
+                rx_log_run.write_text(
+                    rx_log.read_text(encoding="utf-8", errors="replace"), encoding="utf-8"
+                )
+            rx_text = (
+                rx_log_run.read_text(encoding="utf-8", errors="replace")
+                if rx_log_run.is_file()
+                else ""
+            )
+            esp_text = (
+                esp_log.read_text(encoding="utf-8", errors="replace") if esp_log.is_file() else ""
+            )
+            res = parse_smoke_detailed(esp_text, rx_text, expected_cycles=SMOKE_CYCLES)
+            res["firmware_sha256"] = prov["firmware_sha256"]
+            res["receiver_uid"] = uid
+            res["receiver_pid"] = rx_proc.pid
+            res["usb_port"] = port
+            res["registration_enabled"] = True
+            res["run_dir"] = str(run_dir)
+            res["run_id"] = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))[
+                "run_id"
+            ]
+            (run_dir / "smoke_build_manifest.json").write_text(
+                json.dumps(prov, indent=2), encoding="utf-8"
+            )
+            (run_dir / "smoke_result.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
+            (RESULTS / "smoke_result.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
+            if res.get("pass"):
+                (run_dir / "smoke_pass.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
+                (RESULTS / "smoke_pass_run.json").write_text(
+                    json.dumps(res, indent=2), encoding="utf-8"
+                )
+            handoff = {
+                "git_head": prov.get("git_head"),
+                "registration_enabled": True,
+                "bootstrap_ok": res.get("bootstrap_ok"),
+                "sender_uid_stored": res.get("sender_uid_stored"),
+                "receiver_alive": rx_proc.poll() is None,
+                "receiver_uid": uid,
+                "smoke_rx": f"{res.get('full_rx_count', 0)}/3",
+                "smoke_pass": res.get("pass"),
+                "artifacts": str(RESULTS),
+            }
+            (RESULTS / "STAGE1_HANDOFF.json").write_text(
+                json.dumps(handoff, indent=2), encoding="utf-8"
+            )
+            print(json.dumps(res, indent=2), flush=True)
+            update_run_state(
+                phase="smoke_done",
+                status="PASS" if res.get("pass") else "FAIL",
+                smoke_rx=f"{res.get('full_rx_count', 0)}/3",
+            )
+            return 0 if res.get("pass") else 1
+        except Exception as exc:
+            update_run_state(phase="smoke", status="ABORTED", error=str(exc))
+            raise
+    finally:
+        if own_ppk:
+            ppk.set_off()
+
+
+def run_combined_campaign(
+    uid: str, ssid: str, pwd: str, rx_log: Path, rx_proc: subprocess.Popen
+) -> int:
+    campaign_dir, campaign_id = new_campaign_run_dir()
+    deadline = time.time() + BOOTSTRAP_MAX_S + SMOKE_CAPTURE_MAX_S + MEASURE_DEADLINE_S
+    update_run_state(
+        phase="campaign",
+        status="RUNNING",
+        campaign_id=campaign_id,
+        deadline_utc=datetime.fromtimestamp(deadline, timezone.utc).isoformat(),
+        run_dir=str(campaign_dir),
+    )
     ppk = open_ppk_session()
     try:
-        port = recover_espressif_usb(ppk, attempts=3, wait_s=60.0)
-        if not port:
-            _write_blocked_handoff("USB_ACCESS=BLOCKED", uid, prov)
-            return 2
-        flash_firmware(port)
-        ensure_receiver_alive(rx_proc, uid, rx_log)
-        port = cold_boot_dut(ppk) or port
-        if not port:
-            _write_blocked_handoff("USB_ACCESS=BLOCKED after flash cold boot", uid, prov)
-            return 2
-        esp_log.write_text("", encoding="utf-8")
-
-        def smoke_done(buf: str) -> bool:
-            if smoke_serial_complete(buf):
-                return True
-            j = parse_journal_merged(buf)
-            if len(j) >= SMOKE_CYCLES and all(c in j for c in (1, 2, 3)):
-                return True
-            detail = parse_smoke_detailed(buf, "", expected_cycles=SMOKE_CYCLES)
-            return detail.get("full_rx_count", 0) >= SMOKE_CYCLES and detail.get(
-                "bootstrap_ok"
-            )
-
-        capture_serial_resilient(1200, esp_log, stop_when=smoke_done)
-        post_collect_receiver(rx_proc, uid, rx_log, SMOKE_RX_POST_COLLECT_S)
-        if rx_log.is_file():
-            rx_log_run.write_text(
-                rx_log.read_text(encoding="utf-8", errors="replace"), encoding="utf-8"
-            )
-        rx_text = (
-            rx_log_run.read_text(encoding="utf-8", errors="replace")
-            if rx_log_run.is_file()
-            else ""
+        smoke_dir = campaign_dir / "smoke"
+        rc = run_smoke(
+            uid, ssid, pwd, rx_log, rx_proc, ppk=ppk, run_dir=smoke_dir
         )
-        esp_text = esp_log.read_text(encoding="utf-8", errors="replace") if esp_log.is_file() else ""
-        res = parse_smoke_detailed(esp_text, rx_text, expected_cycles=SMOKE_CYCLES)
-        res["firmware_sha256"] = prov["firmware_sha256"]
-        res["receiver_uid"] = uid
-        res["receiver_pid"] = rx_proc.pid
-        res["usb_port"] = port
-        res["registration_enabled"] = True
-        res["run_dir"] = str(run_dir)
-        res["run_id"] = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))[
-            "run_id"
-        ]
-        (run_dir / "smoke_result.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
-        (RESULTS / "smoke_result.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
-        if res.get("pass"):
-            (RESULTS / "smoke_pass_run.json").write_text(
-                json.dumps(res, indent=2), encoding="utf-8"
+        if rc != 0:
+            (campaign_dir / "campaign_result.json").write_text(
+                json.dumps({"campaign_id": campaign_id, "smoke": "FAIL", "measure": "NOT_RUN"}, indent=2),
+                encoding="utf-8",
             )
-        handoff = {
-            "git_head": prov.get("git_head"),
-            "registration_enabled": True,
-            "bootstrap_ok": res.get("bootstrap_ok"),
-            "sender_uid_stored": res.get("sender_uid_stored"),
-            "receiver_alive": rx_proc.poll() is None,
-            "receiver_uid": uid,
-            "smoke_rx": f"{res.get('full_rx_count', 0)}/3",
-            "smoke_pass": res.get("pass"),
-            "artifacts": str(RESULTS),
-        }
-        (RESULTS / "STAGE1_HANDOFF.json").write_text(json.dumps(handoff, indent=2), encoding="utf-8")
-        print(json.dumps(res, indent=2), flush=True)
-        return 0 if res.get("pass") else 1
+            update_run_state(phase="campaign", status="FAIL", measure="NOT_RUN")
+            return rc
+        if time.time() > deadline:
+            update_run_state(phase="campaign", status="TIMEOUT", at="before_measure")
+            return 4
+        rc = run_measure(
+            uid,
+            ssid,
+            pwd,
+            rx_log,
+            rx_proc,
+            service_uid_locked=uid,
+            ppk=ppk,
+            campaign_dir=campaign_dir,
+        )
+        (campaign_dir / "campaign_result.json").write_text(
+            json.dumps(
+                {
+                    "campaign_id": campaign_id,
+                    "smoke": "PASS",
+                    "measure": "PASS" if rc == 0 else "FAIL",
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        update_run_state(
+            phase="campaign_done",
+            status="PASS" if rc == 0 else "FAIL",
+            measure="PASS" if rc == 0 else "FAIL",
+        )
+        return rc
     finally:
         ppk.set_off()
 
@@ -1356,9 +1774,12 @@ def main() -> int:
     ap.add_argument("--build-only", action="store_true")
     args = ap.parse_args()
 
+    preserve_confirmed_smoke_pass()
+    archive_wrong_profile_hot_run()
     stop_stage1_serial_holders()
     aether_meta = ensure_aether_patched()
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(ROOT), text=True).strip()
+    update_run_state(phase="init", status="STARTING", git_head=head)
     RESULTS.mkdir(parents=True, exist_ok=True)
     audit_path = RESULTS / "client_config_audit.json"
     if not audit_path.is_file():
@@ -1409,6 +1830,12 @@ def main() -> int:
         print("NOTE=build-only uses placeholder SERVICE_UID; do not flash this binary.", flush=True)
         return 0
 
+    try:
+        acquire_runner_lock()
+    except RuntimeError as e:
+        print(str(e), flush=True)
+        return 3
+
     exe = build_receiver()
     rx_log = RESULTS / "receiver.log"
     session = HERE / "thermometer2_full_vanilla_rx_session"
@@ -1417,12 +1844,7 @@ def main() -> int:
         uid = wait_uid(rx_log)
         print(f"RECEIVER_UID={uid}", flush=True)
         if args.smoke and args.measure:
-            rc = run_smoke(uid, ssid, pwd, rx_log, proc)
-            if rc != 0:
-                return rc
-            return run_measure(
-                uid, ssid, pwd, rx_log, proc, service_uid_locked=uid
-            )
+            return run_combined_campaign(uid, ssid, pwd, rx_log, proc)
         if args.smoke:
             return run_smoke(uid, ssid, pwd, rx_log, proc)
         if args.measure:
@@ -1440,7 +1862,7 @@ def main() -> int:
         print("Specify --smoke and/or --measure", flush=True)
         return 2
     finally:
-        proc.terminate()
+        release_runner_lock()
 
 
 if __name__ == "__main__":
