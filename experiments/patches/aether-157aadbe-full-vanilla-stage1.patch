@@ -1,4 +1,4 @@
-diff --git a/aether/adapters/wifi_adapter.cpp b/aether/adapters/wifi_adapter.cpp
+﻿diff --git a/aether/adapters/wifi_adapter.cpp b/aether/adapters/wifi_adapter.cpp
 index 173df64..3a2e9cc 100644
 --- a/aether/adapters/wifi_adapter.cpp
 +++ b/aether/adapters/wifi_adapter.cpp
@@ -36,6 +36,150 @@ index 4608565..4efbbbc 100644
    std::uint32_t ExpId() const {
  #  if defined(AE_EXP_DIAG)
      return exp_id_;
+diff --git a/aether/ae_actions/select_client.cpp b/aether/ae_actions/select_client.cpp
+index 4cd7c89..4ffee85 100644
+--- a/aether/ae_actions/select_client.cpp
++++ b/aether/ae_actions/select_client.cpp
+@@ -56,10 +56,14 @@ SelectClientAction::SelectClientAction(AeContext const& ae_context,
+ #endif
+ 
+ SelectClientAction::SelectClientAction(AeContext const& ae_context)
++    : SelectClientAction(ae_context, 2) {}
++
++SelectClientAction::SelectClientAction(AeContext const& ae_context,
++                                       int error_code)
+     : ae_context_{ae_context} {
+-  AE_TELED_DEBUG("No clients to select");
+-  task_sub_ = ae_context_.scheduler().Task([this]() {
+-    result_event_.Emit(Error{2});
++  AE_TELED_DEBUG("Select client failed error {}", error_code);
++  task_sub_ = ae_context_.scheduler().Task([this, error_code]() {
++    result_event_.Emit(Error{error_code});
+     Finish();
+   });
+ }
+diff --git a/aether/ae_actions/select_client.h b/aether/ae_actions/select_client.h
+index 79efc79..ff664bc 100644
+--- a/aether/ae_actions/select_client.h
++++ b/aether/ae_actions/select_client.h
+@@ -53,6 +53,11 @@ class SelectClientAction final : public Action {
+    */
+   explicit SelectClientAction(AeContext const& ae_context);
+ 
++  /**
++   * \brief Select failed with a diagnosable error code (2=not in map, 3=map stale).
++   */
++  SelectClientAction(AeContext const& ae_context, int error_code);
++
+   ResultEvent::Subscriber result_event();
+ 
+  private:
+diff --git a/aether/aether.cpp b/aether/aether.cpp
+index b75a866..51d90c9 100644
+--- a/aether/aether.cpp
++++ b/aether/aether.cpp
+@@ -97,9 +97,16 @@ SelectClientAction& Aether::SelectClient([[maybe_unused]] Uid parent_uid,
+     return *select_action;
+   }
+ 
+-  auto client = FindClient(client_id);
+-  if (client.is_valid()) {
+-    return MakeSelectClient(client);
++  auto client_it = clients_.find(client_id);
++  if (client_it != std::end(clients_)) {
++    if (auto loaded = client_it->second.Load()) {
++      (void)loaded;
++      return MakeSelectClient(client_it->second);
++    }
++    AE_TELED_DEBUG(
++        "Client map entry {} references object {} that failed to load",
++        client_id, client_it->second.id().id());
++    return MakeSelectClientLoadFailed(client_id, client_it->second.id());
+   }
+ // register new client
+ #if AE_SUPPORT_REGISTRATION
+@@ -127,8 +134,9 @@ Client::ptr Aether::FindClient(std::string const& client_id) {
+   if (client_it == std::end(clients_)) {
+     return {};
+   }
+-  // keep client loaded
+-  client_it->second.Load();
++  if (!client_it->second.Load()) {
++    return {};
++  }
+   return client_it->second;
+ }
+ 
+@@ -164,12 +172,37 @@ SelectClientAction& Aether::MakeSelectClient() {
+ }
+ 
+ SelectClientAction& Aether::MakeSelectClient(Client::ptr const& client) {
++  if (!client.is_valid()) {
++    return MakeSelectClient();
++  }
++  auto loaded = client.Load();
++  if (!loaded) {
++    return MakeSelectClientLoadFailed({}, client.id());
++  }
+   auto [it, ok] = select_client_actions_.emplace(
+-      client->id(), std::make_unique<SelectClientAction>(*this, client));
++      loaded->id(), std::make_unique<SelectClientAction>(*this, client));
+   assert(ok);
+   return *it->second;
+ }
+ 
++SelectClientAction& Aether::MakeSelectClientLoadFailed(
++    std::string const& client_id, ObjId backing_obj_id) {
++  AE_TELED_DEBUG("SelectClient load failed client_id={} obj_id={}", client_id,
++                 backing_obj_id.id());
++  std::string const key =
++      client_id.empty() ? "load_failed" : ("load_failed:" + client_id);
++  if (auto it = select_client_actions_.find(key);
++      it != std::end(select_client_actions_)) {
++    if (it->second->is_finished()) {
++      it->second = std::make_unique<SelectClientAction>(*this, 3);
++    }
++    return *it->second;
++  }
++  auto [it, _] = select_client_actions_.emplace(
++      key, std::make_unique<SelectClientAction>(*this, 3));
++  return *it->second;
++}
++
+ #if AE_SUPPORT_REGISTRATION
+ SelectClientAction& Aether::MakeSelectClient(Registration& registration,
+                                              std::string const& client_id) {
+diff --git a/aether/aether.h b/aether/aether.h
+index 9fee1b5..0b98008 100644
+--- a/aether/aether.h
++++ b/aether/aether.h
+@@ -41,6 +41,8 @@ class RegistrationCloud;
+ class RegistrationCloud;
+ class TeleStatistics;
+ 
++struct AetherSelectClientTestAccess;
++
+ class Aether : public Obj {
+   AE_OBJECT(Aether, Obj, 0)
+ 
+@@ -102,6 +104,8 @@ class Aether : public Obj {
+   SelectClientAction* FindSelectClientAction(std::string const& client_id);
+   SelectClientAction& MakeSelectClient();
+   SelectClientAction& MakeSelectClient(ObjPtr<Client> const& client);
++  SelectClientAction& MakeSelectClientLoadFailed(std::string const& client_id,
++                                                 ObjId backing_obj_id);
+ #if AE_SUPPORT_REGISTRATION
+   SelectClientAction& MakeSelectClient(Registration& registration,
+                                        std::string const& client_id);
+@@ -118,6 +122,8 @@ class Aether : public Obj {
+ 
+   std::map<std::string, std::unique_ptr<SelectClientAction>>
+       select_client_actions_;
++
++  friend struct AetherSelectClientTestAccess;
+ };
+ 
+ }  // namespace ae
 diff --git a/aether/server.cpp b/aether/server.cpp
 index 2ebcfde..0aff82e 100644
 --- a/aether/server.cpp
@@ -74,3 +218,132 @@ index cf1f3ac..92bf330 100644
    ServerId server_id{};
    std::vector<Endpoint> endpoints;
    std::vector<Channel::ptr> channels;
+diff --git a/tests/test-server-connection/CMakeLists.txt b/tests/test-server-connection/CMakeLists.txt
+index d1b6cc1..dd1f68d 100644
+--- a/tests/test-server-connection/CMakeLists.txt
++++ b/tests/test-server-connection/CMakeLists.txt
+@@ -20,6 +20,7 @@ list(APPEND test_srcs
+   test_cloud_quarantine_loop.cpp
+   test_cloud_persistence.cpp
+   test_registration_root_server_select.cpp
++  test_select_client_stale_map.cpp
+   ${CMAKE_CURRENT_LIST_DIR}/../test-object-system/map_domain_storage.cpp
+ )
+ 
+diff --git a/tests/test-server-connection/main.cpp b/tests/test-server-connection/main.cpp
+index 9214d9d..7202d42 100644
+--- a/tests/test-server-connection/main.cpp
++++ b/tests/test-server-connection/main.cpp
+@@ -26,6 +26,7 @@ extern int run_test_cloud_quarantine_loop();
+ extern int run_test_cloud_persistence();
+ #if AE_SUPPORT_REGISTRATION
+ extern int run_test_registration_root_server_select();
++extern int run_test_select_client_stale_map();
+ #endif  // AE_SUPPORT_REGISTRATION
+ 
+ int main() {
+@@ -35,6 +36,7 @@ int main() {
+   res += run_test_cloud_persistence();
+ #if AE_SUPPORT_REGISTRATION
+   res += run_test_registration_root_server_select();
++  res += run_test_select_client_stale_map();
+ #endif  // AE_SUPPORT_REGISTRATION
+   return res;
+ }
+diff --git a/tests/test-server-connection/test_select_client_stale_map.cpp b/tests/test-server-connection/test_select_client_stale_map.cpp
+new file mode 100644
+index 0000000..3c5e830
+--- /dev/null
++++ b/tests/test-server-connection/test_select_client_stale_map.cpp
+@@ -0,0 +1,91 @@
++/*
++ * Copyright 2026 Aethernet Inc.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <cstdint>
++
++#include <unity.h>
++
++#include "aether/aether.h"
++#include "aether/client.h"
++#include "aether/config.h"
++#include "aether/obj/domain.h"
++
++#include "tests/test-object-system/map_domain_storage.h"
++
++#if AE_SUPPORT_REGISTRATION
++
++namespace ae {
++
++struct AetherSelectClientTestAccess {
++  static void InsertStaleClient(Aether& aether, std::string const& client_id,
++                                Client::ptr client) {
++    aether.clients_[client_id] = std::move(client);
++  }
++};
++
++namespace test_select_client_stale_map {
++
++void test_select_client_missing_storage_object_emits_error_3() {
++  MapDomainStorage storage;
++  Domain domain{Now(), storage};
++  auto aether_ptr = Aether::ptr::Create(CreateWith{domain});
++  auto* aether = aether_ptr.Load().get();
++
++  constexpr ObjId::Type kMissingObj = 2079829250;
++  Client::ptr stale{domain, ObjId{kMissingObj},
++                    ObjFlags::kUnloadedByDefault};
++  AetherSelectClientTestAccess::InsertStaleClient(
++      *aether, "reliability_full_v1", std::move(stale));
++
++  auto const parent =
++      Uid::FromString("b1ac52c8-8d94-bd39-4c01-a631ac594165");
++
++  bool done = false;
++  int err = 0;
++  auto sub =
++      aether->SelectClient(parent, "reliability_full_v1")
++          .result_event()
++          .Subscribe([&](Result<Client::ptr, int> res) {
++            done = true;
++            if (!res) {
++              err = res.error();
++            }
++          });
++
++  while (!done) {
++    (void)aether->task_scheduler->Update(Now());
++  }
++
++  TEST_ASSERT_TRUE(done);
++  TEST_ASSERT_EQUAL_INT(3, err);
++  (void)sub;
++}
++
++}  // namespace test_select_client_stale_map
++}  // namespace ae
++
++int run_test_select_client_stale_map() {
++  using namespace ae::test_select_client_stale_map;  // NOLINT
++  UNITY_BEGIN();
++  RUN_TEST(test_select_client_missing_storage_object_emits_error_3);
++  return UNITY_END();
++}
++
++#else
++
++int run_test_select_client_stale_map() { return 0; }
++
++#endif  // AE_SUPPORT_REGISTRATION

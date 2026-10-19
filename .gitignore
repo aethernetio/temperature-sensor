@@ -17,3 +17,9 @@ experiments/power_best_config/*.pid
 experiments/power_best_config/*.log
 
 experiments/__pycache__/
+
+experiments/simple_full_hot_101_results/diag_local/
+
+build-simple-full-hot-101/
+
+deps/

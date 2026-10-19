@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -26,6 +27,8 @@ RX_BUILD = HERE / "simple_full_hot_101_rx_build"
 BENCH_CLIENT_ID = "reliability_full_v1"
 VOLTAGE_MV = 3000
 USB_STARTUP_TIMEOUT_S = 90.0
+BOOTSTRAP_EXTRA_TIMEOUT_S = 180.0
+DIAG_LOCAL = RESULTS / "diag_local"
 FULL_ACTIVE_TIMEOUT_S = 120.0
 HOT_CYCLE_TIMEOUT_S = 52.0
 TAIL_DELIVERY_S = 15.0
@@ -54,8 +57,13 @@ RE_SCENARIO_FAIL = re.compile(
     r"SCENARIO_FAIL stage=(\S+) error=(.*)", re.I
 )
 RE_HOT_BEGIN = re.compile(r"HOT_BEGIN number=(\d+)", re.I)
-RE_FULL_WRITE = re.compile(r"FULL_WRITE_STATUS=(\S+)", re.I)
+RE_FULL_WRITE = re.compile(r"FULL_WRITE_(?:BEGIN|STATUS)", re.I)
+RE_FULL_WRITE_STATUS = re.compile(r"FULL_WRITE_STATUS=(\S+)", re.I)
 RE_RX_TCP = re.compile(r"RX_HEALTH .* tcp_up=(\d+)")
+RE_SELECT_FAIL = re.compile(
+    r"(?:SELECT_RESULT|BOOTSTRAP_SELECT) ok=0 error=(\d+)", re.I
+)
+RE_HOT_SENDTO = re.compile(r"HOT_RESULT .* sendto_ok=(\d+)", re.I)
 def utc_tag() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 def iso_now() -> str:
@@ -174,9 +182,14 @@ def parse_firmware_serial(text: str) -> dict:
         "confirmed_failure_stage": None,
         "firmware_service_uid": None,
         "expected_sender_uid": None,
+        "full_begin_count": 0,
+        "full_write_called": 0,
         "full_write_statuses": [],
         "hot_begin_count": 0,
+        "hot_sendto_ok_count": 0,
         "max_hot_begin": 0,
+        "bootstrap_done": False,
+        "client_reload_check": False,
         "scenario_done": False,
     }
     last_line = None
@@ -188,6 +201,16 @@ def parse_firmware_serial(text: str) -> dict:
         m = RE_FULL_BEGIN.search(line)
         if m:
             out["firmware_service_uid"] = m.group(1).lower()
+            out["full_begin_count"] += 1
+        if line.startswith("FULL_WRITE_BEGIN"):
+            out["full_write_called"] += 1
+        if line == "BOOTSTRAP_DONE":
+            out["bootstrap_done"] = True
+        if line.startswith("CLIENT_RELOAD_CHECK"):
+            out["client_reload_check"] = True
+        m = RE_SELECT_FAIL.search(line)
+        if m and int(m.group(1)) == 3:
+            out["confirmed_failure_stage"] = "select_client_load_failed"
         m = RE_SELECT.search(line)
         if m and m.group(1) == "1" and m.group(3):
             out["expected_sender_uid"] = m.group(3).lower()
@@ -196,9 +219,12 @@ def parse_firmware_serial(text: str) -> dict:
             out["max_hot_begin"] = max(
                 out["max_hot_begin"], int(RE_HOT_BEGIN.search(line).group(1))
             )
-        m = RE_FULL_WRITE.search(line)
+        m = RE_FULL_WRITE_STATUS.search(line)
         if m:
             out["full_write_statuses"].append(m.group(1))
+        m = RE_HOT_SENDTO.search(line)
+        if m and int(m.group(1)) == 1:
+            out["hot_sendto_ok_count"] += 1
         if line == "SCENARIO_DONE":
             out["scenario_done"] = True
         m = RE_SCENARIO_FAIL.search(line)
@@ -340,6 +366,154 @@ idf.py @common build
     if not bin_path.is_file():
         raise RuntimeError("firmware bin missing after build")
     return file_sha256(bin_path)
+def parse_partition_size(token: str) -> int:
+    s = token.strip().upper()
+    if s.endswith("K"):
+        return int(s[:-1], 10) * 1024
+    if s.endswith("M"):
+        return int(s[:-1], 10) * 1024 * 1024
+    return int(s, 0)
+
+
+def storage_partition_bounds() -> tuple[int, int] | None:
+    pt_bin = BUILD / "partition_table" / "partition-table.bin"
+    if not pt_bin.is_file():
+        return None
+    idf = os.environ.get("IDF_PATH")
+    if not idf:
+        guess = Path(r"C:\Espressif\frameworks\esp-idf-v6.0.2")
+        if guess.is_dir():
+            idf = str(guess)
+    gen = (
+        Path(idf) / "components" / "partition_table" / "gen_esp32part.py"
+        if idf
+        else None
+    )
+    if gen is None or not gen.is_file():
+        return None
+    try:
+        text = subprocess.check_output(
+            [sys.executable, str(gen), str(pt_bin)], text=True, stderr=subprocess.STDOUT
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) >= 5 and parts[0] == "storage":
+            return int(parts[3], 0), parse_partition_size(parts[4])
+    return None
+
+
+def addr2line_panic(elf: Path, mepc: str) -> str | None:
+    if not elf.is_file():
+        return None
+    tool = os.environ.get("IDF_TOOLS_PATH")
+    candidates: list[Path] = []
+    esp_tools = Path(r"C:\Espressif\tools\riscv32-esp-elf")
+    if esp_tools.is_dir():
+        for exe in esp_tools.glob("*/riscv32-esp-elf/bin/riscv32-esp-elf-addr2line.exe"):
+            candidates.append(exe)
+    if tool:
+        candidates.append(
+            Path(tool) / "tools" / "riscv32-esp-elf" / "riscv32-esp-elf" / "bin" / "riscv32-esp-elf-addr2line.exe"
+        )
+    candidates.append(Path("riscv32-esp-elf-addr2line"))
+    for exe in candidates:
+        if not exe.is_file() and exe.name == "riscv32-esp-elf-addr2line":
+            continue
+        try:
+            out = subprocess.check_output(
+                [str(exe), "-pfiaC", "-e", str(elf), mepc.replace("0x", "")],
+                text=True,
+                stderr=subprocess.STDOUT,
+            ).strip()
+            return out or None
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            continue
+    return None
+
+
+def esptool_cmd(port: str, *args: str) -> list[str]:
+    return [str(sb.IDF_PYTHON), "-m", "esptool", "--chip", "esp32c6", "-p", port, *args]
+
+
+def capture_storage_diagnostics(port: str | None, run_id: str) -> dict:
+    diag_dir = DIAG_LOCAL / run_id
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    pt_bin = BUILD / "partition_table" / "partition-table.bin"
+    if pt_bin.is_file():
+        shutil.copy2(pt_bin, diag_dir / "partition-table.bin")
+        idf = os.environ.get("IDF_PATH") or r"C:\Espressif\frameworks\esp-idf-v6.0.2"
+        gen = Path(idf) / "components" / "partition_table" / "gen_esp32part.py"
+        if gen.is_file():
+            try:
+                pt_text = subprocess.check_output(
+                    [sys.executable, str(gen), str(pt_bin)], text=True
+                )
+                (diag_dir / "partition-table.txt").write_text(pt_text, encoding="utf-8")
+            except subprocess.CalledProcessError:
+                pass
+    bounds = storage_partition_bounds()
+    meta: dict = {
+        "run_id": run_id,
+        "client_map_source": "aether_domain_spiffs_clients_map",
+        "fs_init_used": False,
+        "bench_client_id": BENCH_CLIENT_ID,
+        "missing_object_id": 2079829250,
+        "failure_class": "map_entry_present_storage_object_missing",
+        "spiffs_physical_corruption": "not_proven",
+        "storage_partition": None,
+        "spiffs_dump_path": None,
+        "panic_addr2line": None,
+    }
+    if bounds:
+        offset, size = bounds
+        meta["storage_partition"] = {"offset": offset, "size": size}
+        if port:
+            dump_path = diag_dir / "storage_spiffs.bin"
+            try:
+                env = os.environ.copy()
+                env.pop("PYTHONPATH", None)
+                subprocess.run(
+                    esptool_cmd(
+                        port,
+                        "read_flash",
+                        hex(offset),
+                        hex(size),
+                        str(dump_path),
+                    ),
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                meta["spiffs_dump_path"] = str(dump_path)
+            except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                meta["spiffs_read_error"] = str(e)
+    elf = BUILD / "temperature_sensor.elf"
+    meta["panic_addr2line"] = addr2line_panic(elf, "0x4200be46")
+    (diag_dir / "storage_diag.json").write_text(
+        json.dumps(meta, indent=2), encoding="utf-8"
+    )
+    return meta
+
+
+def erase_aether_storage_partition(port: str) -> None:
+    bounds = storage_partition_bounds()
+    if not bounds:
+        raise RuntimeError("storage partition not found in partition table")
+    offset, size = bounds
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    subprocess.check_call(
+        esptool_cmd(port, "erase_region", hex(offset), hex(size)),
+        env=env,
+    )
+
+
 def flash_firmware(port: str) -> None:
     b = BUILD.as_posix()
     extra = f"idf.py -B '{b}' -p {port} flash"
@@ -448,6 +622,12 @@ def wait_campaign(
         state["firmware_service_uid"] = fw.get("firmware_service_uid")
         state["expected_sender_uid"] = fw.get("expected_sender_uid")
         state["actual_attempts"] = infer_actual_attempts(fw)
+        state["FULL_BEGIN"] = fw.get("full_begin_count", 0)
+        state["FULL_WRITE_CALLED"] = fw.get("full_write_called", 0)
+        state["HOT_BEGIN"] = fw.get("hot_begin_count", 0)
+        state["HOT_SENDTO_OK"] = fw.get("hot_sendto_ok_count", 0)
+        state["bootstrap_done"] = fw.get("bootstrap_done")
+        state["client_reload_check"] = fw.get("client_reload_check")
         state["full_write_statuses"] = fw.get("full_write_statuses")
         if extra:
             state.update(extra)
@@ -489,7 +669,16 @@ def wait_campaign(
         if fw.get("confirmed_failure_stage"):
             phase = "SCENARIO_FAIL"
             state["run_status"] = "FAIL"
-            state["error"] = fw.get("fail_error")
+            state["error"] = fw.get("fail_error") or fw["confirmed_failure_stage"]
+            sync_state()
+            time.sleep(TAIL_DELIVERY_S)
+            sync_state()
+            return
+        if RE_SELECT_FAIL.search(ser_text) and "error=3" in ser_text:
+            phase = "SELECT_LOAD_FAIL"
+            state["run_status"] = "FAIL"
+            state["confirmed_failure_stage"] = "select_client_load_failed"
+            state["error"] = "select_client_error_3_no_panic"
             sync_state()
             time.sleep(TAIL_DELIVERY_S)
             sync_state()
@@ -521,7 +710,10 @@ def wait_campaign(
                 phase = "FULL"
         deadline_hit = False
         if full_begin_at is None:
-            if now - last_progress > USB_STARTUP_TIMEOUT_S:
+            usb_limit = USB_STARTUP_TIMEOUT_S
+            if "BOOTSTRAP_BEGIN" in ser_text and not fw.get("bootstrap_done"):
+                usb_limit += BOOTSTRAP_EXTRA_TIMEOUT_S
+            if now - last_progress > usb_limit:
                 deadline_hit = True
                 state["error"] = "usb_startup_timeout_no_full_begin"
                 phase = "USB_TIMEOUT"
@@ -616,6 +808,25 @@ def main() -> int:
         state["firmware_sha256"] = fw_sha
         writer.write(state)
         port = recover_esp_port(ppk)
+        storage_diag = capture_storage_diagnostics(port, run_id)
+        state["storage_diag_summary"] = {
+            k: storage_diag.get(k)
+            for k in (
+                "failure_class",
+                "missing_object_id",
+                "fs_init_used",
+                "spiffs_physical_corruption",
+                "panic_addr2line",
+            )
+        }
+        writer.write(state)
+        if os.environ.get("SIMPLE_ERASE_AETHER_STORAGE", "").strip() == "1":
+            if not port:
+                raise RuntimeError("erase requested but no COM port")
+            print("Erasing Aether SPIFFS storage partition only", flush=True)
+            erase_aether_storage_partition(port)
+            state["storage_erase"] = "storage_partition_only"
+            writer.write(state)
         if not port:
             state["USB_ACCESS"] = "BLOCKED"
             state["FLASH"] = "BLOCKED"

@@ -174,7 +174,13 @@ def ensure_aether_patched() -> dict:
     ).strip()
     marker = AETHER_LOCAL / "aether" / "server.cpp"
     text = marker.read_text(encoding="utf-8", errors="replace") if marker.is_file() else ""
-    patched = "RebuildChannelsFromAdapters" in text
+    aether_cpp = (AETHER_LOCAL / "aether" / "aether.cpp").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    patched = (
+        "RebuildChannelsFromAdapters" in text
+        and "MakeSelectClientLoadFailed" in aether_cpp
+    )
     if head != AETHER_PIN:
         subprocess.run(
             ["git", "fetch", "--depth", "1", "origin", AETHER_PIN],

@@ -52,6 +52,12 @@
 
 #include <nvs_flash.h>
 
+#include <esp_timer.h>
+
+#include <functional>
+
+#include "bench_payload.h"
+
 
 
 namespace temp_sensor {
@@ -115,6 +121,28 @@ static char g_fail_error[64] = {};
 static bool g_stream_writable_logged = false;
 static ae::Client::ptr g_pending_client;
 static bool g_select_ready_pending = false;
+
+struct BootRtcState {
+  static constexpr std::uint32_t kMagic = 0x53464831u;
+  std::uint32_t magic{kMagic};
+  std::uint8_t bootstrap_complete{0};
+  std::uint8_t pad[3]{};
+  std::uint8_t sender_uid[16]{};
+  std::uint32_t crc{0};
+};
+
+RTC_DATA_ATTR static BootRtcState g_boot_rtc{};
+
+static bool g_bootstrap_active = false;
+static bool g_bootstrap_select_done = false;
+static bool g_bootstrap_select_ok = false;
+static int g_bootstrap_select_err = 0;
+static bool g_bootstrap_write_armed = false;
+static bool g_bootstrap_write_terminal = false;
+static ae::WriteAction::Status g_bootstrap_write_status =
+    ae::WriteAction::Status::kStop;
+static ae::Subscription g_bootstrap_select_sub;
+static ae::Subscription g_bootstrap_write_sub;
 
 
 
@@ -216,6 +244,70 @@ static void MarkScenarioFail(char const* stage, char const* error) {
 
   std::fflush(stdout);
 
+}
+
+
+
+static std::uint32_t BootRtcCrc32(void const* data, std::size_t len) {
+  auto const* p = static_cast<std::uint8_t const*>(data);
+  std::uint32_t crc = 0xffffffffu;
+  for (std::size_t i = 0; i < len; ++i) {
+    crc ^= p[i];
+    for (int b = 0; b < 8; ++b) {
+      std::uint32_t const mask = -(crc & 1u);
+      crc = (crc >> 1) ^ (0xedb88320u & mask);
+    }
+  }
+  return ~crc;
+}
+
+
+
+static bool ValidBootRtc(BootRtcState const& s) {
+  if (s.magic != BootRtcState::kMagic) {
+    return false;
+  }
+  BootRtcState tmp = s;
+  tmp.crc = 0;
+  return BootRtcCrc32(&tmp, sizeof(tmp)) == s.crc;
+}
+
+
+
+static void StoreBootRtc() {
+  g_boot_rtc.crc = 0;
+  g_boot_rtc.crc = BootRtcCrc32(&g_boot_rtc, sizeof(g_boot_rtc));
+}
+
+
+
+static void StoreSenderUid(ae::Uid const& uid) {
+  std::memcpy(g_boot_rtc.sender_uid, uid.value.data(), ae::Uid::kSize);
+  StoreBootRtc();
+}
+
+
+
+static bool SenderUidMatchesRtc(ae::Uid const& uid) {
+  if (g_boot_rtc.bootstrap_complete == 0) {
+    return true;
+  }
+  return std::memcmp(g_boot_rtc.sender_uid, uid.value.data(), ae::Uid::kSize) ==
+         0;
+}
+
+
+
+static void PumpAppUntil(std::function<bool()> done) {
+  if (!g_app) {
+    return;
+  }
+  auto const deadline_us = esp_timer_get_time() + 180LL * 1000000;
+  while (!done() && esp_timer_get_time() < deadline_us && !g_scenario_failed) {
+    auto const t = g_app->Update(ae::Now());
+    g_app->WaitUntil(t);
+    esp_task_wdt_reset();
+  }
 }
 
 
@@ -431,11 +523,84 @@ static void TryFullWrite() {
 
 
 
+static void BootstrapTryWrite() {
+
+  if (!g_bootstrap_active || !g_stream || g_bootstrap_write_armed) {
+
+    return;
+
+  }
+
+  if (!g_stream->stream_info().is_writable) {
+
+    return;
+
+  }
+
+  temp_sensor::bench::ReliabilityPayload p{};
+
+  p.type = static_cast<std::uint8_t>(
+      temp_sensor::bench::ReliabilityMsgType::kFullReady);
+
+  p.run_id = 0;
+
+  p.seq = 0;
+
+  auto payload = temp_sensor::bench::EncodeReliability<ae::DataBuffer>(p);
+
+  g_bootstrap_write_armed = true;
+
+  std::printf("BOOTSTRAP_WRITE_BEGIN\n");
+
+  std::fflush(stdout);
+
+  auto& wa = g_stream->Write(std::move(payload));
+
+  g_bootstrap_write_sub = wa.status_event().Subscribe([](ae::WriteAction::Status st) {
+
+    g_bootstrap_write_status = st;
+
+    if (st == ae::WriteAction::Status::kSuccess ||
+
+        st == ae::WriteAction::Status::kFail ||
+
+        st == ae::WriteAction::Status::kStop) {
+
+      g_bootstrap_write_terminal = true;
+
+      std::printf("BOOTSTRAP_WRITE_STATUS=%s\n", WriteStatusName(st));
+
+      std::fflush(stdout);
+
+    }
+
+  });
+
+}
+
+
+
 static void OnClientReady(ae::Client::ptr client) {
 
   g_client = std::move(client);
 
   auto loaded = g_client.Load();
+
+  if (!loaded) {
+
+    MarkScenarioFail("select_client", "client_load_failed");
+
+    return;
+
+  }
+
+  if (!SenderUidMatchesRtc(loaded->uid())) {
+
+    MarkScenarioFail("select_client", "sender_uid_mismatch");
+
+    return;
+
+  }
 
   auto handle = loaded->message_stream_manager().CreatePort(kServiceUid);
 
@@ -443,11 +608,171 @@ static void OnClientReady(ae::Client::ptr client) {
 
                                                std::move(handle));
 
-  g_stream_sub =
+  g_stream_sub = g_stream->stream_update_event().Subscribe([]() {
 
-      g_stream->stream_update_event().Subscribe([]() { TryFullWrite(); });
+    if (g_bootstrap_active) {
 
-  TryFullWrite();
+      BootstrapTryWrite();
+
+      return;
+
+    }
+
+    TryFullWrite();
+
+  });
+
+  if (g_bootstrap_active) {
+
+    BootstrapTryWrite();
+
+  } else {
+
+    TryFullWrite();
+
+  }
+
+}
+
+
+
+static void StartBootstrapPhase() {
+
+  g_bootstrap_active = true;
+
+  g_bootstrap_select_done = false;
+
+  g_bootstrap_select_ok = false;
+
+  g_bootstrap_select_err = 0;
+
+  g_bootstrap_write_armed = false;
+
+  g_bootstrap_write_terminal = false;
+
+  std::printf("BOOTSTRAP_BEGIN client_id=%s FS_INIT=0\n", kBenchClientId);
+
+  std::fflush(stdout);
+
+  ConstructVanillaAether();
+
+  for (int i = 0; i < 450 && g_app; ++i) {
+
+    auto const t = g_app->Update(ae::Now());
+
+    g_app->WaitUntil(t);
+
+    esp_task_wdt_reset();
+
+  }
+
+  g_bootstrap_select_sub = g_app->aether()
+
+                                 ->SelectClient(kParentUid, kBenchClientId)
+
+                                 .result_event()
+
+                                 .Subscribe([](ae::Result<ae::Client::ptr, int> res) {
+
+                                   g_bootstrap_select_done = true;
+
+                                   if (!res) {
+
+                                     g_bootstrap_select_err = res.error();
+
+                                     std::printf(
+
+                                         "BOOTSTRAP_SELECT ok=0 error=%d\n",
+
+                                         g_bootstrap_select_err);
+
+                                     std::fflush(stdout);
+
+                                     MarkScenarioFail("bootstrap_select",
+
+                                                      "select_error");
+
+                                     return;
+
+                                   }
+
+                                   auto client = std::move(res).value();
+
+                                   if (!client.Load()) {
+
+                                     g_bootstrap_select_ok = false;
+
+                                     g_bootstrap_select_err = 3;
+
+                                     std::printf("BOOTSTRAP_SELECT ok=0 error=3\n");
+
+                                     std::fflush(stdout);
+
+                                     MarkScenarioFail("bootstrap_select",
+
+                                                      "client_load_failed");
+
+                                     return;
+
+                                   }
+
+                                   g_bootstrap_select_ok = true;
+
+                                   std::printf(
+
+                                       "BOOTSTRAP_SELECT ok=1 sender_uid=%s\n",
+
+                                       ae::Format("{}", client.Load()->uid())
+
+                                           .c_str());
+
+                                   std::fflush(stdout);
+
+                                   OnClientReady(std::move(client));
+
+                                 });
+
+}
+
+
+
+static void FinishBootstrapPhase() {
+
+  g_bootstrap_active = false;
+
+  g_bootstrap_select_sub.Reset();
+
+  g_bootstrap_write_sub.Reset();
+
+  if (g_client.is_valid()) {
+
+    StoreSenderUid(g_client.Load()->uid());
+
+  }
+
+  g_app->aether().Save();
+
+  for (int i = 0; i < 400 && g_app; ++i) {
+
+    auto const t = g_app->Update(ae::Now());
+
+    g_app->WaitUntil(t);
+
+    esp_task_wdt_reset();
+
+  }
+
+  ReleaseApp();
+
+  g_boot_rtc.bootstrap_complete = 1;
+
+  StoreBootRtc();
+
+  std::printf("BOOTSTRAP_DONE sender_uid_stored=1\n");
+
+  std::fflush(stdout);
+
+  DeepSleep2s();
 
 }
 
@@ -471,21 +796,39 @@ static void StartFullMessage() {
 
                        if (!res) {
 
+                         int const err = res.error();
+
                          std::printf("SELECT_RESULT ok=0 error=%d sender_uid=\n",
 
-                                     res.error());
+                                     err);
 
                          std::fflush(stdout);
 
-                         MarkScenarioFail("select_client",
+                         MarkScenarioFail(
 
-                                          "select_error");
+                             "select_client",
+
+                             err == 3 ? "client_map_load_failed" : "select_error");
 
                          return;
 
                        }
 
-                       g_pending_client = std::move(res).value();
+                       auto client = std::move(res).value();
+
+                       if (!client.Load()) {
+
+                         std::printf("SELECT_RESULT ok=0 error=3 sender_uid=\n");
+
+                         std::fflush(stdout);
+
+                         MarkScenarioFail("select_client", "client_map_load_failed");
+
+                         return;
+
+                       }
+
+                       g_pending_client = std::move(client);
                        g_select_ready_pending = true;
 
                      });
@@ -608,13 +951,27 @@ void AppSetup() {
 
   std::printf("HOT_WIFI=cached_channel_static_ip_static_arp\n");
 
-  std::printf("BOOT reset_reason=%d next_message=%u\n",
+  std::printf("BOOT reset_reason=%d next_message=%u bootstrap=%u\n",
 
               static_cast<int>(esp_reset_reason()),
 
-              static_cast<unsigned>(g_next_message));
+              static_cast<unsigned>(g_next_message),
+
+              static_cast<unsigned>(ValidBootRtc(g_boot_rtc)
+
+                                        ? g_boot_rtc.bootstrap_complete
+
+                                        : 0));
 
   std::fflush(stdout);
+
+  if (!ValidBootRtc(g_boot_rtc)) {
+
+    g_boot_rtc = BootRtcState{};
+
+    StoreBootRtc();
+
+  }
 
   if (g_next_message == kHalted) {
 
@@ -626,11 +983,23 @@ void AppSetup() {
 
   ColdBootUsbWindow();
 
+  if (g_boot_rtc.bootstrap_complete == 0) {
+
+    StartBootstrapPhase();
+
+    return;
+
+  }
+
   if (g_scenario_failed) {
 
     ScenarioFailIdle();
 
   }
+
+  std::printf("CLIENT_RELOAD_CHECK client_id=%s bootstrap=1\n", kBenchClientId);
+
+  std::fflush(stdout);
 
   if (g_next_message == 1) {
 
@@ -651,6 +1020,46 @@ void AppLoop() {
   if (g_scenario_failed) {
 
     ScenarioFailIdle();
+
+  }
+
+  if (g_bootstrap_active && g_app) {
+
+    PumpAppUntil([]() {
+
+      if (g_bootstrap_select_done && !g_bootstrap_select_ok) {
+
+        return true;
+
+      }
+
+      return g_bootstrap_select_done && g_bootstrap_write_terminal;
+
+    });
+
+    if (g_bootstrap_select_done && !g_bootstrap_select_ok) {
+
+      ScenarioFailIdle();
+
+    }
+
+    if (g_bootstrap_write_terminal) {
+
+      if (g_bootstrap_write_status == ae::WriteAction::Status::kSuccess) {
+
+        FinishBootstrapPhase();
+
+      } else {
+
+        MarkScenarioFail("bootstrap_write", WriteStatusName(g_bootstrap_write_status));
+
+        ScenarioFailIdle();
+
+      }
+
+    }
+
+    return;
 
   }
 
