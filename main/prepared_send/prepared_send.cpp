@@ -2787,6 +2787,42 @@ void RecordHotProbeFailure(ae::WifiProbeRtcState* state,
 }
 #endif
 
+HotSendStatus EncodePreparedPayload(ae::DataBuffer const& payload,
+                                    ae::DataBuffer* out_packet) {
+  if (out_packet == nullptr) {
+    return HotSendStatus::kSendFailed;
+  }
+  if (!g_prepared_send_message_block.is_valid()) {
+    return HotSendStatus::kNoPreparedBlock;
+  }
+  if (g_prepared_send_message_block.Resolve()->message_left == 0) {
+    return HotSendStatus::kNonceExhausted;
+  }
+  ae::DataBuffer packet;
+  auto encode_result = ae::prepared_packet::EncodePacket(
+      g_prepared_send_message_block, payload, packet);
+  if (!encode_result) {
+    ClearPreparedSendBlock();
+    return HotSendStatus::kEncodeFailed;
+  }
+  *out_packet = std::move(packet);
+  return HotSendStatus::kSent;
+}
+
+bool PreparedEndpointIpv4(std::uint32_t* out_ip, std::uint16_t* out_port) {
+  if (out_ip == nullptr || out_port == nullptr ||
+      !g_prepared_send_message_block.is_valid()) {
+    return false;
+  }
+  auto endpoint = g_prepared_send_message_block.Resolve()->endpoint;
+  if (endpoint.address.Index() != ae::AddrVersion::kIpV4) {
+    return false;
+  }
+  std::memcpy(out_ip, &endpoint.address.Get<ae::IpV4Addr>().ipv4_value, 4);
+  *out_port = endpoint.port;
+  return true;
+}
+
 HotSendStatus TryHotWakePreparedSend(
     [[maybe_unused]] std::string const& temperature) {
 #if defined(ESP_PLATFORM)

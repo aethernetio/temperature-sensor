@@ -342,6 +342,11 @@ void RecordHotProbeFailure(ae::WifiProbeRtcState* state,
 
 HotSendStatus TryHotWakePreparedSend(std::string const& temperature);
 
+// Encode only (nonce consumed on success). Endpoint from prepared block.
+HotSendStatus EncodePreparedPayload(ae::DataBuffer const& payload,
+                                    ae::DataBuffer* out_packet);
+bool PreparedEndpointIpv4(std::uint32_t* out_ip, std::uint16_t* out_port);
+
 bool ExportPreparedSendBlock(ae::Client::ptr const& client, ae::Uid destination,
                              std::size_t reserve_message_count);
 

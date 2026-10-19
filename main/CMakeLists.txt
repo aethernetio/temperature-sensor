@@ -165,6 +165,7 @@ elseif(AE_EXP_PREPARED_MESSAGE_E2E)
 elseif(AE_EXP_SIMPLE_FULL_HOT_101)
   list(APPEND src_list
     "simple_full_hot_101_test.cpp"
+    "udp_cached_lwip_send.cpp"
     "prepared_send/prepared_send.cpp"
   )
 elseif(AE_EXP_THERMOMETER2_FULL_VANILLA)
@@ -393,6 +394,9 @@ ae_exp_define_if_set(AE_EXP_WIFI_COOLDOWN_MS)
 ae_exp_define_if_set(AE_EXP_PREPARED_MESSAGE_E2E)
 ae_exp_define_if_set(AE_EXP_SIMPLE_FULL_HOT_101)
 ae_exp_define_if_set(AE_SIMPLE_FULL_HOT_COUNT)
+if(AE_EXP_SIMPLE_FULL_HOT_101)
+  target_compile_definitions(${TARGET_NAME} PRIVATE AE_SIMPLE_HOT_UDP_LWIP_B=1)
+endif()
 ae_exp_define_if_set(AE_EXP_THERMOMETER2_FULL_VANILLA)
 ae_exp_define_if_set(AE_THERM_FULL_VANILLA_SLEEP_S)
 ae_exp_define_if_set(AE_THERM_FULL_ACTIVE_TIMEOUT_MS)

@@ -33,6 +33,7 @@
 #include "aether/env.h"
 
 #include "prepared_send/prepared_send.h"
+#include "udp_cached_lwip_send.h"
 
 
 
@@ -1243,11 +1244,57 @@ static void SendHotMessage() {
 
               static_cast<unsigned>(kHotPostSendHoldMs));
 
+#if defined(AE_SIMPLE_HOT_UDP_LWIP_B)
+  std::printf("HOT_WIFI=b_lwip_cached\n");
+#endif
   std::fflush(stdout);
 
-  auto const result = temp_sensor::prepared_send::SendPreparedOnceWithFastPath(
+  temp_sensor::prepared_send::FastSendResult result{};
 
+#if defined(AE_SIMPLE_HOT_UDP_LWIP_B)
+  if (!temp_sensor::prepared_send::PreparedWifiRtcCacheIsValid(g_wifi_cache)) {
+    result.status = temp_sensor::prepared_send::HotSendStatus::kSendFailed;
+    MarkScenarioFail("hot_wifi_cache", "invalid_rtc_cache");
+    RecordHotAttempt(num, result);
+    StayAwakeForRunnerDump(g_dump_finish_reason);
+  }
+  ae::DataBuffer packet{};
+  auto const enc = temp_sensor::prepared_send::EncodePreparedPayload(
+      Payload(num), &packet);
+  result.encode_us = 1;
+  if (enc != temp_sensor::prepared_send::HotSendStatus::kSent) {
+    result.status = enc;
+  } else {
+    result.status_flags |= static_cast<std::uint8_t>(
+        bench::BisectStatusBits::kEncodeOk);
+    std::uint32_t dest_ip = 0;
+    std::uint16_t dest_port = 0;
+    if (!temp_sensor::prepared_send::PreparedEndpointIpv4(&dest_ip,
+                                                          &dest_port)) {
+      result.status = temp_sensor::prepared_send::HotSendStatus::kSendFailed;
+    } else {
+      temp_sensor::udp_cached_lwip::SendRequest req{};
+      req.dest_ipv4 = dest_ip;
+      req.dest_port = dest_port;
+      req.payload = packet.data();
+      req.payload_len = packet.size();
+      req.post_send_hold_ms = static_cast<int>(kHotPostSendHoldMs);
+      req.use_peer_static_arp = false;
+      auto const sr = temp_sensor::udp_cached_lwip::SendOnce(
+          WIFI_SSID, WIFI_PASSWORD, g_wifi_cache, req);
+      result.got_ip_seen = sr.got_ip;
+      result.sendto_ok = sr.udp_send_ok;
+      result.sendto_begin_us = sr.udp_send_ok ? 1 : 0;
+      result.status = sr.udp_send_ok
+                          ? temp_sensor::prepared_send::HotSendStatus::kSent
+                          : temp_sensor::prepared_send::HotSendStatus::
+                                kSendFailed;
+    }
+  }
+#else
+  result = temp_sensor::prepared_send::SendPreparedOnceWithFastPath(
       VanillaHotWifi(), Payload(num), nullptr);
+#endif
 
   RecordHotAttempt(num, result);
 

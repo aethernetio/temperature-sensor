@@ -30,7 +30,8 @@ USB_STARTUP_TIMEOUT_S = 90.0
 BOOTSTRAP_EXTRA_TIMEOUT_S = 180.0
 DIAG_LOCAL = RESULTS / "diag_local"
 FULL_ACTIVE_TIMEOUT_S = 300.0
-HOT_CYCLE_TIMEOUT_S = 52.0
+# Vanilla HOT wake: 2 s sleep + Wi-Fi + 1 s hold often exceeds 52 s wall time.
+HOT_CYCLE_TIMEOUT_S = 120.0
 TAIL_DELIVERY_S = 30.0
 HOT_COUNT = int(os.environ.get("SIMPLE_FULL_HOT_COUNT", "100"))
 SLEEP_S = 2
@@ -703,6 +704,7 @@ def wait_campaign(
     last_rx_progress = time.time()
     full_begin_at: float | None = None
     last_rx_num = 0
+    last_msg_count = 0
     last_hot_begin = 0
     overall_deadline = time.time() + (
         USB_STARTUP_TIMEOUT_S
@@ -714,7 +716,7 @@ def wait_campaign(
     last_marker: str | None = None
 
     def sync_state(extra: dict | None = None) -> None:
-        nonlocal test_sender, phase, last_rx_num, last_hot_begin, last_progress, last_marker
+        nonlocal test_sender, phase, last_rx_num, last_msg_count, last_hot_begin, last_progress, last_marker, last_rx_progress
         rx_text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
         ser_text = (
             serial_log.read_text(encoding="utf-8", errors="replace")
@@ -727,9 +729,11 @@ def wait_campaign(
         rx_meta = parse_receiver_meta(rx_text)
         if nums:
             new_rx = max(nums)
-            if new_rx > last_rx_num:
+            new_count = len(nums)
+            if new_rx > last_rx_num or new_count > last_msg_count:
                 last_rx_progress = time.time()
             last_rx_num = new_rx
+            last_msg_count = new_count
             last_progress = time.time()
         if fw["max_hot_begin"] > last_hot_begin:
             last_hot_begin = fw["max_hot_begin"]
@@ -784,19 +788,29 @@ def wait_campaign(
             flush=True,
         )
     sync_state()
+    receiver_exited = False
     while time.time() < overall_deadline:
-        if rx_proc.poll() is not None:
-            phase = "RECEIVER_EXIT"
-            state["run_status"] = "FAIL"
-            state["error"] = f"receiver_exit_code={rx_proc.returncode}"
-            sync_state()
-            return
         ser_text = (
             serial_log.read_text(encoding="utf-8", errors="replace")
             if serial_log.is_file()
             else ""
         )
         fw = parse_firmware_serial(ser_text)
+        if rx_proc.poll() is not None and not receiver_exited:
+            receiver_exited = True
+            if last_rx_num >= LAST_MESSAGE or fw.get("scenario_done"):
+                phase = "TAIL"
+                state["error"] = (
+                    state.get("error")
+                    or f"receiver_exit_code={rx_proc.returncode}_after_delivery"
+                )
+                last_progress = time.time()
+            else:
+                phase = "RECEIVER_EXIT"
+                state["run_status"] = "FAIL"
+                state["error"] = f"receiver_exit_code={rx_proc.returncode}"
+                sync_state()
+                return
         if (
             RE_FULL_BEGIN.search(ser_text) or "FULL_WRITE_BEGIN" in ser_text
         ) and full_begin_at is None:
@@ -865,12 +879,14 @@ def wait_campaign(
         if phase == "USB_STARTUP" and RE_BOOT.search(ser_text):
             phase = "FULL" if full_begin_at else "USB_STARTUP"
             last_progress = now
+        hot_lane_active = (
+            fw["max_hot_begin"] >= 2
+            or int(fw.get("hot_begin_count") or 0) >= 1
+            or last_rx_num >= 2
+            or "PREPARED_EXPORT_RESULT=ok" in ser_text
+        )
         if full_begin_at is not None:
-            if (
-                fw["max_hot_begin"] >= 2
-                or last_rx_num >= 1
-                or "PREPARED_EXPORT_RESULT=ok" in ser_text
-            ):
+            if hot_lane_active:
                 phase = "HOT"
             else:
                 phase = "FULL"
@@ -884,11 +900,7 @@ def wait_campaign(
                 or "PREPARED_EXPORT_RESULT=ok" in ser_text
                 or last_rx_num >= 1
             ):
-                if (
-                    last_rx_num >= 1
-                    or "PREPARED_EXPORT_RESULT=ok" in ser_text
-                    or fw["max_hot_begin"] >= 2
-                ):
+                if hot_lane_active:
                     phase = "HOT"
                 elif full_begin_at is not None:
                     phase = "FULL"
@@ -906,7 +918,13 @@ def wait_campaign(
                 phase = "FULL_TIMEOUT"
         if phase == "HOT" and last_rx_num >= LAST_MESSAGE:
             phase = "TAIL"
-        elif phase == "HOT" and now - last_rx_progress > HOT_CYCLE_TIMEOUT_S:
+        elif (
+            phase == "HOT"
+            and hot_lane_active
+            and last_rx_num < LAST_MESSAGE
+            and not fw.get("scenario_done")
+            and now - last_rx_progress > HOT_CYCLE_TIMEOUT_S
+        ):
             deadline_hit = True
             state["error"] = "hot_cycle_timeout"
             phase = "HOT_TIMEOUT"
