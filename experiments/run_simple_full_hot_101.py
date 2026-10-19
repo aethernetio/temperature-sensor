@@ -52,6 +52,13 @@ from simple_full_hot_101_parse import (  # noqa: E402
     pick_authoritative_rtc_dump,
 )
 from simple_full_hot_101_serial import SerialCapture  # noqa: E402
+from simple_full_hot_101_campaign_timers import (  # noqa: E402
+    CampaignTimerConfig,
+    CampaignTimerState,
+    SystemMonotonicClock,
+    evaluate_deadlines,
+    smoke_overall_deadline_s,
+)
 RE_UID = re.compile(r"RECEIVER_UID=([0-9a-f-]{36})", re.I)
 RE_MSG = re.compile(
     r"MSG_NUM=(\d+)\s+sender=([0-9a-f-]{36})", re.I
@@ -698,25 +705,29 @@ def wait_campaign(
     writer: ResultWriter,
     state: dict,
 ) -> None:
+    clock = SystemMonotonicClock()
+    timer_cfg = CampaignTimerConfig(
+        usb_startup_timeout_s=USB_STARTUP_TIMEOUT_S,
+        bootstrap_extra_timeout_s=BOOTSTRAP_EXTRA_TIMEOUT_S,
+        full_active_timeout_s=FULL_ACTIVE_TIMEOUT_S,
+        hot_cycle_timeout_s=HOT_CYCLE_TIMEOUT_S,
+    )
+    timers = CampaignTimerState(
+        campaign_start=clock.now(),
+        usb_last_progress=clock.now(),
+    )
     test_sender: str | None = state.get("test_sender_uid")
     phase = "USB_STARTUP"
-    last_progress = time.time()
-    last_rx_progress = time.time()
-    full_begin_at: float | None = None
     last_rx_num = 0
     last_msg_count = 0
     last_hot_begin = 0
-    overall_deadline = time.time() + (
-        USB_STARTUP_TIMEOUT_S
-        + FULL_ACTIVE_TIMEOUT_S
-        + HOT_COUNT * HOT_CYCLE_TIMEOUT_S
-        + TAIL_DELIVERY_S
-        + 30.0
-    )
+    overall_deadline = clock.now() + smoke_overall_deadline_s(timer_cfg, HOT_COUNT)
     last_marker: str | None = None
+    tail_enter: float | None = None
 
     def sync_state(extra: dict | None = None) -> None:
-        nonlocal test_sender, phase, last_rx_num, last_msg_count, last_hot_begin, last_progress, last_marker, last_rx_progress
+        nonlocal test_sender, phase, last_rx_num, last_msg_count, last_hot_begin, last_marker
+        now = clock.now()
         rx_text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
         ser_text = (
             serial_log.read_text(encoding="utf-8", errors="replace")
@@ -728,27 +739,25 @@ def wait_campaign(
         fw = parse_firmware_serial(ser_text)
         rx_meta = parse_receiver_meta(rx_text)
         if nums:
-            new_rx = max(nums)
-            new_count = len(nums)
-            if new_rx > last_rx_num or new_count > last_msg_count:
-                last_rx_progress = time.time()
-            last_rx_num = new_rx
-            last_msg_count = new_count
-            last_progress = time.time()
+            if timers.note_unique_rx(nums, now=now):
+                timers.note_usb_progress(now=now)
+            last_rx_num = max(nums)
+            last_msg_count = len(nums)
         if fw["max_hot_begin"] > last_hot_begin:
             last_hot_begin = fw["max_hot_begin"]
-            last_progress = time.time()
+            timers.note_usb_progress(now=now)
         if fw.get("confirmed_failure_stage"):
-            last_progress = time.time()
+            timers.note_usb_progress(now=now)
         marker = fw.get("last_firmware_marker")
         if (
             marker
             and "SERIAL_READ_ERROR" not in marker
+            and "RX_HEALTH" not in marker
             and not marker.startswith("Index,Invocations")
             and marker != last_marker
         ):
             last_marker = marker
-            last_progress = time.time()
+            timers.note_usb_progress(now=now)
         state.update(ev)
         state["phase"] = phase
         state["run_status"] = state.get("run_status", "RUNNING")
@@ -789,7 +798,9 @@ def wait_campaign(
         )
     sync_state()
     receiver_exited = False
-    while time.time() < overall_deadline:
+    while clock.now() < overall_deadline:
+        now = clock.now()
+        prev_phase = phase
         ser_text = (
             serial_log.read_text(encoding="utf-8", errors="replace")
             if serial_log.is_file()
@@ -804,17 +815,18 @@ def wait_campaign(
                     state.get("error")
                     or f"receiver_exit_code={rx_proc.returncode}_after_delivery"
                 )
-                last_progress = time.time()
+                timers.note_usb_progress(now=now)
             else:
                 phase = "RECEIVER_EXIT"
                 state["run_status"] = "FAIL"
                 state["error"] = f"receiver_exit_code={rx_proc.returncode}"
                 sync_state()
                 return
-        if (
+        full_begin_seen = bool(
             RE_FULL_BEGIN.search(ser_text) or "FULL_WRITE_BEGIN" in ser_text
-        ) and full_begin_at is None:
-            full_begin_at = time.time()
+        )
+        if full_begin_seen and timers.full_begin is None:
+            timers.mark_full_begin(now=now)
             phase = "FULL"
         if "Guru Meditation Error" in ser_text or "panic'ed" in ser_text:
             phase = "ESP_PANIC"
@@ -861,10 +873,19 @@ def wait_campaign(
         ev_tail = evaluate(nums_tail)
         if last_rx_num >= LAST_MESSAGE and ev_tail.get("FULL_RX") == "1/1":
             phase = "TAIL"
-            last_progress = time.time()
+            if tail_enter is None:
+                tail_enter = now
+            timers.note_usb_progress(now=now)
+        if (
+            phase == "TAIL"
+            and tail_enter is not None
+            and now - tail_enter >= TAIL_DELIVERY_S
+        ):
+            sync_state()
+            return
         if fw.get("scenario_done") or fw.get("confirmed_failure_stage"):
             phase = "TAIL"
-            last_progress = time.time()
+            timers.note_usb_progress(now=now)
         if fw.get("hot_rtc_table_complete") and (
             fw.get("scenario_done")
             or fw.get("confirmed_failure_stage")
@@ -875,59 +896,49 @@ def wait_campaign(
             time.sleep(TAIL_DELIVERY_S)
             sync_state()
             return
-        now = time.time()
         if phase == "USB_STARTUP" and RE_BOOT.search(ser_text):
-            phase = "FULL" if full_begin_at else "USB_STARTUP"
-            last_progress = now
+            phase = "FULL" if timers.full_begin is not None else "USB_STARTUP"
+            timers.note_usb_progress(now=now)
         hot_lane_active = (
             fw["max_hot_begin"] >= 2
             or int(fw.get("hot_begin_count") or 0) >= 1
             or last_rx_num >= 2
             or "PREPARED_EXPORT_RESULT=ok" in ser_text
         )
-        if full_begin_at is not None:
+        if timers.full_begin is not None:
             if hot_lane_active:
                 phase = "HOT"
             else:
                 phase = "FULL"
-        deadline_hit = False
-        if full_begin_at is None:
-            usb_limit = USB_STARTUP_TIMEOUT_S
-            if "BOOTSTRAP_BEGIN" in ser_text and not fw.get("bootstrap_done"):
-                usb_limit += BOOTSTRAP_EXTRA_TIMEOUT_S
-            elif (
-                fw.get("bootstrap_done")
-                or "PREPARED_EXPORT_RESULT=ok" in ser_text
-                or last_rx_num >= 1
-            ):
-                if hot_lane_active:
-                    phase = "HOT"
-                elif full_begin_at is not None:
-                    phase = "FULL"
-                else:
-                    phase = "POST_BOOTSTRAP"
-                deadline_hit = False
-            elif now - last_progress > usb_limit:
-                deadline_hit = True
-                state["error"] = "usb_startup_timeout_no_full_begin"
-                phase = "USB_TIMEOUT"
-        elif phase == "FULL":
-            if now - full_begin_at > FULL_ACTIVE_TIMEOUT_S:
-                deadline_hit = True
-                state["error"] = "full_phase_timeout"
-                phase = "FULL_TIMEOUT"
+        elif (
+            fw.get("bootstrap_done")
+            or "PREPARED_EXPORT_RESULT=ok" in ser_text
+            or last_rx_num >= 1
+        ):
+            if hot_lane_active:
+                phase = "HOT"
+            else:
+                phase = "POST_BOOTSTRAP"
+        if phase == "HOT" and prev_phase != "HOT":
+            timers.mark_hot_begin(now=now)
         if phase == "HOT" and last_rx_num >= LAST_MESSAGE:
             phase = "TAIL"
-        elif (
-            phase == "HOT"
-            and hot_lane_active
-            and last_rx_num < LAST_MESSAGE
-            and not fw.get("scenario_done")
-            and now - last_rx_progress > HOT_CYCLE_TIMEOUT_S
-        ):
-            deadline_hit = True
-            state["error"] = "hot_cycle_timeout"
-            phase = "HOT_TIMEOUT"
+        dl = evaluate_deadlines(
+            phase=phase,
+            cfg=timer_cfg,
+            timers=timers,
+            now=now,
+            ser_text=ser_text,
+            fw=fw,
+            last_rx_num=last_rx_num,
+            last_message=LAST_MESSAGE,
+            hot_lane_active=hot_lane_active,
+            full_begin_seen=full_begin_seen,
+        )
+        deadline_hit = dl.hit
+        if dl.hit:
+            state["error"] = dl.error
+            phase = dl.phase_tag or phase
         sync_state()
         if deadline_hit:
             state["run_status"] = "TIMEOUT"
@@ -979,9 +990,48 @@ def repeated_rtc_dump_verified(text: str) -> bool:
     return a.rows == b.rows
 
 
+def execution_status(state: dict) -> str:
+    rs = state.get("run_status")
+    if state.get("runner_interrupted"):
+        return "ABORTED"
+    if rs in ("PASS", "DONE", "FAIL"):
+        return "COMPLETED"
+    if rs == "TIMEOUT":
+        return "TIMEOUT"
+    if rs == "ABORTED":
+        return "ABORTED"
+    if rs == "RUNNING":
+        return "ABORTED"
+    return "COMPLETED"
+
+
+def finalize_stale_running_results() -> list[str]:
+    """Mark prior RUNNING result JSON as ABORTED (shell killed runner before finally)."""
+    fixed: list[str] = []
+    for path in sorted(RESULTS.glob("result_*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if data.get("run_status") != "RUNNING":
+            continue
+        data["run_status"] = "ABORTED"
+        data["runner_interrupted"] = True
+        data["error"] = data.get("error") or "stale_run_finalized_on_next_runner_start"
+        if data.get("TEST") == "NOT_RUN":
+            data["TEST"] = "ABORTED"
+        finalize_test_status(data)
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        fixed.append(path.name)
+    return fixed
+
+
 def finalize_test_status(state: dict) -> None:
     state["DELIVERY"] = classify_delivery(state)
     state["RTC_CAPTURE"] = classify_rtc_capture(state)
+    state["EXECUTION"] = execution_status(state)
+    state["campaign_timer_monotonic"] = True
+    state["last_rx_progress_unique_only"] = True
     if state.get("run_status") in ("RUNNING", None):
         rs = state.get("run_status") or "FAIL"
         if state["DELIVERY"] == "PASS" and state["RTC_CAPTURE"] == "COMPLETE":
@@ -1025,6 +1075,9 @@ def write_hot_rtc_csv(path: Path, fw: dict) -> None:
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 def main() -> int:
+    stale = finalize_stale_running_results()
+    if stale:
+        print(f"FINALIZED_STALE_RUNS={','.join(stale)}", flush=True)
     run_id = utc_tag()
     log_path = RESULTS / f"receiver_{run_id}.log"
     serial_path = RESULTS / f"serial_{run_id}.log"
@@ -1079,9 +1132,26 @@ def main() -> int:
         vanilla.stop_stage1_serial_holders()
         ppk = vanilla.open_ppk_session()
         ppk.set_on()
+        bin_path = BUILD / "temperature_sensor.bin"
+        skip_build = os.environ.get("SIMPLE_FULL_HOT_SKIP_BUILD", "").strip() == "1"
         state["phase"] = "BUILD"
+        state["hot_count"] = HOT_COUNT
+        state["smoke_overall_deadline_s"] = smoke_overall_deadline_s(
+            CampaignTimerConfig(
+                usb_startup_timeout_s=USB_STARTUP_TIMEOUT_S,
+                bootstrap_extra_timeout_s=BOOTSTRAP_EXTRA_TIMEOUT_S,
+                full_active_timeout_s=FULL_ACTIVE_TIMEOUT_S,
+                hot_cycle_timeout_s=HOT_CYCLE_TIMEOUT_S,
+            ),
+            HOT_COUNT,
+        )
         writer.write(state)
-        fw_sha = build_esp(service_uid=uid, ssid=ssid, pwd=pwd)
+        if skip_build and bin_path.is_file():
+            fw_sha = file_sha256(bin_path)
+            state["build"] = "skipped_existing_bin"
+        else:
+            fw_sha = build_esp(service_uid=uid, ssid=ssid, pwd=pwd)
+            state["build"] = "fresh"
         state["firmware_sha256"] = fw_sha
         writer.write(state)
         port = recover_esp_port(ppk)
@@ -1112,8 +1182,8 @@ def main() -> int:
             state["run_status"] = "ABORTED"
             state["TEST"] = "NOT_RUN"
             state["FULL_RX"] = "0/1"
-            state["HOT_RX"] = "0/100"
-            state["missing_numbers"] = list(range(1, 102))
+            state["HOT_RX"] = f"0/{HOT_COUNT}"
+            state["missing_numbers"] = list(range(1, LAST_MESSAGE + 1))
             state["duplicates"] = []
             finalize_test_status(state)
             writer.write(state)
@@ -1144,6 +1214,7 @@ def main() -> int:
         )
         if interrupted["flag"]:
             state["run_status"] = "ABORTED"
+            state["runner_interrupted"] = True
             state["error"] = "runner_interrupted"
         rtc_deadline = time.time() + 240.0
         while serial_cap is not None and time.time() < rtc_deadline:
@@ -1222,6 +1293,15 @@ def main() -> int:
         print(f"TEST={state['TEST']}", flush=True)
         return 1
     finally:
+        if state.get("run_status") == "RUNNING":
+            state["run_status"] = "ABORTED"
+            state["runner_interrupted"] = True
+            state["error"] = state.get("error") or "runner_exited_while_running"
+            finalize_test_status(state)
+            try:
+                writer.write(state)
+            except Exception:
+                pass
         if serial_cap is not None:
             serial_cap.stop()
         if rx_proc is not None and rx_proc.poll() is None:

@@ -1,0 +1,34 @@
+{
+  "run_id": "20261019T223512Z",
+  "git_head_at_run": "b593f54afc5fc71bb1a1931c1ce397aae1d3d788",
+  "git_head_after_timer_fix": "1878017a",
+  "firmware_sha256": "abd8f19ddc4cb3af8a34bd5b9d35e863390c13d70c6f098e5870249269f3b1ac",
+  "receiver_sha256": "585daaf185e59b2c40c3f1f2abc0ebb34e85f080ddf4685fda22d21233d0ce18",
+  "receiver_uid": "aec1c941-4bd1-4117-82a7-ccefe5a8d6fa",
+  "test_sender_uid": "dcbed6e3-3fd6-44a5-8f71-4cd3dcf41035",
+  "HOT_COUNT": 5,
+  "FULL_RX": "1/1",
+  "HOT_RX": "4/5",
+  "missing_numbers": [2],
+  "first_delivery_failure": "receiver_missing_MSG_NUM_2",
+  "local_serial": "SERIAL_READ_ERROR ClearCommError — no HOT_RTC in capture",
+  "EXECUTION": "TIMEOUT",
+  "RTC_CAPTURE": "MISSING",
+  "DELIVERY": "PARTIAL",
+  "runner_error": "overall_deadline (TAIL spin before tail-exit fix; no hot_cycle_timeout)",
+  "timer_fix": {
+    "last_rx_progress_unique_only": true,
+    "monotonic": true,
+    "hot_deadline_anchor": "hot_begin or last_unique_rx"
+  },
+  "b_integration": {
+    "HOT_WIFI": "b_lwip_cached",
+    "AE_SIMPLE_HOT_UDP_LWIP_B": true,
+    "full_encode_buffer_udp": true
+  },
+  "artifacts": {
+    "result_json": "experiments/simple_full_hot_101_results/result_20261019T223512Z.json",
+    "receiver_log": "experiments/simple_full_hot_101_results/receiver_20261019T223512Z.log",
+    "serial_log": "experiments/simple_full_hot_101_results/serial_20261019T223512Z.log"
+  }
+}
