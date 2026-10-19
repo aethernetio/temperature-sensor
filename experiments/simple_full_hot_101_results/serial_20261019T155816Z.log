@@ -1,0 +1,1431 @@
+BOOTSTRAP_BEGIN client_id=reliability_full_v1 FS_INIT=0
+Platform:esp32c6
+Compiler:gcc
+Compiler version:15.2.0
+Library version:0.1.0.157aadbec8e7b852d0f89274307ff7cb8103e5f7
+CPU arch:esp32c6
+Endianness:LittleEndian
+UTMid:0
+AE_TASK_MAX_COUNT:128
+AE_TASK_MAX_SIZE:8 * sizeof(void*)
+AE_TASK_ALIGN:alignof(std::max_align_t)
+AE_API_PROTOCOL_MAX_PENDING_RESPONSES:10
+AE_API_PROTOCOL_MAX_PACKET_STACK_DEPTH:4
+AE_API_PROTOCOL_MAX_PARSER_PACKER_DEPTH:4
+AE_API_PROTOCOL_PENDING_RESPONSE_MAX_SIZE:4 * sizeof(void*)
+AE_API_PROTOCOL_PENDING_RESPONSE_ALIGN:alignof(std::max_align_t)
+AE_SUPPORT_IPV4:1
+AE_SUPPORT_IPV6:0
+AE_SUPPORT_UDP:1
+AE_UDP_PACKET_QUEUE_SIZE:100
+AE_SUPPORT_TCP:1
+AE_TCP_PACKET_QUEUE_SIZE:100
+AE_SUPPORT_WEBSOCKET:1
+AE_SUPPORT_HTTP:1
+AE_SUPPORT_HTTP_OVER_TCP:1
+AE_SUPPORT_HTTP_WINHTTP:1
+AE_SUPPORT_HTTPS:1
+AE_SUPPORT_PROXY:1
+AE_SUPPORT_DYNAMIC_PROXY:1
+AE_SUPPORT_CLOUD_DNS:1
+AE_SUPPORT_DYNAMIC_CLOUD_DNS:0
+AE_SUPPORT_CLOUD_IPS:1
+AE_SUPPORT_DYNAMIC_CLOUD_IPS:1
+AE_LWIP_SOCKET_TYPES:1
+AE_FREERTOS_POLLER_STACK_SIZE:4096
+AE_SUPPORT_MODEMS:0
+AE_ENABLE_THINGY91X:1
+AE_ENABLE_SIM7070:0
+AE_ENABLE_BG95:0
+AE_SUPPORT_LORA:0
+AE_ENABLE_EBYTE_E22_LM:0
+AE_ENABLE_DX_SMART_LR02_LM:0
+AE_SUPPORT_GATEWAY:0
+AE_SUPPORT_REGISTRATION:1
+AE_SUPPORT_REGISTRATION_DYNAMIC_IP:1
+AE_ENABLE_PING:1
+AE_PING_INTERVAL_MS:5000 + 1000
+AE_BCRYPT_CRC32:1
+AE_POW:1
+AE_SIGNATURE:2
+AE_CRYPTO_ASYNC:2
+AE_CRYPTO_SYNC:2
+AE_KDF:2
+AE_CRYPTO_HASH:1
+AE_TARGET_ENDIANNESS:1
+AE_SUPPORT_SPIFS_FS:1
+AE_SAFE_STREAM_CAPACITY:20 * 1024
+AE_SAFE_STREAM_RTO_GROW_FACTOR:1.5
+AE_STATISTICS_CONNECTION_WINDOW_SIZE:100
+AE_DEFAULT_CONNECTION_TIMEOUT_MS:50000
+AE_STATISTICS_RESPONSE_WINDOW_SIZE:100
+AE_DEFAULT_RESPONSE_TIMEOUT_MS:5000
+AE_STATISTICS_SAFE_STREAM_WINDOW_SIZE:100
+AE_WIFI_CONNECTION_TIMEOUT_MS:20000
+AE_MODEM_CONNECTION_TIMEOUT_MS:15000
+AE_CLOUD_MAX_SERVER_CONNECTIONS:3
+AE_CLOUD_SERVER_QUARANTINE_TIME_MS:10000
+AE_TELE_ENABLED:1
+AE_TELE_COMPILATION_INFO:1
+AE_TELE_RUNTIME_INFO:0
+AE_TELE_METRICS_MODULES:0xffffffff
+AE_TELE_METRICS_MODULES_EXCLUDE:{ }
+AE_TELE_METRICS_DURATION:0xffffffff
+AE_TELE_METRICS_DURATION_EXCLUDE:{ }
+AE_TELE_DEBUG_MODULES:0xffffffff
+AE_TELE_DEBUG_MODULES_EXCLUDE:{ }
+AE_TELE_INFO_MODULES:0xffffffff
+AE_TELE_INFO_MODULES_EXCLUDE:{ }
+AE_TELE_WARN_MODULES:0xffffffff
+AE_TELE_WARN_MODULES_EXCLUDE:{ }
+AE_TELE_ERROR_MODULES:0xffffffff
+AE_TELE_ERROR_MODULES_EXCLUDE:{ }
+AE_TELE_LOG_MODULES:0xffffffff
+AE_TELE_LOG_MODULES_EXCLUDE:{ }
+AE_TELE_LOG_LOCATION:0xffffffff
+AE_TELE_LOG_LOCATION_EXCLUDE:{ }
+AE_TELE_LOG_NAME:0xffffffff
+AE_TELE_LOG_NAME_EXCLUDE:{ }
+AE_TELE_LOG_LEVEL_MODULE:0xffffffff
+AE_TELE_LOG_LEVEL_MODULE_EXCLUDE:{ }
+AE_TELE_LOG_BLOB:0xffffffff
+AE_TELE_LOG_BLOB_EXCLUDE:{ }
+AE_TELE_LOG_CONSOLE:1
+AE_TELE_LOG_TO_STATISTICS:1
+AE_STATISTICS_MAX_SIZE:1024
+AE_DISTILLATION:1
+AE_FILTRATION:1
+DEBUG:0
+
+   3:[00:01:00.026367]:kInfo:kAether:aether_app.cpp:74:AetherStarted
+ 308:[00:01:00.067696]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 1 classes 2178182515, 3757268233
+4294967294:[00:01:00.068702]:kDebug:MLog:domain.cpp:139:kLog:For obj 1 enumerated classes [2178182515, 3757268233]
+ 310:[00:01:00.089149]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1, class id=3757268233, version=0
+4294967294:[00:01:00.090225]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 92 bytes
+ 310:[00:01:00.108658]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1, class id=2178182515, version=0
+4294967294:[00:01:00.109423]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.110461]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3 classes 1105219716, 2178182515
+4294967294:[00:01:00.111249]:kDebug:MLog:domain.cpp:139:kLog:For obj 3 enumerated classes [1105219716, 2178182515]
+ 310:[00:01:00.118439]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3, class id=1105219716, version=0
+4294967294:[00:01:00.120328]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 2319 bytes
+ 310:[00:01:00.138087]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3, class id=2178182515, version=0
+4294967294:[00:01:00.138858]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.141083]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 4 classes 2178182515, 3488512947
+4294967294:[00:01:00.141930]:kDebug:MLog:domain.cpp:139:kLog:For obj 4 enumerated classes [2178182515, 3488512947]
+ 310:[00:01:00.163938]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4, class id=3488512947, version=0
+4294967294:[00:01:00.165029]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 9 bytes
+ 310:[00:01:00.186671]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4, class id=2178182515, version=0
+4294967294:[00:01:00.187439]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.188336]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2320710410 classes 698262047, 1138714670, 1232350972, 2178182515
+4294967294:[00:01:00.189195]:kDebug:MLog:domain.cpp:139:kLog:For obj 2320710410 enumerated classes [698262047, 1138714670, 1232350972, 2178182515]
+ 310:[00:01:00.191141]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2320710410, class id=1138714670, version=0
+4294967294:[00:01:00.192090]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 9 bytes
+ 310:[00:01:00.196650]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2320710410, class id=1232350972, version=0
+4294967294:[00:01:00.197560]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 41 bytes
+ 310:[00:01:00.215936]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2320710410, class id=698262047, version=0
+4294967294:[00:01:00.216801]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 310:[00:01:00.239113]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2320710410, class id=2178182515, version=0
+4294967294:[00:01:00.239915]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.241002]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 1804701341 classes 877772869, 2178182515, 2767960597
+4294967294:[00:01:00.241877]:kDebug:MLog:domain.cpp:139:kLog:For obj 1804701341 enumerated classes [877772869, 2178182515, 2767960597]
+ 310:[00:01:00.243713]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1804701341, class id=877772869, version=0
+4294967294:[00:01:00.244750]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 47 bytes
+ 310:[00:01:00.245792]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1804701341, class id=877772869, version=1
+4294967294:[00:01:00.246664]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 46 bytes
+ 310:[00:01:00.268785]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1804701341, class id=2767960597, version=0
+4294967294:[00:01:00.269561]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 310:[00:01:00.291965]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1804701341, class id=2178182515, version=0
+4294967294:[00:01:00.292803]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+4294967294:[00:01:00.295133]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:00.296473]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:00.298472]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3, class id=1105219716, version=0 crc is the same, not update data
+4294967294:[00:01:00.299475]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:00.300741]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2320710410, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:00.301535]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2320710410, class id=698262047, version=0 crc is the same, not update data
+4294967294:[00:01:00.302407]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2320710410, class id=1232350972, version=0 crc is the same, not update data
+4294967294:[00:01:00.303561]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1804701341, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:00.304328]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1804701341, class id=2767960597, version=0 crc is the same, not update data
+4294967294:[00:01:00.305182]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1804701341, class id=877772869, version=0 crc is the same, not update data
+4294967294:[00:01:00.306118]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1804701341, class id=877772869, version=1 crc is the same, not update data
+4294967294:[00:01:00.306864]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2320710410, class id=1138714670, version=0 crc is the same, not update data
+4294967294:[00:01:00.307604]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4, class id=3488512947, version=0 crc is the same, not update data
+4294967294:[00:01:00.308315]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1, class id=3757268233, version=0 crc is the same, not update data
+FULL_WIFI_PSP_PRESENT=0
+4294967294:[00:01:00.311786]:kDebug:MLog:aether.cpp:93:kLog:Select client reliability_full_v1 with parent uid b1ac52c8-8d94-bd39-4c01-a631ac594165
+ 308:[00:01:00.312806]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2405602276 classes 1058537116, 2178182515
+4294967294:[00:01:00.313672]:kDebug:MLog:domain.cpp:139:kLog:For obj 2405602276 enumerated classes [1058537116, 2178182515]
+ 310:[00:01:00.320520]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2405602276, class id=1058537116, version=0
+4294967294:[00:01:00.321781]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 473 bytes
+ 310:[00:01:00.339911]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2405602276, class id=2178182515, version=0
+4294967294:[00:01:00.340688]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.341661]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 4268070682 classes 207799855, 712345007, 2178182515
+4294967294:[00:01:00.342491]:kDebug:MLog:domain.cpp:139:kLog:For obj 4268070682 enumerated classes [207799855, 712345007, 2178182515]
+ 310:[00:01:00.345525]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4268070682, class id=712345007, version=0
+4294967294:[00:01:00.346517]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 16 bytes
+ 310:[00:01:00.368904]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4268070682, class id=207799855, version=0
+4294967294:[00:01:00.369811]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 31 bytes
+ 310:[00:01:00.390497]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4268070682, class id=2178182515, version=0
+4294967294:[00:01:00.391311]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+4294967294:[00:01:00.392450]:kDebug:MLog:select_client.cpp:31:kLog:Select loaded client
+BOOTSTRAP_SELECT ok=1 sender_uid=dcbed6e3-3fd6-44a5-8f71-4cd3dcf41035
+4294967294:[00:01:00.399294]:kDebug:MLog:cloud_server_connections.cpp:285:kLog:Reconcile servers vacancy=3 selected_count=0
+4294967294:[00:01:00.400358]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=20 priority=0
+ 308:[00:01:00.401415]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 1515395775 classes 2178182515, 2721984319
+4294967294:[00:01:00.402255]:kDebug:MLog:domain.cpp:139:kLog:For obj 1515395775 enumerated classes [2178182515, 2721984319]
+ 310:[00:01:00.404306]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1515395775, class id=2721984319, version=0
+4294967294:[00:01:00.405432]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 79 bytes
+ 310:[00:01:00.427334]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1515395775, class id=2178182515, version=0
+4294967294:[00:01:00.428126]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.429195]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3223576591 classes 2178182515, 2461747236, 4177166869
+4294967294:[00:01:00.430057]:kDebug:MLog:domain.cpp:139:kLog:For obj 3223576591 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[00:01:00.431567]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3223576591, class id=4177166869, version=0
+4294967294:[00:01:00.432582]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[00:01:00.455004]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3223576591, class id=2461747236, version=0
+4294967294:[00:01:00.455936]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[00:01:00.478204]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3223576591, class id=2178182515, version=0
+4294967294:[00:01:00.479024]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.479872]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3162042595 classes 2178182515, 2654162901
+4294967294:[00:01:00.480668]:kDebug:MLog:domain.cpp:139:kLog:For obj 3162042595 enumerated classes [2178182515, 2654162901]
+ 310:[00:01:00.485810]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3162042595, class id=2654162901, version=0
+4294967294:[00:01:00.486932]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 480 bytes
+ 310:[00:01:00.505402]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3162042595, class id=2178182515, version=0
+4294967294:[00:01:00.506200]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.507305]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 398201561 classes 2178182515, 2461747236, 4177166869
+4294967294:[00:01:00.508168]:kDebug:MLog:domain.cpp:139:kLog:For obj 398201561 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[00:01:00.509788]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=398201561, class id=4177166869, version=0
+4294967294:[00:01:00.510830]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[00:01:00.533165]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=398201561, class id=2461747236, version=0
+4294967294:[00:01:00.534081]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[00:01:00.556365]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=398201561, class id=2178182515, version=0
+4294967294:[00:01:00.557178]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.558012]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 577773047 classes 2178182515, 2654162901
+4294967294:[00:01:00.558795]:kDebug:MLog:domain.cpp:139:kLog:For obj 577773047 enumerated classes [2178182515, 2654162901]
+ 310:[00:01:00.559946]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=577773047, class id=2654162901, version=0
+4294967294:[00:01:00.560980]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 24 bytes
+ 310:[00:01:00.583405]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=577773047, class id=2178182515, version=0
+4294967294:[00:01:00.584205]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+4294967294:[00:01:00.598554]:kDebug:MLog:server_connection.cpp:157:kLog:Select channel
+ 308:[00:01:00.601736]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 5000 classes 733819916, 1196019635, 2178182515
+4294967294:[00:01:00.602655]:kDebug:MLog:domain.cpp:139:kLog:For obj 5000 enumerated classes [733819916, 1196019635, 2178182515]
+ 310:[00:01:00.624189]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=5000, class id=1196019635, version=0
+4294967294:[00:01:00.625279]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 5 bytes
+ 310:[00:01:00.647675]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=5000, class id=733819916, version=0
+4294967294:[00:01:00.648489]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 310:[00:01:00.670871]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=5000, class id=2178182515, version=0
+4294967294:[00:01:00.671658]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.672594]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 4000 classes 844107085, 2178182515, 3591204969
+4294967294:[00:01:00.673409]:kDebug:MLog:domain.cpp:139:kLog:For obj 4000 enumerated classes [844107085, 2178182515, 3591204969]
+ 310:[00:01:00.695817]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4000, class id=3591204969, version=0
+4294967294:[00:01:00.696693]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 310:[00:01:00.719058]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4000, class id=844107085, version=0
+4294967294:[00:01:00.719860]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 310:[00:01:00.742231]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4000, class id=2178182515, version=0
+4294967294:[00:01:00.743025]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+4294967294:[00:01:00.743892]:kDebug:MLog:wifi_channel.cpp:213:kLog:Make transport builder for 34.60.244.148:9021 protocol:1
+WIFI_ESP call=esp_netif_init err=0 name=ESP_OK
+WIFI_ESP call=esp_event_loop_create_default err=0 name=ESP_OK
+WIFI_ESP call=esp_wifi_init err=0 name=ESP_OK
+4294967294:[00:01:00.769203]:kDebug:MLog:wifi_access_point.cpp:69:kLog:WifiConnectAction created
+4294967294:[00:01:00.773942]:kDebug:MLog:server_connection.cpp:183:kLog:New channel selected
+4294967294:[00:01:00.774903]:kDebug:MLog:client_server_connection.cpp:155:kLog:Client server connection from dcbed6e3-3fd6-44a5-8f71-4cd3dcf41035:e-623c8a7c-a9ea-4523-98c4-d2b3001c97a5 to 20
+4294967294:[00:01:00.781825]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=21 priority=1
+ 308:[00:01:00.784764]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3891102895 classes 2178182515, 2721984319
+4294967294:[00:01:00.785737]:kDebug:MLog:domain.cpp:139:kLog:For obj 3891102895 enumerated classes [2178182515, 2721984319]
+ 310:[00:01:00.789708]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3891102895, class id=2721984319, version=0
+4294967294:[00:01:00.790897]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 73 bytes
+ 310:[00:01:00.812789]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3891102895, class id=2178182515, version=0
+4294967294:[00:01:00.813654]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.814764]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 107467279 classes 2178182515, 2461747236, 4177166869
+4294967294:[00:01:00.815613]:kDebug:MLog:domain.cpp:139:kLog:For obj 107467279 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[00:01:00.817107]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=107467279, class id=4177166869, version=0
+4294967294:[00:01:00.818108]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[00:01:00.840528]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=107467279, class id=2461747236, version=0
+4294967294:[00:01:00.841451]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[00:01:00.863729]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=107467279, class id=2178182515, version=0
+4294967294:[00:01:00.864518]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.865375]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 1158893662 classes 2178182515, 2654162901
+4294967294:[00:01:00.866167]:kDebug:MLog:domain.cpp:139:kLog:For obj 1158893662 enumerated classes [2178182515, 2654162901]
+ 310:[00:01:00.870828]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1158893662, class id=2654162901, version=0
+4294967294:[00:01:00.871927]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 480 bytes
+ 310:[00:01:00.890870]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=1158893662, class id=2178182515, version=0
+4294967294:[00:01:00.891655]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.892741]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3082805983 classes 2178182515, 2461747236, 4177166869
+4294967294:[00:01:00.893587]:kDebug:MLog:domain.cpp:139:kLog:For obj 3082805983 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[00:01:00.895236]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3082805983, class id=4177166869, version=0
+4294967294:[00:01:00.896216]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[00:01:00.918668]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3082805983, class id=2461747236, version=0
+4294967294:[00:01:00.919589]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[00:01:00.941810]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3082805983, class id=2178182515, version=0
+4294967294:[00:01:00.942651]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:00.943477]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 770017276 classes 2178182515, 2654162901
+4294967294:[00:01:00.944262]:kDebug:MLog:domain.cpp:139:kLog:For obj 770017276 enumerated classes [2178182515, 2654162901]
+ 310:[00:01:00.945422]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=770017276, class id=2654162901, version=0
+4294967294:[00:01:00.946373]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 24 bytes
+ 310:[00:01:00.968766]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=770017276, class id=2178182515, version=0
+4294967294:[00:01:00.969556]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+4294967294:[00:01:00.988571]:kDebug:MLog:server_connection.cpp:157:kLog:Select channel
+4294967294:[00:01:00.992397]:kDebug:MLog:wifi_channel.cpp:213:kLog:Make transport builder for 34.27.155.201:9021 protocol:1
+4294967294:[00:01:01.006151]:kDebug:MLog:server_connection.cpp:183:kLog:New channel selected
+4294967294:[00:01:01.007096]:kDebug:MLog:client_server_connection.cpp:155:kLog:Client server connection from dcbed6e3-3fd6-44a5-8f71-4cd3dcf41035:e-623c8a7c-a9ea-4523-98c4-d2b3001c97a5 to 21
+4294967294:[00:01:01.015804]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=24 priority=2
+ 308:[00:01:01.019309]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 560805968 classes 2178182515, 2721984319
+4294967294:[00:01:01.020220]:kDebug:MLog:domain.cpp:139:kLog:For obj 560805968 enumerated classes [2178182515, 2721984319]
+ 310:[00:01:01.022507]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=560805968, class id=2721984319, version=0
+4294967294:[00:01:01.023656]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 78 bytes
+ 310:[00:01:01.045564]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=560805968, class id=2178182515, version=0
+4294967294:[00:01:01.046361]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:01.047443]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3904078666 classes 2178182515, 2461747236, 4177166869
+4294967294:[00:01:01.048309]:kDebug:MLog:domain.cpp:139:kLog:For obj 3904078666 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[00:01:01.049827]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3904078666, class id=4177166869, version=0
+4294967294:[00:01:01.050853]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[00:01:01.073307]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3904078666, class id=2461747236, version=0
+4294967294:[00:01:01.074214]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[00:01:01.096455]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3904078666, class id=2178182515, version=0
+4294967294:[00:01:01.097283]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:01.098132]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3173229254 classes 2178182515, 2654162901
+4294967294:[00:01:01.098899]:kDebug:MLog:domain.cpp:139:kLog:For obj 3173229254 enumerated classes [2178182515, 2654162901]
+ 310:[00:01:01.100154]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3173229254, class id=2654162901, version=0
+4294967294:[00:01:01.101118]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 24 bytes
+ 310:[00:01:01.123477]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3173229254, class id=2178182515, version=0
+4294967294:[00:01:01.124289]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:01.125311]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2148506883 classes 2178182515, 2461747236, 4177166869
+4294967294:[00:01:01.126170]:kDebug:MLog:domain.cpp:139:kLog:For obj 2148506883 enumerated classes [2178182515, 2461747236, 4177166869]
+ 310:[00:01:01.127788]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2148506883, class id=4177166869, version=0
+4294967294:[00:01:01.128834]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 28 bytes
+ 310:[00:01:01.151285]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2148506883, class id=2461747236, version=0
+4294967294:[00:01:01.152212]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 15 bytes
+ 310:[00:01:01.174471]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2148506883, class id=2178182515, version=0
+4294967294:[00:01:01.175266]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:01.176115]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 4223463732 classes 2178182515, 2654162901
+4294967294:[00:01:01.176900]:kDebug:MLog:domain.cpp:139:kLog:For obj 4223463732 enumerated classes [2178182515, 2654162901]
+ 310:[00:01:01.180749]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4223463732, class id=2654162901, version=0
+4294967294:[00:01:01.181836]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 472 bytes
+ 310:[00:01:01.201578]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=4223463732, class id=2178182515, version=0
+4294967294:[00:01:01.202395]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+4294967294:[00:01:01.225263]:kDebug:MLog:server_connection.cpp:157:kLog:Select channel
+4294967294:[00:01:01.229630]:kDebug:MLog:wifi_channel.cpp:213:kLog:Make transport builder for 35.228.56.142:9021 protocol:1
+4294967294:[00:01:01.246121]:kDebug:MLog:server_connection.cpp:183:kLog:New channel selected
+4294967294:[00:01:01.247074]:kDebug:MLog:client_server_connection.cpp:155:kLog:Client server connection from dcbed6e3-3fd6-44a5-8f71-4cd3dcf41035:e-623c8a7c-a9ea-4523-98c4-d2b3001c97a5 to 24
+4294967294:[00:01:01.263247]:kDebug:MLog:cloud_server_connections.cpp:317:kLog:Selected servers reconciled selected_count=3, list=!no debug!
+ 308:[00:01:01.267441]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2071840631 classes 2026002825, 2178182515
+4294967294:[00:01:01.268360]:kDebug:MLog:domain.cpp:139:kLog:For obj 2071840631 enumerated classes [2026002825, 2178182515]
+ 310:[00:01:01.272670]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2071840631, class id=2026002825, version=0
+4294967294:[00:01:01.273803]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 97 bytes
+ 310:[00:01:01.293848]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2071840631, class id=2178182515, version=0
+4294967294:[00:01:01.294653]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+4294967294:[00:01:01.295566]:kInfo:MLog:ping_cloud_servers.cpp:250:kLog:PingCloudServers created
+4294967294:[00:01:01.296205]:kDebug:MLog:ping_cloud_servers.cpp:263:kLog:Servers update
+  22:[00:01:01.297074]:kInfo:kAeActions:telemetry.cpp:42:TelemetryCreated
+ 308:[00:01:01.297776]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3146401554 classes 2178182515, 4247110631
+4294967294:[00:01:01.298653]:kDebug:MLog:domain.cpp:139:kLog:For obj 3146401554 enumerated classes [2178182515, 4247110631]
+ 310:[00:01:01.301128]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3146401554, class id=4247110631, version=0
+4294967294:[00:01:01.302150]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 152 bytes
+ 310:[00:01:01.323572]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3146401554, class id=2178182515, version=0
+4294967294:[00:01:01.324374]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:01.325330]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 2190891030 classes 207799855, 712345007, 2178182515
+4294967294:[00:01:01.326175]:kDebug:MLog:domain.cpp:139:kLog:For obj 2190891030 enumerated classes [207799855, 712345007, 2178182515]
+ 310:[00:01:01.328456]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2190891030, class id=712345007, version=0
+4294967294:[00:01:01.329416]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 16 bytes
+ 310:[00:01:01.351808]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2190891030, class id=207799855, version=0
+4294967294:[00:01:01.352773]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 31 bytes
+ 310:[00:01:01.375073]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=2190891030, class id=2178182515, version=0
+4294967294:[00:01:01.375875]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 308:[00:01:01.376883]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:208:kSpifsDsEnumerated:Enumerated for obj 3846623513 classes 207799855, 712345007, 2178182515
+4294967294:[00:01:01.377724]:kDebug:MLog:domain.cpp:139:kLog:For obj 3846623513 enumerated classes [207799855, 712345007, 2178182515]
+ 310:[00:01:01.399626]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3846623513, class id=712345007, version=0
+4294967294:[00:01:01.400593]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 16 bytes
+ 310:[00:01:01.423022]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3846623513, class id=207799855, version=0
+4294967294:[00:01:01.423930]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 31 bytes
+ 310:[00:01:01.446322]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:248:kSpifsDsObjLoaded:Loaded object id=3846623513, class id=2178182515, version=0
+4294967294:[00:01:01.447132]:kDebug:MLog:spifs_domain_storage.cpp:156:kLog:SpiFsSotorageReader loaded 0 bytes
+ 168:[00:01:01.453266]:kDebug:kClientMessages:p2p_message_stream.cpp:163:kP2pMessageStreamNew:P2pStream created for d84a25c4-ecd1-434c-aa4e-722ee9d73973
+4294967294:[00:01:01.454246]:kDebug:MLog:client_cloud_manager.cpp:174:kLog:Ask cloud for uid: d84a25c4-ecd1-434c-aa4e-722ee9d73973
+4294967294:[00:01:01.467274]:kDebug:MLog:wifi_access_point.cpp:79:kLog:Driver connected to NOT CONNECTED
+WIFI_ESP call=esp_wifi_set_mode err=0 name=ESP_OK
+WIFI_ESP call=esp_wifi_set_config err=0 name=ESP_OK
+WIFI_RADIO psp_present=0 applied=none
+FULL_WIFI_SET_PS err=0 name=ESP_OK
+WIFI_ESP call=esp_wifi_start err=0 name=ESP_OK
+4294967294:[00:01:01.689675]:kDebug:MLog:cloud_request.cpp:119:kLog:Make request to server 20
+4294967294:[00:01:01.690574]:kDebug:MLog:get_cloud_aether.cpp:36:kLog:Send cloud request for uid:d84a25c4-ecd1-434c-aa4e-722ee9d73973 at server:20
+4294967294:[00:01:01.691479]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x2601d84a25c4ecd1434caa4e722ee9d73973ffffffffffffffff
+4294967294:[00:01:01.701141]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 70, 0xc2e316708376117c847c50bdd1c0cdd9802e17fef311297e1e836d2ceaae884f8af4bfcce8801bc56ecb8d57c2a30c669ffdc02481e3af2519535aa2d0cd311b731c20a71f84
+4294967294:[00:01:01.702834]:kDebug:MLog:cloud_request.cpp:119:kLog:Make request to server 21
+4294967294:[00:01:01.703420]:kDebug:MLog:get_cloud_aether.cpp:36:kLog:Send cloud request for uid:d84a25c4-ecd1-434c-aa4e-722ee9d73973 at server:21
+4294967294:[00:01:01.704257]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x2601d84a25c4ecd1434caa4e722ee9d73973ffffffffffffffff
+4294967294:[00:01:01.713268]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 70, 0xd5a5d8051ca345ce0c74ce58a6426f05c6b65c0904248d29c8580b40e284bad2b7abf775fcd5b79e82eea4975b30036d45e8c27bdf26c99b20fb7f27b02437caa30db24aeab4
+4294967294:[00:01:01.714871]:kDebug:MLog:cloud_request.cpp:119:kLog:Make request to server 24
+4294967294:[00:01:01.715475]:kDebug:MLog:get_cloud_aether.cpp:36:kLog:Send cloud request for uid:d84a25c4-ecd1-434c-aa4e-722ee9d73973 at server:24
+4294967294:[00:01:01.716345]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x2601d84a25c4ecd1434caa4e722ee9d73973ffffffffffffffff
+4294967294:[00:01:01.725705]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 70, 0x7b3d8725765b4d5ebd124cdf81be0e653b12e3a044f3fcfba1ccaaa6434a25cb3655ff1e55f7a243902cd6c4b760fa78bc390bd3e962ba854dedeb59756352c1e2e94f189e97
+GOT_IP=1
+4294967294:[00:01:04.716936]:kInfo:MLog:wifi_access_point.cpp:100:kLog:Wifi connected
+  54:[00:01:04.718221]:kInfo:kTransport:udp.cpp:25:kUdpTransport
+  55:[00:01:04.718863]:kInfo:kTransport:udp.h:145:kUdpTransportConnect:Udp connect to endpoint 34.60.244.148:9021
+4294967294:[00:01:04.721451]:kInfo:MLog:channel_select_action.cpp:36:kLog:Transport built for 0:00:03.954600
+4294967294:[00:01:04.722291]:kDebug:MLog:server_connection.cpp:201:kLog:Channel updated
+ 402:[00:01:04.723146]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:88
+4294967294:[00:01:04.728762]:kDebug:MLog:cloud_server_connections.cpp:170:kLog:CLOUD_SERVER_LINKED server_id=20 priority=0
+  17:[00:01:04.734573]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:04.735984]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 1 expected time 0:00:05.000000
+4294967294:[00:01:04.736998]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040100000070170000000000007017000000000000
+4294967294:[00:01:04.746784]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xc3e316708376117c301b1dcfcd665db82497a24dc30eec71ae3db9a8220d06a99e16522cb989fa3dd6b399a3c9574a41739e00f34451421481c365b66a8a3dee63
+4294967294:[00:01:04.748755]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:01:10.735420 after 0:00:06.000000
+  54:[00:01:04.762239]:kInfo:kTransport:udp.cpp:25:kUdpTransport
+  55:[00:01:04.763074]:kInfo:kTransport:udp.h:145:kUdpTransportConnect:Udp connect to endpoint 34.27.155.201:9021
+4294967294:[00:01:04.764247]:kInfo:MLog:channel_select_action.cpp:36:kLog:Transport built for 0:00:03.763302
+4294967294:[00:01:04.764914]:kDebug:MLog:server_connection.cpp:201:kLog:Channel updated
+ 402:[00:01:04.765692]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:88
+4294967294:[00:01:04.771128]:kDebug:MLog:cloud_server_connections.cpp:170:kLog:CLOUD_SERVER_LINKED server_id=21 priority=1
+  17:[00:01:04.776428]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:04.777501]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 2 expected time 0:00:05.000000
+4294967294:[00:01:04.778458]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040200000070170000000000007017000000000000
+4294967294:[00:01:04.787621]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd6a5d8051ca345cec0090f10bdb5a9470fe7d7d2ef4db8a08879bba63d5473f77f59e448d459e910c96f4b5f5c49ae3bcb259897ce49ebbdb0997172b4791c2aa6
+4294967294:[00:01:04.789407]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:01:10.777219 after 0:00:06.000000
+  54:[00:01:04.802594]:kInfo:kTransport:udp.cpp:25:kUdpTransport
+  55:[00:01:04.803415]:kInfo:kTransport:udp.h:145:kUdpTransportConnect:Udp connect to endpoint 35.228.56.142:9021
+4294967294:[00:01:04.804544]:kInfo:MLog:channel_select_action.cpp:36:kLog:Transport built for 0:00:03.564747
+4294967294:[00:01:04.805207]:kDebug:MLog:server_connection.cpp:201:kLog:Channel updated
+ 402:[00:01:04.805957]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:88
+4294967294:[00:01:04.811454]:kDebug:MLog:cloud_server_connections.cpp:170:kLog:CLOUD_SERVER_LINKED server_id=24 priority=2
+  17:[00:01:04.816747]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:04.817899]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 3 expected time 0:00:05.000000
+4294967294:[00:01:04.819110]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040300000070170000000000007017000000000000
+4294967294:[00:01:04.830012]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x7c3d8725765b4d5e48f57e709c292d51060d5d7def2deed6f89061158ff81bc56df4fdbed5bc76c4d5d0dde3b9e31fe7f7ef91a42a3794f1ac464be9ef28c1cbf3
+4294967294:[00:01:04.832049]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:01:10.817617 after 0:00:06.000000
+4294967294:[00:01:04.846215]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 88 bytes
+4294967294:[00:01:04.846987]:kDebug:MLog:udp.h:63:kLog:Data has been written size 88
+4294967294:[00:01:04.847848]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 88 bytes
+4294967294:[00:01:04.848351]:kDebug:MLog:udp.h:63:kLog:Data has been written size 88
+4294967294:[00:01:04.848897]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 88 bytes
+4294967294:[00:01:04.849421]:kDebug:MLog:udp.h:63:kLog:Data has been written size 88
+ 402:[00:01:04.850451]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+ 402:[00:01:04.851735]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+ 402:[00:01:04.852630]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:01:04.853852]:kDebug:MLog:udp.h:63:kLog:Data has been written size 0
+4294967294:[00:01:04.856215]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:04.856782]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:04.858051]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:04.858811]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:04.859876]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:04.860640]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:04.917503]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 79 bytes
+4294967294:[00:01:04.918335]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 79 bytes
+ 403:[00:01:04.919149]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 79
+4294967294:[00:01:04.926069]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x1501d84a25c4ecd1434caa4e722ee9d73973000000000000000003140015001800
+4294967294:[00:01:04.927349]:kDebug:MLog:client_api_safe.cpp:117:kLog:Received cloud configs count 1
+4294967294:[00:01:04.928024]:kDebug:MLog:client_cloud_manager.cpp:242:kLog:Got cloud config update subject:d84a25c4-ecd1-434c-aa4e-722ee9d73973, ver:0, cloud:[20, 21, 24]
+4294967294:[00:01:04.928913]:kDebug:MLog:client_cloud_manager.cpp:282:kLog:Finalize servers for new cloud config [20, 21, 24]
+4294967294:[00:01:05.040532]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[00:01:05.041447]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[00:01:05.042067]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 79 bytes
+4294967294:[00:01:05.073837]:kDebug:MLog:cloud_server_connections.cpp:285:kLog:Reconcile servers vacancy=3 selected_count=0
+4294967294:[00:01:05.078644]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=20 priority=0
+4294967294:[00:01:05.091299]:kDebug:MLog:cloud_server_connections.cpp:160:kLog:CLOUD_SERVER_LINKED server_id=20 priority=0
+4294967294:[00:01:05.096229]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=21 priority=1
+4294967294:[00:01:05.108855]:kDebug:MLog:cloud_server_connections.cpp:160:kLog:CLOUD_SERVER_LINKED server_id=21 priority=1
+4294967294:[00:01:05.113684]:kDebug:MLog:cloud_server_connections.cpp:297:kLog:CLOUD_SERVER_CONNECT_ATTEMPT server_id=24 priority=2
+4294967294:[00:01:05.126580]:kDebug:MLog:cloud_server_connections.cpp:160:kLog:CLOUD_SERVER_LINKED server_id=24 priority=2
+4294967294:[00:01:05.141451]:kDebug:MLog:cloud_server_connections.cpp:317:kLog:Selected servers reconciled selected_count=3, list=!no debug!
+4294967294:[00:01:05.143075]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[00:01:05.148324]:kDebug:MLog:p2p_message_stream.cpp:135:kLog:Message send stream link state 1, rec_write_size 1200, max_write_size 1200
+4294967294:[00:01:05.149173]:kDebug:MLog:p2p_message_stream.cpp:239:kLog:Send connected
+BOOTSTRAP_WRITE_BEGIN
+4294967294:[00:01:05.149895]:kDebug:MLog:p2p_message_stream.cpp:175:kLog:Write message for uid d84a25c4-ecd1-434c-aa4e-722ee9d73973 size:12 data:0xdb0101000000000000000000
+4294967294:[00:01:05.150906]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x06d84a25c4ecd1434caa4e722ee9d739730cdb0101000000000000000000
+4294967294:[00:01:05.160697]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 74, 0xc4e316708376117ce921b19d343f2ce3e955be70be8ed701b6b9ce37d8dfd7e4a20b30e0fa52b92d2b086f7774d6735c90db08ae4c2f90258bbd29ad40bb8a500cf61dd5799c5be695be
+ 402:[00:01:05.162018]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:92
+ 403:[00:01:05.191584]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 79
+4294967294:[00:01:05.196993]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x1501d84a25c4ecd1434caa4e722ee9d73973000000000000000003140015001800
+4294967294:[00:01:05.198033]:kDebug:MLog:client_api_safe.cpp:117:kLog:Received cloud configs count 1
+4294967294:[00:01:05.198711]:kDebug:MLog:client_cloud_manager.cpp:242:kLog:Got cloud config update subject:d84a25c4-ecd1-434c-aa4e-722ee9d73973, ver:0, cloud:[20, 21, 24]
+ 403:[00:01:05.199600]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:01:05.204874]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0001000000
+4294967294:[00:01:05.205876]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 1 duration 0:00:00.470182
+ 403:[00:01:05.219048]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:01:05.224334]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0002000000
+4294967294:[00:01:05.225250]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 2 duration 0:00:00.447810
+ 403:[00:01:05.240240]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 79
+4294967294:[00:01:05.246284]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x1501d84a25c4ecd1434caa4e722ee9d73973000000000000000003140015001800
+4294967294:[00:01:05.247347]:kDebug:MLog:client_api_safe.cpp:117:kLog:Received cloud configs count 1
+4294967294:[00:01:05.248018]:kDebug:MLog:client_cloud_manager.cpp:242:kLog:Got cloud config update subject:d84a25c4-ecd1-434c-aa4e-722ee9d73973, ver:0, cloud:[20, 21, 24]
+ 403:[00:01:05.248927]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:01:05.254327]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0003000000
+4294967294:[00:01:05.255322]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 3 duration 0:00:00.437455
+4294967294:[00:01:05.268723]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 92 bytes
+4294967294:[00:01:05.269462]:kDebug:MLog:udp.h:63:kLog:Data has been written size 92
+BOOTSTRAP_WRITE_STATUS=Success
+4294967294:[00:01:10.746699]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.748135]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2405602276, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.749412]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4268070682, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.750479]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1515395775, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.751577]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.752820]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2320710410, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.753652]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2320710410, class id=698262047, version=0 crc is the same, not update data
+4294967294:[00:01:10.754602]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2320710410, class id=1232350972, version=0 crc is the same, not update data
+4294967294:[00:01:10.755751]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1804701341, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.756502]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1804701341, class id=2767960597, version=0 crc is the same, not update data
+4294967294:[00:01:10.757370]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1804701341, class id=877772869, version=0 crc is the same, not update data
+4294967294:[00:01:10.758619]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1804701341, class id=877772869, version=1 crc is the same, not update data
+4294967294:[00:01:10.759485]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2320710410, class id=1138714670, version=0 crc is the same, not update data
+4294967294:[00:01:10.760214]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4, class id=3488512947, version=0 crc is the same, not update data
+4294967294:[00:01:10.761395]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3223576591, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.762453]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3162042595, class id=2178182515, version=0 crc is the same, not update data
+ 309:[00:01:10.773428]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3162042595, class id=2654162901, version=0, data size=496
+4294967294:[00:01:10.774424]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3223576591, class id=2461747236, version=0 crc is the same, not update data
+4294967294:[00:01:10.775675]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4000, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.776442]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4000, class id=844107085, version=0 crc is the same, not update data
+4294967294:[00:01:10.777154]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4000, class id=3591204969, version=0 crc is the same, not update data
+4294967294:[00:01:10.778186]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=5000, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.778933]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=5000, class id=733819916, version=0 crc is the same, not update data
+4294967294:[00:01:10.779666]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=5000, class id=1196019635, version=0 crc is the same, not update data
+4294967294:[00:01:10.780487]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3223576591, class id=4177166869, version=0 crc is the same, not update data
+4294967294:[00:01:10.781588]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=398201561, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.782591]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=577773047, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.783383]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=577773047, class id=2654162901, version=0 crc is the same, not update data
+4294967294:[00:01:10.784138]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=398201561, class id=2461747236, version=0 crc is the same, not update data
+4294967294:[00:01:10.784977]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=398201561, class id=4177166869, version=0 crc is the same, not update data
+4294967294:[00:01:10.785826]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1515395775, class id=2721984319, version=0 crc is the same, not update data
+4294967294:[00:01:10.786930]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3891102895, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.788153]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=107467279, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.789190]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1158893662, class id=2178182515, version=0 crc is the same, not update data
+ 309:[00:01:10.801185]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1158893662, class id=2654162901, version=0, data size=496
+4294967294:[00:01:10.802147]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=107467279, class id=2461747236, version=0 crc is the same, not update data
+4294967294:[00:01:10.803081]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=107467279, class id=4177166869, version=0 crc is the same, not update data
+4294967294:[00:01:10.804312]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3082805983, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.805342]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=770017276, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.806141]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=770017276, class id=2654162901, version=0 crc is the same, not update data
+4294967294:[00:01:10.806895]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3082805983, class id=2461747236, version=0 crc is the same, not update data
+4294967294:[00:01:10.807721]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3082805983, class id=4177166869, version=0 crc is the same, not update data
+4294967294:[00:01:10.808492]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3891102895, class id=2721984319, version=0 crc is the same, not update data
+4294967294:[00:01:10.809492]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=560805968, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.810746]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3904078666, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.811771]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3173229254, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.812580]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3173229254, class id=2654162901, version=0 crc is the same, not update data
+4294967294:[00:01:10.813319]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3904078666, class id=2461747236, version=0 crc is the same, not update data
+4294967294:[00:01:10.814152]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3904078666, class id=4177166869, version=0 crc is the same, not update data
+4294967294:[00:01:10.815232]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2148506883, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.816268]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4223463732, class id=2178182515, version=0 crc is the same, not update data
+ 309:[00:01:10.831230]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=4223463732, class id=2654162901, version=0, data size=488
+4294967294:[00:01:10.832205]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2148506883, class id=2461747236, version=0 crc is the same, not update data
+4294967294:[00:01:10.833134]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2148506883, class id=4177166869, version=0 crc is the same, not update data
+4294967294:[00:01:10.833919]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=560805968, class id=2721984319, version=0 crc is the same, not update data
+4294967294:[00:01:10.834681]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4268070682, class id=207799855, version=0 crc is the same, not update data
+4294967294:[00:01:10.835470]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=4268070682, class id=712345007, version=0 crc is the same, not update data
+4294967294:[00:01:10.836704]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2071840631, class id=2178182515, version=0 crc is the same, not update data
+ 309:[00:01:10.841736]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2071840631, class id=2026002825, version=0, data size=97
+4294967294:[00:01:10.843011]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3146401554, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.844277]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2190891030, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.845129]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2190891030, class id=207799855, version=0 crc is the same, not update data
+4294967294:[00:01:10.845888]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=2190891030, class id=712345007, version=0 crc is the same, not update data
+4294967294:[00:01:10.846974]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3846623513, class id=2178182515, version=0 crc is the same, not update data
+4294967294:[00:01:10.847890]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3846623513, class id=207799855, version=0 crc is the same, not update data
+4294967294:[00:01:10.848672]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3846623513, class id=712345007, version=0 crc is the same, not update data
+ 309:[00:01:10.897833]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1210805149, class id=2178182515, version=0, data size=0
+ 309:[00:01:10.948548]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1210805149, class id=207799855, version=0, data size=31
+ 309:[00:01:10.998460]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=1210805149, class id=712345007, version=0, data size=16
+ 309:[00:01:11.003933]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3146401554, class id=4247110631, version=0, data size=198
+ 309:[00:01:11.010461]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=2405602276, class id=1058537116, version=0, data size=473
+4294967294:[00:01:11.011671]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3, class id=2178182515, version=0 crc is the same, not update data
+ 309:[00:01:11.039170]:kDebug:kDomainStorageDebug:spifs_domain_storage.cpp:114:kSpifsDsObjSaved:Saved object id=3, class id=1105219716, version=0, data size=2319
+4294967294:[00:01:11.040164]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=1, class id=3757268233, version=0 crc is the same, not update data
+  17:[00:01:11.067900]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:11.069064]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 4 expected time 0:00:05.000000
+4294967294:[00:01:11.069975]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040400000070170000000000007017000000000000
+4294967294:[00:01:11.079298]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x7d3d8725765b4d5ec539357c0afc8e937ffc3adf5d09f3c5404da9c65f6f78ed447fec7f5bf800933c64397e55fc4b12aaf6dc32c4acae543a916c12ae73410ee7
+ 402:[00:01:11.080593]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:01:11.081808]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:01:17.068807 after 0:00:06.000000
+  17:[00:01:11.091681]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:11.092757]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 5 expected time 0:00:05.000000
+4294967294:[00:01:11.093622]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040500000070170000000000007017000000000000
+4294967294:[00:01:11.103052]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd7a5d8051ca345ce93eba68e06d19574a47f146e264a971ae1a8863fd53ac82a7ccbe8cd6ddd5dd7089d73549547ff817b8c8f6ec0a8c44c000f2b0d323714dcd7
+ 402:[00:01:11.104326]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:01:11.105453]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:01:17.092517 after 0:00:06.000000
+  17:[00:01:11.115354]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:11.116452]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 6 expected time 0:00:05.000000
+4294967294:[00:01:11.117330]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040600000070170000000000007017000000000000
+4294967294:[00:01:11.126811]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xc5e316708376117c3259f64c834953232dfdd1fb71aad4b073541c532eee3e75814fc2d9c96ce3ce284ca0ad976ba0cab32dbc79f8235278fe0ca3f4e6e599a314
+ 402:[00:01:11.128084]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:01:11.129225]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:01:17.116212 after 0:00:06.000000
+4294967294:[00:01:11.135261]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:11.136279]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:11.137241]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:11.137810]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:11.138684]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:11.139229]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:11.208072]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[00:01:11.208842]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:11.209581]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:01:11.215182]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0005000000
+4294967294:[00:01:11.216281]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 5 duration 0:00:00.123511
+ 403:[00:01:11.229257]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:01:11.234445]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0006000000
+4294967294:[00:01:11.235345]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 6 duration 0:00:00.118912
+4294967294:[00:01:11.313063]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:11.314199]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:01:11.319655]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0004000000
+4294967294:[00:01:11.320679]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 4 duration 0:00:00.251627
+  17:[00:01:17.091252]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:17.092431]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 7 expected time 0:00:05.000000
+4294967294:[00:01:17.093456]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040700000070170000000000007017000000000000
+4294967294:[00:01:17.102857]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x7e3d8725765b4d5e93aa73b7856fcbaa8f459af4f35ab657bddf32d61c7e585f36e6d815ba957b02b7d633c8dba52d4a6e069170ba4e2980735517c5888f30dbb8
+ 402:[00:01:17.104145]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:01:17.105330]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:01:23.092180 after 0:00:06.000000
+4294967294:[00:01:17.111566]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:17.112323]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:17.118178]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:17.119483]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 8 expected time 0:00:05.000000
+4294967294:[00:01:17.120422]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040800000070170000000000007017000000000000
+4294967294:[00:01:17.129824]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd8a5d8051ca345ce8e2b4dc96461150203cd8796128abf940e4bb54cd6eb1adac5c24a49f6a54eff984cb8dd470338a7303d2c62f2a4bc736989d451b42fae6638
+ 402:[00:01:17.131107]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:01:17.132314]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:01:23.119207 after 0:00:06.000000
+4294967294:[00:01:17.138344]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:17.139089]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:17.145359]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:17.146479]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 9 expected time 0:00:05.000000
+4294967294:[00:01:17.147381]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040900000070170000000000007017000000000000
+4294967294:[00:01:17.156851]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xc6e316708376117cced6db975a1046b786af38d74c380d208a3a6e951f52629ebddb1be0c33b1c292b09cf303d1fdb18ffe1832baef95a14b10dd337ca0235daba
+ 402:[00:01:17.158130]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:01:17.159310]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:01:23.146213 after 0:00:06.000000
+4294967294:[00:01:17.165376]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:17.166384]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:17.195844]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:17.196749]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:01:17.202365]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0008000000
+4294967294:[00:01:17.203449]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 8 duration 0:00:00.083993
+4294967294:[00:01:17.224418]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:17.225540]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:01:17.231035]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0009000000
+4294967294:[00:01:17.232068]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 9 duration 0:00:00.085605
+4294967294:[00:01:17.344567]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:17.345668]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:01:17.351236]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0007000000
+4294967294:[00:01:17.352292]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 7 duration 0:00:00.259863
+  17:[00:01:23.111234]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:23.112419]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 10 expected time 0:00:05.000000
+4294967294:[00:01:23.113306]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040a00000070170000000000007017000000000000
+4294967294:[00:01:23.122646]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x7f3d8725765b4d5edeeffd6496efcc696e6dde484ba3f2e9057f375100e614b4e3c98271bf2f87460e54c23b85085c73a159ae5d6802501346b3754cb79441b508
+ 402:[00:01:23.123967]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:01:23.125230]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:01:29.112169 after 0:00:06.000000
+4294967294:[00:01:23.131261]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:23.131991]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:23.137968]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:23.139060]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 11 expected time 0:00:05.000000
+4294967294:[00:01:23.140187]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040b00000070170000000000007017000000000000
+4294967294:[00:01:23.149915]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd9a5d8051ca345ce496f554c9d1b15272c5a31a6a82416127e07ff7127f69760d95c308a6edf66a9f4a859e2bde59198f8fe5781cf67916d49d64fc462f5ca3073
+ 402:[00:01:23.151245]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:01:23.153809]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:01:29.138801 after 0:00:06.000000
+4294967294:[00:01:23.160282]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:23.161358]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:23.167479]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:23.168595]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 12 expected time 0:00:05.000000
+4294967294:[00:01:23.169531]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040c00000070170000000000007017000000000000
+4294967294:[00:01:23.179026]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xc7e316708376117c1d0e379a00e98ca4f8483e7b586aa9fd583da819a62c20f179733804d9699a9a0b15b6d98e9e1a6e808b623a391890c8eead763577570017e2
+ 402:[00:01:23.180331]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:01:23.181508]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:01:29.168332 after 0:00:06.000000
+4294967294:[00:01:23.187572]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:23.188309]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:23.228806]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:23.229790]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:01:23.235447]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x000b000000
+4294967294:[00:01:23.236503]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 11 duration 0:00:00.097448
+4294967294:[00:01:23.264289]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:23.265409]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:01:23.270941]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x000c000000
+4294967294:[00:01:23.271975]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 12 duration 0:00:00.103393
+4294967294:[00:01:23.339682]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:23.340766]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:01:23.346266]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x000a000000
+4294967294:[00:01:23.347283]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 10 duration 0:00:00.234866
+  17:[00:01:29.131231]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:29.132419]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 13 expected time 0:00:05.000000
+4294967294:[00:01:29.133320]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040d00000070170000000000007017000000000000
+4294967294:[00:01:29.142693]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x803d8725765b4d5ec1c9a5cb20b9995590c3319224e62c0adf7ca58f93600ea243168e5aa21e5fd8dd1e959342006b2a17db43a985e44f0b803b63903770799db5
+ 402:[00:01:29.143996]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:01:29.145236]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:01:35.132170 after 0:00:06.000000
+4294967294:[00:01:29.151267]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:29.151988]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:29.158140]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:29.159239]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 14 expected time 0:00:05.000000
+4294967294:[00:01:29.160131]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040e00000070170000000000007017000000000000
+4294967294:[00:01:29.169663]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xdaa5d8051ca345ce533481e3346e59ddbc6fb5789795c0cf22d79c6f36610ff1d2a652585a42daabda22ce6c49e3c25e9f21df46d0779761afcb8edeba1b21deee
+ 402:[00:01:29.170964]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:01:29.172158]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:01:35.158985 after 0:00:06.000000
+4294967294:[00:01:29.178163]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:29.178918]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:29.184978]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:29.186100]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 15 expected time 0:00:05.000000
+4294967294:[00:01:29.186997]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x040f00000070170000000000007017000000000000
+4294967294:[00:01:29.196831]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xc8e316708376117c855c7f672666e00388db4b6f73821d9077be86cbee76f43c59638db274f13046e2a87c710eb994f68ea218e76e5af5e5d55f67b4aa3869b2da
+ 402:[00:01:29.198161]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:01:29.199354]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:01:35.185840 after 0:00:06.000000
+4294967294:[00:01:29.205386]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:29.206396]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:29.232337]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:29.233266]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:01:29.238918]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x000e000000
+4294967294:[00:01:29.240049]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 14 duration 0:00:00.080808
+4294967294:[00:01:29.267054]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:29.268158]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:01:29.273633]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x000f000000
+4294967294:[00:01:29.274666]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 15 duration 0:00:00.088586
+4294967294:[00:01:29.337842]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:29.338925]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:01:29.344409]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x000d000000
+4294967294:[00:01:29.345452]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 13 duration 0:00:00.213031
+  17:[00:01:35.151257]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:35.152461]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 16 expected time 0:00:05.000000
+4294967294:[00:01:35.153346]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041000000070170000000000007017000000000000
+4294967294:[00:01:35.162646]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x813d8725765b4d5eab6d7e5003325176fb86637cc919e570011b1f69b4ded2bd9e930c4f3808cccc833603c093f246739bf38f0f235aa08b115c78ed097dc4786b
+ 402:[00:01:35.163977]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:01:35.165162]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:01:41.152205 after 0:00:06.000000
+4294967294:[00:01:35.171141]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:35.171873]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:35.177903]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:35.179072]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 17 expected time 0:00:05.000000
+4294967294:[00:01:35.179979]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041100000070170000000000007017000000000000
+4294967294:[00:01:35.189326]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xdba5d8051ca345ce4d57c5d514f603b1bf171c8f035d2e379f48c517fa104f7762d2d25cca9abdf8fb2b465494cdc184e8f23a17dd2b9c5580121ead1252acc4c9
+ 402:[00:01:35.190611]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:01:35.191792]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:01:41.178817 after 0:00:06.000000
+4294967294:[00:01:35.197792]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:35.198517]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:35.204586]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:35.205710]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 18 expected time 0:00:05.000000
+4294967294:[00:01:35.206601]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041200000070170000000000007017000000000000
+4294967294:[00:01:35.216070]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xc9e316708376117ce35c8d848482c6eb053f68255650fdb4a2e5b16eba74564a506cc7d579748212e45e2eb101466ab6a3ea69de5aa39d044b2ae0fe047de7da54
+ 402:[00:01:35.217383]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:01:35.218554]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:01:41.205442 after 0:00:06.000000
+4294967294:[00:01:35.224563]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:35.225306]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:35.252870]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:35.254035]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:01:35.259779]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0011000000
+4294967294:[00:01:35.260854]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 17 duration 0:00:00.081773
+4294967294:[00:01:35.293264]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:35.294377]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:01:35.299910]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0012000000
+4294967294:[00:01:35.300998]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 18 duration 0:00:00.095309
+4294967294:[00:01:35.353874]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:35.355085]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:01:35.360713]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0010000000
+4294967294:[00:01:35.361764]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 16 duration 0:00:00.209290
+  17:[00:01:41.171436]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:41.172714]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 19 expected time 0:00:05.000000
+4294967294:[00:01:41.173642]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041300000070170000000000007017000000000000
+4294967294:[00:01:41.183011]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x823d8725765b4d5ee4299fc351591c83ea47240979c8c853eae76c24e90ce5a88d569ce05aa062547fe65bc38513e7452dbdefbc2dff9dc6ef09e499d7cc7b56df
+ 402:[00:01:41.184317]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:01:41.185521]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:01:47.172357 after 0:00:06.000000
+4294967294:[00:01:41.191562]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:41.192314]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:41.198240]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:41.199343]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 20 expected time 0:00:05.000000
+4294967294:[00:01:41.200238]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041400000070170000000000007017000000000000
+4294967294:[00:01:41.209705]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xdca5d8051ca345cee704dd2e5c2995145149d4a9024ee68ef71383b65cbd2ccbe1ac8c80b4c34b4795f67c0fb22ed55deda6dd3dc37ec683ae4420fbf75bc6cdb4
+ 402:[00:01:41.211224]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:01:41.212457]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:01:47.199074 after 0:00:06.000000
+4294967294:[00:01:41.218508]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:41.219269]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:41.225450]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:41.226584]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 21 expected time 0:00:05.000000
+4294967294:[00:01:41.227485]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041500000070170000000000007017000000000000
+4294967294:[00:01:41.237152]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xcae316708376117ca50de10d3ebe38a5f1b82e549e10798ca1254015dd2fbcfa328620d1068c0d9b83eacec911551072480708438761cf5352d5c530e6ff22fae3
+ 402:[00:01:41.238481]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:01:41.239665]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:01:47.226310 after 0:00:06.000000
+4294967294:[00:01:41.246109]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:41.246889]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:41.295011]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:41.295968]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:01:41.301634]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0014000000
+4294967294:[00:01:41.302718]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 20 duration 0:00:00.103391
+4294967294:[00:01:41.322106]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:41.323193]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:01:41.328684]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0015000000
+4294967294:[00:01:41.329706]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 21 duration 0:00:00.103149
+4294967294:[00:01:41.415270]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:41.416373]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:01:41.421841]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0013000000
+4294967294:[00:01:41.422860]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 19 duration 0:00:00.250252
+  17:[00:01:47.191286]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:47.192475]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 22 expected time 0:00:05.000000
+4294967294:[00:01:47.193383]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041600000070170000000000007017000000000000
+4294967294:[00:01:47.202734]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x833d8725765b4d5e54c224387db53013bb8d86580e23e666190c9dca8548d1a8f58f91b0ec4076f3c79a4f55f682096661b01ad17d04026b28ca678a8101546d72
+ 402:[00:01:47.204037]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:01:47.205249]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:01:53.192218 after 0:00:06.000000
+4294967294:[00:01:47.211266]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:47.211996]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:47.218514]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:47.219656]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 23 expected time 0:00:05.000000
+4294967294:[00:01:47.220556]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041700000070170000000000007017000000000000
+4294967294:[00:01:47.230267]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xdda5d8051ca345ce97084838a6f0eebd8394ccceff487205b413d2e363f0add8bc27f16ae802b43abbd77d70690b9a9638322ddf4d39fb2b453fbc38e30362bb04
+ 402:[00:01:47.231552]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:01:47.232738]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:01:53.219391 after 0:00:06.000000
+4294967294:[00:01:47.238841]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:47.239591]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:47.245497]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:47.246830]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 24 expected time 0:00:05.000000
+4294967294:[00:01:47.247791]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041800000070170000000000007017000000000000
+4294967294:[00:01:47.257346]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xcbe316708376117c616fc4cc378c3ce9aa341ad662178ee9100e950061037f7d3069dfb0692449d57a65c7cc9187b630c21a09d1d884412cf18e851691348dd886
+ 402:[00:01:47.258643]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:01:47.259953]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:01:53.246341 after 0:00:06.000000
+4294967294:[00:01:47.266100]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:47.266853]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:47.312529]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:47.313479]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:01:47.319405]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0017000000
+4294967294:[00:01:47.320501]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 23 duration 0:00:00.100863
+4294967294:[00:01:47.330221]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:47.335462]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:01:47.340822]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0018000000
+4294967294:[00:01:47.341812]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 24 duration 0:00:00.095230
+4294967294:[00:01:47.408675]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:47.409740]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:01:47.415204]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0016000000
+4294967294:[00:01:47.416219]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 22 duration 0:00:00.223764
+  17:[00:01:53.211334]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:53.212520]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 25 expected time 0:00:05.000000
+4294967294:[00:01:53.213407]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041900000070170000000000007017000000000000
+4294967294:[00:01:53.222782]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x843d8725765b4d5e95a8e41bd02efef4fba083062eb45f478bd14bb43f82bb13f646a9deb2a56584e7e8c0f2f388aa07a800b599fb720dd27c433efe60ad25f62c
+ 402:[00:01:53.224139]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:01:53.225329]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:01:59.212265 after 0:00:06.000000
+4294967294:[00:01:53.231342]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:53.232090]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:53.238192]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:53.239313]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 26 expected time 0:00:05.000000
+4294967294:[00:01:53.240232]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041a00000070170000000000007017000000000000
+4294967294:[00:01:53.249726]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xdea5d8051ca345cee33fba8b1731cc626d9af476156885192744f4c226a719ae85579d00ea7539d2289ca3684bcb1f970661be6ead91bb661b04eab0dbbdf58c17
+ 402:[00:01:53.251305]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:01:53.252535]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:01:59.239050 after 0:00:06.000000
+4294967294:[00:01:53.258864]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:53.259623]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:53.265551]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:53.266677]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 27 expected time 0:00:05.000000
+4294967294:[00:01:53.267824]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041b00000070170000000000007017000000000000
+4294967294:[00:01:53.277497]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xcce316708376117c0ad2f072e6d324b25fdf3b91d5c0bfa253b0e485f22f03e280eff7060fa93c7a66843272a5c192de752b9ea990adc3056c85243b6f24722bef
+ 402:[00:01:53.278794]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:01:53.279994]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:01:59.266402 after 0:00:06.000000
+4294967294:[00:01:53.286127]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:53.286882]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:53.395857]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:53.396824]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:01:53.402496]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x001a000000
+4294967294:[00:01:53.403578]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 26 duration 0:00:00.164273
+4294967294:[00:01:53.405418]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:53.418359]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:01:53.423890]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[00:01:53.424968]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x001b000000
+4294967294:[00:01:53.425829]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 27 duration 0:00:00.159199
+ 403:[00:01:53.439006]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:01:53.444294]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0019000000
+4294967294:[00:01:53.445233]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 25 duration 0:00:00.232745
+  17:[00:01:59.231299]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:59.232480]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 28 expected time 0:00:05.000000
+4294967294:[00:01:59.233383]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041c00000070170000000000007017000000000000
+4294967294:[00:01:59.242727]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x853d8725765b4d5eeedede6c039c08b9cc7d35f694b73f6eeaba9fcf0519fdc2f92189bbc711acfab241abbd5213cde78e9de9170d607b50cfa59a051113961485
+ 402:[00:01:59.244050]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:01:59.245245]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:02:05.232223 after 0:00:06.000000
+4294967294:[00:01:59.251265]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:59.251988]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:59.258062]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:59.259168]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 29 expected time 0:00:05.000000
+4294967294:[00:01:59.260076]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041d00000070170000000000007017000000000000
+4294967294:[00:01:59.269533]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xdfa5d8051ca345cef91e5bd56121ac7cd1f02b286c49a04cb6244ba60e97c80206ca20316e671e795ed93d42221a542f734a48853596ec5bd6ab7319d5fe51984a
+ 402:[00:01:59.270812]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:01:59.272010]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:02:05.258907 after 0:00:06.000000
+4294967294:[00:01:59.278075]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:59.278805]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:01:59.284882]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:01:59.286030]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 30 expected time 0:00:05.000000
+4294967294:[00:01:59.286963]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041e00000070170000000000007017000000000000
+4294967294:[00:01:59.296494]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xcde316708376117c577af563c3cde6f7319a83eb4a30c14546d62b902314f9dea268101585fc8aa1e88c9bc6324b7f665ecc7681496ca3e0bf3ee0327cb5cc85a0
+ 402:[00:01:59.298131]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:01:59.299338]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:02:05.285760 after 0:00:06.000000
+4294967294:[00:01:59.305384]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:01:59.306305]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:01:59.336766]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:59.337781]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:01:59.343419]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x001d000000
+4294967294:[00:01:59.344514]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 29 duration 0:00:00.085348
+4294967294:[00:01:59.427607]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[00:01:59.428544]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:01:59.429387]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:01:59.435068]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x001c000000
+4294967294:[00:01:59.436123]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 28 duration 0:00:00.203633
+ 403:[00:01:59.449235]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:01:59.454437]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x001e000000
+4294967294:[00:01:59.455348]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 30 duration 0:00:00.169366
+  17:[00:02:05.251342]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:05.252902]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 31 expected time 0:00:05.000000
+4294967294:[00:02:05.253842]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x041f00000070170000000000007017000000000000
+4294967294:[00:02:05.263313]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x863d8725765b4d5efdbb873c8de98aa28011b24d9bd5c205f354c846769093a4beb753e9bf172a29db2c5c9bbdefc812cd0ca061b623a1d1f215468feea7e0b2c7
+ 402:[00:02:05.264624]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:02:05.265818]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:02:11.252631 after 0:00:06.000000
+4294967294:[00:02:05.271810]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:05.272549]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:05.278660]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:05.279782]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 32 expected time 0:00:05.000000
+4294967294:[00:02:05.280693]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042000000070170000000000007017000000000000
+4294967294:[00:02:05.290197]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xe0a5d8051ca345ceb2cc84e06de3482140373c5af14480721fa3e1272cb8a6729406742ba5bf829d6f244948d0a9243638af3a8d4d3f235174e20329bb5e06544b
+ 402:[00:02:05.291485]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:02:05.292659]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:02:11.279521 after 0:00:06.000000
+4294967294:[00:02:05.298707]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:05.299463]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:05.305573]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:05.306705]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 33 expected time 0:00:05.000000
+4294967294:[00:02:05.307613]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042100000070170000000000007017000000000000
+4294967294:[00:02:05.317179]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xcee316708376117cd52c009facaea8e4272247bfff8c25d791dcad2942a86ad4f31dba620cd4000b845a3fb9c58f846f2385d8574b185daad93c48140d68d721e5
+ 402:[00:02:05.318465]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:02:05.319640]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:02:11.306438 after 0:00:06.000000
+4294967294:[00:02:05.325643]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:05.326675]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:02:05.355929]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:05.357052]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:02:05.362791]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0020000000
+4294967294:[00:02:05.363874]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 32 duration 0:00:00.084085
+4294967294:[00:02:05.390436]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:05.391545]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:02:05.397065]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0021000000
+4294967294:[00:02:05.398094]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 33 duration 0:00:00.091405
+4294967294:[00:02:05.468532]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:05.469672]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:02:05.475274]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x001f000000
+4294967294:[00:02:05.476342]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 31 duration 0:00:00.223442
+  17:[00:02:11.271303]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:11.272483]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 34 expected time 0:00:05.000000
+4294967294:[00:02:11.273377]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042200000070170000000000007017000000000000
+4294967294:[00:02:11.283101]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x873d8725765b4d5e504bb0fd6e6fd0ee27288d49c3d2f1c425a982b6d8697832f06ef253707cd5ba7df8a5f1b46cd1e38f52d09542924fe0d354af6d6636427ffe
+ 402:[00:02:11.284397]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:02:11.285594]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:02:17.272227 after 0:00:06.000000
+4294967294:[00:02:11.291644]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:11.292392]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:11.298494]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:11.299585]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 35 expected time 0:00:05.000000
+4294967294:[00:02:11.300480]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042300000070170000000000007017000000000000
+4294967294:[00:02:11.310023]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xe1a5d8051ca345ceef677b74f58def8c835f9b12a06d7dcaa4a72f455c99e5e4e7a7c546ad05ef998ca52664fac68b50fd5faf1ab71ffac32049b03d396aa2fb09
+ 402:[00:02:11.311295]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:02:11.312495]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:02:17.299328 after 0:00:06.000000
+4294967294:[00:02:11.318542]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:11.319293]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:11.325408]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:11.326522]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 36 expected time 0:00:05.000000
+4294967294:[00:02:11.327408]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042400000070170000000000007017000000000000
+4294967294:[00:02:11.336978]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xcfe316708376117c3f5ed1f918e4ba099b7c42100ef1adbf6bb00e47c7ca600666e98f5a85df05672822ff66085a7701c9bb877cae1bec7cbdf6d96b99f3694c89
+ 402:[00:02:11.338283]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:02:11.339456]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:02:17.326259 after 0:00:06.000000
+4294967294:[00:02:11.345485]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:11.346505]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:02:11.376754]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:11.377689]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:02:11.383618]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0023000000
+4294967294:[00:02:11.384726]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 35 duration 0:00:00.085150
+4294967294:[00:02:11.419513]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:11.420608]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:02:11.426116]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0024000000
+4294967294:[00:02:11.427151]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 36 duration 0:00:00.100651
+4294967294:[00:02:11.475935]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:11.477047]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:02:11.482537]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0022000000
+4294967294:[00:02:11.483806]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 34 duration 0:00:00.211301
+  17:[00:02:17.291283]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:17.292451]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 37 expected time 0:00:05.000000
+4294967294:[00:02:17.293348]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042500000070170000000000007017000000000000
+4294967294:[00:02:17.302730]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x883d8725765b4d5e994ca1223a7748773669d2782a070487f2a6e276edab8e8597e7a9ea249152ff661ad705e45ba19de4838a34ed103ed88162f0e93c31a0240f
+ 402:[00:02:17.304047]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:02:17.305272]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:02:23.292196 after 0:00:06.000000
+4294967294:[00:02:17.311301]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:17.312024]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:17.318371]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:17.319488]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 38 expected time 0:00:05.000000
+4294967294:[00:02:17.320605]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042600000070170000000000007017000000000000
+4294967294:[00:02:17.330197]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xe2a5d8051ca345ce6f18bed81d64dfe58af2a2dc14cf10b8e33c1521cf449d41eadbcf62dd7e86236012a401032377c3495787e5cea9e2854240814b45fe9c186b
+ 402:[00:02:17.331495]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:02:17.332715]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:02:23.319232 after 0:00:06.000000
+4294967294:[00:02:17.338806]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:17.339551]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:17.345488]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:17.346590]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 39 expected time 0:00:05.000000
+4294967294:[00:02:17.347501]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042700000070170000000000007017000000000000
+4294967294:[00:02:17.357034]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd0e316708376117cc880b9ceb325846dc3290932b4ef6ef7bc4577f9e45080e81f1f0d4cebdeffc5175f134f69c72c3ee6694bcd4d80ebfb28bc788bed5b46bbfb
+ 402:[00:02:17.358315]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:02:17.359492]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:02:23.346327 after 0:00:06.000000
+4294967294:[00:02:17.365812]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:17.366558]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:02:17.419944]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:17.420884]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:02:17.428027]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0026000000
+4294967294:[00:02:17.429156]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 38 duration 0:00:00.109674
+4294967294:[00:02:17.469432]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:17.470539]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:02:17.476102]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0027000000
+4294967294:[00:02:17.477138]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 39 duration 0:00:00.130563
+4294967294:[00:02:17.493944]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:17.495071]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:02:17.500520]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0025000000
+4294967294:[00:02:17.501546]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 37 duration 0:00:00.209102
+  17:[00:02:23.311293]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:23.312483]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 40 expected time 0:00:05.000000
+4294967294:[00:02:23.313377]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042800000070170000000000007017000000000000
+4294967294:[00:02:23.322741]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x893d8725765b4d5e926a51e8577f520ee33ee7c3021f05c5c0a4de92cfd95b60024a56637d28e8f1881f4deb6b203ab256db05ae9f18101734e0f956d444f81143
+ 402:[00:02:23.324054]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:02:23.325276]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:02:29.312231 after 0:00:06.000000
+4294967294:[00:02:23.331275]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:23.332000]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:23.338093]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:23.339200]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 41 expected time 0:00:05.000000
+4294967294:[00:02:23.340091]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042900000070170000000000007017000000000000
+4294967294:[00:02:23.349549]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xe3a5d8051ca345ce0fd12abf7c22ed8b861e7e0e405cc838b05557cf2d4cdb506ae2b393e6a7e39f584b223913e5b62f5c0f481e8c5496027cc543b5cd7c58731c
+ 402:[00:02:23.350845]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:02:23.352035]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:02:29.338945 after 0:00:06.000000
+4294967294:[00:02:23.358065]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:23.358792]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:23.365118]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:23.366233]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 42 expected time 0:00:05.000000
+4294967294:[00:02:23.367133]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042a00000070170000000000007017000000000000
+4294967294:[00:02:23.376662]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd1e316708376117cfdf0c72667e629e4fdf87b14981296b133c5c2444c807386a01f02dd5fcfbfe9a4944e0212da460ebf3e2f4f0b86598768e0ce811da215bea3
+ 402:[00:02:23.377992]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:02:23.379180]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:02:29.365969 after 0:00:06.000000
+4294967294:[00:02:23.385199]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:23.386241]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:02:23.416974]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:23.417901]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:02:23.423517]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0029000000
+4294967294:[00:02:23.424604]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 41 duration 0:00:00.085407
+4294967294:[00:02:23.438663]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:23.439765]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:02:23.445182]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x002a000000
+4294967294:[00:02:23.446213]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 42 duration 0:00:00.080008
+4294967294:[00:02:23.511127]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:23.512233]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:02:23.517685]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0028000000
+4294967294:[00:02:23.518720]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 40 duration 0:00:00.206239
+  17:[00:02:29.331302]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:29.332494]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 43 expected time 0:00:05.000000
+4294967294:[00:02:29.333403]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042b00000070170000000000007017000000000000
+4294967294:[00:02:29.342713]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x8a3d8725765b4d5e721ecdb3d832bba0e0289100fa14a9c2780665c30565226833e0214476e1576e2f4ab33e48aa824d364879a4d2fae8e78ce1c1c7cfbc9fc5a0
+ 402:[00:02:29.344007]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:02:29.345183]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:02:35.332242 after 0:00:06.000000
+4294967294:[00:02:29.351211]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:29.351955]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:29.358054]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:29.359156]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 44 expected time 0:00:05.000000
+4294967294:[00:02:29.360069]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042c00000070170000000000007017000000000000
+4294967294:[00:02:29.369614]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xe4a5d8051ca345ce7f5f20f585f66bc39991938490065d9ffcf5c1c17e20685d85c0f1e0724f24c2e6607d639b5302649ed5ec7c1a1e370c7e4d94b1f5abe9e881
+ 402:[00:02:29.370898]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:02:29.372087]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:02:35.358902 after 0:00:06.000000
+4294967294:[00:02:29.378113]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:29.378850]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:29.385221]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:29.386362]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 45 expected time 0:00:05.000000
+4294967294:[00:02:29.387278]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042d00000070170000000000007017000000000000
+4294967294:[00:02:29.396797]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd2e316708376117c774095d1b7e5a6aea2ed9ae96907aaa3eaf4d5c628cd6d16cb9d6c20180aa6c5632e85040c91eba1ebe942da56110027c7892780654d5e2ccc
+ 402:[00:02:29.398156]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:02:29.399334]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:02:35.386098 after 0:00:06.000000
+4294967294:[00:02:29.405588]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:29.406505]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:02:29.447741]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:29.448806]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:02:29.454635]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x002c000000
+4294967294:[00:02:29.455744]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 44 duration 0:00:00.096567
+4294967294:[00:02:29.501341]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:29.502427]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:02:29.508147]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x002d000000
+4294967294:[00:02:29.509189]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 45 duration 0:00:00.122841
+4294967294:[00:02:29.523072]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:29.526261]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:02:29.531580]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x002b000000
+4294967294:[00:02:29.532620]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 43 duration 0:00:00.200115
+  17:[00:02:35.351303]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:35.352488]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 46 expected time 0:00:05.000000
+4294967294:[00:02:35.353384]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042e00000070170000000000007017000000000000
+4294967294:[00:02:35.362696]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x8b3d8725765b4d5e2b41544ae2fe11651d22d3435776ad663a7909552d845e1292dbd8ef40284f12cb10481b8e936189e3b185328baa56e8ea99456fd46dd97f97
+ 402:[00:02:35.364008]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:02:35.365176]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:02:41.352236 after 0:00:06.000000
+4294967294:[00:02:35.371179]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:35.371903]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:35.378052]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:35.379152]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 47 expected time 0:00:05.000000
+4294967294:[00:02:35.380035]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x042f00000070170000000000007017000000000000
+4294967294:[00:02:35.389593]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xe5a5d8051ca345ced175543f83082306151986c99ec36157c9469a757660a7820de397d287dc9ee2e9ebe1064186013475a599b55a56c13efae127dfabf8f8e327
+ 402:[00:02:35.390895]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:02:35.392107]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:02:41.378900 after 0:00:06.000000
+4294967294:[00:02:35.398119]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:35.398875]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:35.405022]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:35.406147]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 48 expected time 0:00:05.000000
+4294967294:[00:02:35.407034]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043000000070170000000000007017000000000000
+4294967294:[00:02:35.416642]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd3e316708376117ce5bef40bd6367e041e518baa68cc11ae89ad03a3eba97cadf7feb900e74f2562a0cb5c5e514e2aaa0ae77d4ef37543c7e77de91bf2e76aa9cb
+ 402:[00:02:35.417997]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:02:35.419154]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:02:41.405881 after 0:00:06.000000
+4294967294:[00:02:35.425157]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:35.426193]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:02:35.471918]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:35.472972]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:02:35.478707]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x002f000000
+4294967294:[00:02:35.479783]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 47 duration 0:00:00.100615
+4294967294:[00:02:35.490134]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:35.494735]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:02:35.500121]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0030000000
+4294967294:[00:02:35.501119]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 48 duration 0:00:00.094994
+4294967294:[00:02:35.561153]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:35.562255]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:02:35.567803]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x002e000000
+4294967294:[00:02:35.568832]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 46 duration 0:00:00.216333
+  17:[00:02:41.371331]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:41.372509]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 49 expected time 0:00:05.000000
+4294967294:[00:02:41.373411]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043100000070170000000000007017000000000000
+4294967294:[00:02:41.382946]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x8c3d8725765b4d5e74adaa930726da709756b6a4017463be8052b751d08e8b551999b95f8f57710234065960c88ad18304667a2875d90b328a8e2b775994e405c4
+ 402:[00:02:41.384497]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:02:41.385746]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:02:47.372248 after 0:00:06.000000
+4294967294:[00:02:41.393047]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:41.393846]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:41.400459]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:41.401768]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 50 expected time 0:00:05.000000
+4294967294:[00:02:41.402883]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043200000070170000000000007017000000000000
+4294967294:[00:02:41.413581]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xe6a5d8051ca345ceb8235c554f305486081860c8a5906cf2eda474203d07ef725efca0b3d133ffcb83504f9d3951152430a8ef53ed1e1114c61dbd2241c781f5a6
+ 402:[00:02:41.414891]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:02:41.416133]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:02:47.401488 after 0:00:06.000000
+4294967294:[00:02:41.422405]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:41.423167]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:41.429283]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:41.430414]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 51 expected time 0:00:05.000000
+4294967294:[00:02:41.431301]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043300000070170000000000007017000000000000
+4294967294:[00:02:41.440870]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd4e316708376117c9061c1edfe70e8e4871a057ac8eb4953641ad1b88c0746ae6c8873891e66e33646c5d569530b058860bdb861751a6561796240780e26bfdb44
+ 402:[00:02:41.442171]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:02:41.443354]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:02:47.430135 after 0:00:06.000000
+4294967294:[00:02:41.449412]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:41.450182]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:02:41.481983]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:41.483008]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:02:41.488945]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0032000000
+4294967294:[00:02:41.490083]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 50 duration 0:00:00.088348
+4294967294:[00:02:41.605447]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:41.606651]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:02:41.612209]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0031000000
+4294967294:[00:02:41.613254]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 49 duration 0:00:00.240738
+4294967294:[00:02:41.767249]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:41.768413]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:02:41.774020]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0033000000
+4294967294:[00:02:41.775049]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 51 duration 0:00:00.344652
+  17:[00:02:47.391336]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:47.392522]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 52 expected time 0:00:05.000000
+4294967294:[00:02:47.393416]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043400000070170000000000007017000000000000
+4294967294:[00:02:47.402766]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x8d3d8725765b4d5e1de52f3af290bf88cd572400e2eff646a2abde23e3a28642d33759f5362f428855d563535b3ea739c407bcc83a6daf4abbb2f36823a12facd0
+ 402:[00:02:47.404096]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:02:47.405294]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:02:53.392266 after 0:00:06.000000
+4294967294:[00:02:47.411302]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:47.412044]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:47.418244]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:47.419360]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 53 expected time 0:00:05.000000
+4294967294:[00:02:47.420262]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043500000070170000000000007017000000000000
+4294967294:[00:02:47.430014]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xe7a5d8051ca345ce2fbcd2ca542aa6bdcfcc26fb12ba18014d94ac268fcda5fa191f0f85100503e362a0d2eaf752d73b4f399adc5812f6a45f3cefcf3fa1b036e6
+ 402:[00:02:47.431294]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:02:47.432537]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:02:53.419105 after 0:00:06.000000
+4294967294:[00:02:47.438622]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:47.439352]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:47.445462]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:47.446580]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 54 expected time 0:00:05.000000
+4294967294:[00:02:47.447476]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043600000070170000000000007017000000000000
+4294967294:[00:02:47.457016]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd5e316708376117c55fb344e0aa10f28840b369e1e1fd8ced356e6032ae0c15739b48191d10c0863f0d0961fd92bddaf4f0403b34d159d7c03f24b3026be963ea6
+ 402:[00:02:47.458302]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:02:47.459476]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:02:53.446319 after 0:00:06.000000
+4294967294:[00:02:47.465498]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:47.466523]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:02:47.508091]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:47.509020]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:02:47.514726]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0035000000
+4294967294:[00:02:47.515802]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 53 duration 0:00:00.096435
+4294967294:[00:02:47.521351]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:47.531009]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:02:47.538046]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0036000000
+4294967294:[00:02:47.539283]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 54 duration 0:00:00.092710
+4294967294:[00:02:47.609824]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:47.610907]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:02:47.616385]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0034000000
+4294967294:[00:02:47.617430]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 52 duration 0:00:00.224914
+  17:[00:02:53.411379]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:53.412563]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 55 expected time 0:00:05.000000
+4294967294:[00:02:53.413466]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043700000070170000000000007017000000000000
+4294967294:[00:02:53.422895]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x8e3d8725765b4d5e2ecd45e57af5c6ab498a2e13d65ff3dc0a538ba797ceeb67aadaacaa66a6f470ea9319115ad714faef82d76b5d2e4f8d60fec8d3f95935702e
+ 402:[00:02:53.424189]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:02:53.425372]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:02:59.412303 after 0:00:06.000000
+4294967294:[00:02:53.431407]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:53.432143]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:53.438326]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:53.439448]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 56 expected time 0:00:05.000000
+4294967294:[00:02:53.440358]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043800000070170000000000007017000000000000
+4294967294:[00:02:53.449907]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xe8a5d8051ca345ce464254402ad66ed9ae756cf88bc7d155be27278d7f9475da1c5e2c93426f00d4dc9e33da6e80ca67daf4f167a84eb045b2124fd33d07113425
+ 402:[00:02:53.451197]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:02:53.452399]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:02:59.439190 after 0:00:06.000000
+4294967294:[00:02:53.458431]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:53.459184]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:53.465317]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:53.466442]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 57 expected time 0:00:05.000000
+4294967294:[00:02:53.467340]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043900000070170000000000007017000000000000
+4294967294:[00:02:53.478809]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd6e316708376117cf3b937278954d59eda138177d0e883ec39e4a1f6fd8604f1500cb661b4847304bdb6f75f969a9b0627511ecf68f08deed71d6f16982ba60cc4
+ 402:[00:02:53.480177]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:02:53.481862]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:02:59.466176 after 0:00:06.000000
+4294967294:[00:02:53.488087]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:53.488851]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:02:53.515633]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:53.516669]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:02:53.522303]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0038000000
+4294967294:[00:02:53.523390]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 56 duration 0:00:00.083942
+4294967294:[00:02:53.547438]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:53.548560]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:02:53.554112]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0039000000
+4294967294:[00:02:53.555149]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 57 duration 0:00:00.088724
+4294967294:[00:02:53.614807]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:53.615978]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:02:53.621592]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0037000000
+4294967294:[00:02:53.622635]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 55 duration 0:00:00.210067
+  17:[00:02:59.431322]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:59.432506]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 58 expected time 0:00:05.000000
+4294967294:[00:02:59.433393]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043a00000070170000000000007017000000000000
+4294967294:[00:02:59.442778]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x8f3d8725765b4d5eff0baaacd496b994e516e94181e6c1549df0db0c9be852c3124c576b7ac74725de640f35a0c04bfc89276c8da91675f1b55c58084510b2bda6
+ 402:[00:02:59.444082]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:02:59.445296]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:03:05.432250 after 0:00:06.000000
+4294967294:[00:02:59.451297]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:59.452017]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:59.458132]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:59.459250]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 59 expected time 0:00:05.000000
+4294967294:[00:02:59.460159]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043b00000070170000000000007017000000000000
+4294967294:[00:02:59.469630]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xe9a5d8051ca345ce3c10298948f10c8b078bbb8646bf0efacc9615dcbf15ac9be67276537a6fc9d7ee238cd03dc6cb62bef86e0db43ed52d0e9c984f7a48deb1f0
+ 402:[00:02:59.470905]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:02:59.472091]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:03:05.458992 after 0:00:06.000000
+4294967294:[00:02:59.478118]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:59.478863]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:02:59.484985]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:02:59.486133]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 60 expected time 0:00:05.000000
+4294967294:[00:02:59.487020]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043c00000070170000000000007017000000000000
+4294967294:[00:02:59.496568]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd7e316708376117cbff425bde4b3bc12cce4d7fdaf7352044edc564bed1f1e6e11c32636f38abadf059a19e60273657324ad10905f166eb3d5989275783f72a90a
+ 402:[00:02:59.497877]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:02:59.499052]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:03:05.485871 after 0:00:06.000000
+4294967294:[00:02:59.505091]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:02:59.506125]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:02:59.563256]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[00:02:59.564048]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:59.564876]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:02:59.570552]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x003b000000
+4294967294:[00:02:59.571648]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 59 duration 0:00:00.112397
+ 403:[00:02:59.584733]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:02:59.589952]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x003c000000
+4294967294:[00:02:59.590859]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 60 duration 0:00:00.104769
+4294967294:[00:02:59.645182]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:02:59.646319]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:02:59.651814]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x003a000000
+4294967294:[00:02:59.652862]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 58 duration 0:00:00.220366
+  17:[00:03:05.451541]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:05.452713]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 61 expected time 0:00:05.000000
+4294967294:[00:03:05.455028]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043d00000070170000000000007017000000000000
+4294967294:[00:03:05.465576]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x903d8725765b4d5e8e09ab7b9832cf1d79952d96fd9fc85252e7814107db1c5f898ca451eb701e5c478204f5bcd3730b01aa23baec1c277526fc4cd21cd7cff42e
+ 402:[00:03:05.467109]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:03:05.468583]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:03:11.452456 after 0:00:06.000000
+4294967294:[00:03:05.474960]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:05.475806]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:05.482587]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:05.483983]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 62 expected time 0:00:05.000000
+4294967294:[00:03:05.484923]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043e00000070170000000000007017000000000000
+4294967294:[00:03:05.495028]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xeaa5d8051ca345ceb3e56bc48e74fc67bf32a8f6349991b29e00d7e5582898de2dfdb756857047deefef23a053fcdc0b4dcaec88ea70d6ae012f004853854b9bd7
+ 402:[00:03:05.496594]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:03:05.497804]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:03:11.483435 after 0:00:06.000000
+4294967294:[00:03:05.504221]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:05.504993]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:05.511385]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:05.512686]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 63 expected time 0:00:05.000000
+4294967294:[00:03:05.513863]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x043f00000070170000000000007017000000000000
+4294967294:[00:03:05.523458]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd8e316708376117c11d9886b6213edb701358b31c04c1c83361b7fd51ef879cedf4365f518b008c09fc934845e5ad5c5075cfa800be4507701f1bd35c6000b8152
+ 402:[00:03:05.524794]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:03:05.525989]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:03:11.512392 after 0:00:06.000000
+4294967294:[00:03:05.532069]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:05.532818]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:03:05.612752]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[00:03:05.613636]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:05.614448]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:03:05.620167]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x003e000000
+4294967294:[00:03:05.621249]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 62 duration 0:00:00.137540
+ 403:[00:03:05.634420]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:03:05.639690]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x003f000000
+4294967294:[00:03:05.640617]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 63 duration 0:00:00.128000
+4294967294:[00:03:05.684284]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:05.685455]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:03:05.691114]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x003d000000
+4294967294:[00:03:05.692144]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 61 duration 0:00:00.239430
+  17:[00:03:11.471349]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:11.472513]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 64 expected time 0:00:05.000000
+4294967294:[00:03:11.473399]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044000000070170000000000007017000000000000
+4294967294:[00:03:11.482759]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x913d8725765b4d5e703c0348e7491874ad2b69c717124016cb60b6014d3faa5bb026e9ffd73be97ecf4e2b36eae1009ebf3ff7661900a3e3cbe8abe00648988034
+ 402:[00:03:11.484051]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:03:11.485294]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:03:17.472257 after 0:00:06.000000
+4294967294:[00:03:11.491470]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:11.492420]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:11.498294]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:11.499393]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 65 expected time 0:00:05.000000
+4294967294:[00:03:11.500298]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044100000070170000000000007017000000000000
+4294967294:[00:03:11.510266]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xeba5d8051ca345cedf73a4d5bfa8bc8aff27ac5ff5958b6b24c31fc248950eb9cea98cc45e65b24faab81931dad81de9e9b2053c0e3b59af4d74edf9fc1a345841
+ 402:[00:03:11.511568]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:03:11.512792]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:03:17.499130 after 0:00:06.000000
+4294967294:[00:03:11.518892]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:11.519646]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:11.525784]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:11.526976]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 66 expected time 0:00:05.000000
+4294967294:[00:03:11.527879]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044200000070170000000000007017000000000000
+4294967294:[00:03:11.537445]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xd9e316708376117ce019505c7e0dd340fa744a5d5ff6784e1340d5e5a64d20190cea9a162e49a7d96c8a97851fc087ba365d94c08d8ac2d1223c91268583123bbc
+ 402:[00:03:11.538751]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:03:11.540124]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:03:17.526710 after 0:00:06.000000
+4294967294:[00:03:11.546251]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:11.547000]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:03:11.580660]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:11.581599]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:03:11.587232]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0041000000
+4294967294:[00:03:11.588310]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 65 duration 0:00:00.088921
+4294967294:[00:03:11.627490]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:11.628630]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:03:11.634089]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0042000000
+4294967294:[00:03:11.635109]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 66 duration 0:00:00.108146
+4294967294:[00:03:11.675611]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:11.676679]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:03:11.682128]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0040000000
+4294967294:[00:03:11.683169]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 64 duration 0:00:00.210658
+  17:[00:03:17.491360]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:17.492547]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 67 expected time 0:00:05.000000
+4294967294:[00:03:17.493452]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044300000070170000000000007017000000000000
+4294967294:[00:03:17.502791]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x923d8725765b4d5eaf0ec217cc6834170e329d44cc0909a1645a432b12dadddb6737bff12f8c542e214cfcf3d8a9a9452ff2ffb04689a5afb5163a641bc13b7c60
+ 402:[00:03:17.504082]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:03:17.505295]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:03:23.492291 after 0:00:06.000000
+4294967294:[00:03:17.511308]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:17.512047]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:17.518185]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:17.519275]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 68 expected time 0:00:05.000000
+4294967294:[00:03:17.520188]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044400000070170000000000007017000000000000
+4294967294:[00:03:17.529713]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xeca5d8051ca345cef16d4df0ac8b49cc0fd6989adb0642aa2a15327bbce8501c72a23d0f4771fce759425e22ece9628cede074e511a01984d47c62ef336e333caa
+ 402:[00:03:17.531000]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:03:17.532187]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:03:23.519022 after 0:00:06.000000
+4294967294:[00:03:17.538513]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:17.539296]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:17.545604]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:17.546767]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 69 expected time 0:00:05.000000
+4294967294:[00:03:17.547654]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044500000070170000000000007017000000000000
+4294967294:[00:03:17.557208]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xdae316708376117c282c5eb7bd26fc9e02831d8afe70fe376f72fec429c326b35c15d188523913639ab7ba09cb7e3c8918673f066f266abdf749897160498d4cec
+ 402:[00:03:17.558530]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:03:17.559716]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:03:23.546492 after 0:00:06.000000
+4294967294:[00:03:17.565902]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:17.566666]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:03:17.625055]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[00:03:17.625844]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:17.626597]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:03:17.632198]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0044000000
+4294967294:[00:03:17.633290]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 68 duration 0:00:00.114016
+ 403:[00:03:17.646761]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:03:17.652082]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0045000000
+4294967294:[00:03:17.653033]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 69 duration 0:00:00.106299
+4294967294:[00:03:17.735141]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:17.736229]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:03:17.743161]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0043000000
+4294967294:[00:03:17.744255]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 67 duration 0:00:00.251723
+  17:[00:03:23.511297]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:23.512486]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 70 expected time 0:00:05.000000
+4294967294:[00:03:23.513376]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044600000070170000000000007017000000000000
+4294967294:[00:03:23.522744]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x933d8725765b4d5e313629c597b6c8b3911da3b3c3aa114e77f0e9de93e7fc5a9fc3d68dec58b65d83339074a3fb9e6616697a6576fa89bd891bd3cfc57aeb08ed
+ 402:[00:03:23.524058]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:03:23.525291]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:03:29.512234 after 0:00:06.000000
+4294967294:[00:03:23.531303]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:23.532031]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:23.538149]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:23.539411]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 71 expected time 0:00:05.000000
+4294967294:[00:03:23.540322]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044700000070170000000000007017000000000000
+4294967294:[00:03:23.549874]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xeda5d8051ca345ceb5828c393fc5c5da8c3e5943e1328df6a38a4a2c1e25e76dd3fcd0c4111e80b697741ef6c57c6319936140a9b44ed2ea3219ca4b4f4a844c3d
+ 402:[00:03:23.551197]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:03:23.552392]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:03:29.539143 after 0:00:06.000000
+4294967294:[00:03:23.558433]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:23.559161]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:23.565321]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:23.566439]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 72 expected time 0:00:05.000000
+4294967294:[00:03:23.567345]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044800000070170000000000007017000000000000
+4294967294:[00:03:23.577164]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xdbe316708376117cd300d8c8f5b04eef111734bda2d42f74f01beb65442ff95454f2f993dedd097ac4df7c87a72286201257218cb2c94b6cf774972660fcbfbe55
+ 402:[00:03:23.579717]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:03:23.581251]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:03:29.566177 after 0:00:06.000000
+4294967294:[00:03:23.587531]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:23.588280]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:03:23.611844]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:23.612791]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:03:23.618370]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0047000000
+4294967294:[00:03:23.619439]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 71 duration 0:00:00.080037
+4294967294:[00:03:23.669106]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:23.670238]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:03:23.675686]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0048000000
+4294967294:[00:03:23.676709]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 72 duration 0:00:00.110281
+4294967294:[00:03:23.724545]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:23.725700]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:03:23.731149]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0046000000
+4294967294:[00:03:23.732196]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 70 duration 0:00:00.219700
+  17:[00:03:29.531320]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:29.532504]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 73 expected time 0:00:05.000000
+4294967294:[00:03:29.533396]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044900000070170000000000007017000000000000
+4294967294:[00:03:29.542834]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x943d8725765b4d5e213e6d8f7fb552a17fa299fc36bfebd6ae3c485f64123293770d04c580e5d5dcb54484ea24a8c45a32a038b8d00b6eeb686212034e941de245
+ 402:[00:03:29.544198]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:03:29.545391]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:03:35.532249 after 0:00:06.000000
+4294967294:[00:03:29.551424]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:29.552151]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:29.558290]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:29.559397]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 74 expected time 0:00:05.000000
+4294967294:[00:03:29.560292]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044a00000070170000000000007017000000000000
+4294967294:[00:03:29.569730]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xeea5d8051ca345cea5a75c2d2a11bb25b54fbfef86ca0ec90d8bea8e68d54735bff01bf23a53f45ada92aff3fa21e1f7469c890f8f976873ddc0e453d64e74c550
+ 402:[00:03:29.571032]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:03:29.572210]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:03:35.559142 after 0:00:06.000000
+4294967294:[00:03:29.578222]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:29.578960]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:29.585106]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:29.586226]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 75 expected time 0:00:05.000000
+4294967294:[00:03:29.587115]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044b00000070170000000000007017000000000000
+4294967294:[00:03:29.596695]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xdce316708376117c0f4d75774ddd3af2af3e5d30b4b191f5f6bc0ae1380faad20e6d1aa2cf6924303cfd40f14c35e2a857ebef4fd3eef95737785ddab87bb3595e
+ 402:[00:03:29.598021]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:03:29.599203]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:03:35.585962 after 0:00:06.000000
+4294967294:[00:03:29.605222]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:29.606232]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:03:29.640476]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:29.641561]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:03:29.647284]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x004a000000
+4294967294:[00:03:29.648363]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 74 duration 0:00:00.088957
+4294967294:[00:03:29.698105]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:29.699212]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:03:29.704729]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x004b000000
+4294967294:[00:03:29.705766]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 75 duration 0:00:00.119550
+4294967294:[00:03:29.731095]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:29.732206]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:03:29.737732]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x0049000000
+4294967294:[00:03:29.738772]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 73 duration 0:00:00.206267
+  17:[00:03:35.551356]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 24, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:35.552537]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 24, request 76 expected time 0:00:05.000000
+4294967294:[00:03:35.553433]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044c00000070170000000000007017000000000000
+4294967294:[00:03:35.564609]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0x953d8725765b4d5ee3ece60bc9b389a2a68deade4b913acb1b07c79b0dec4c84933deab15ec0b86849d36c22ee87faf81a9546b66137d65d6a66bd42dd94c555a2
+ 402:[00:03:35.566065]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 35.228.56.142:9021 send data size:83
+4294967294:[00:03:35.567345]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 2 at 1970-01-01 00:03:41.552282 after 0:00:06.000000
+4294967294:[00:03:35.573816]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:35.574564]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:35.580914]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 21, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:35.582279]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 21, request 77 expected time 0:00:05.000000
+4294967294:[00:03:35.583222]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044d00000070170000000000007017000000000000
+4294967294:[00:03:35.593289]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xefa5d8051ca345cec9ec3db5c65f06a1a01e97d9fb3e9c72fedf62caf82cfea9cd3848421959d900e011ea93615770f6260c05816030058c88a88e972e32775ae5
+ 402:[00:03:35.594875]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.27.155.201:9021 send data size:83
+4294967294:[00:03:35.596121]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 1 at 1970-01-01 00:03:41.581997 after 0:00:06.000000
+4294967294:[00:03:35.602583]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:35.603548]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+  17:[00:03:35.609875]:kInfo:kAeActions:ping.cpp:71:kPing:Ping action created to server id: 20, interval: 0:00:06.000000s, rx_window: 0:00:06.000000s, timeout: 0:00:05.000000s
+  18:[00:03:35.611021]:kDebug:kAeActions:ping.cpp:105:kPingSend:Ping server id 20, request 78 expected time 0:00:05.000000
+4294967294:[00:03:35.611920]:kDebug:MLog:login_api.cpp:32:kLog:Login api data 0x044e00000070170000000000007017000000000000
+4294967294:[00:03:35.621973]:kDebug:MLog:login_api.cpp:34:kLog:Login api encrypted size 65, 0xdde316708376117c9a696149b80a74a05ee501987dfa2220ef480433227b8ec96c39fbf22e673fa7d711fd6dcd66d945000b05ee00c592075f8b6dbad41baa105d
+ 402:[00:03:35.623341]:kDebug:kTransportDebug:udp.h:160:kUdpTransportSend:Socket 34.60.244.148:9021 send data size:83
+4294967294:[00:03:35.624542]:kDebug:MLog:ping_cloud_servers.cpp:138:kLog:Next ping time for priority 0 at 1970-01-01 00:03:41.610751 after 0:00:06.000000
+4294967294:[00:03:35.630668]:kDebug:MLog:lwip_cb_udp_socket.cpp:85:kLog:Sent 83 bytes
+4294967294:[00:03:35.631409]:kDebug:MLog:udp.h:63:kLog:Data has been written size 83
+4294967294:[00:03:35.686685]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+4294967294:[00:03:35.687567]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:35.688373]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.27.155.201:9021 received data size 51
+4294967294:[00:03:35.694084]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x004d000000
+4294967294:[00:03:35.695156]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 21 request 77 duration 0:00:00.112892
+ 403:[00:03:35.708302]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 34.60.244.148:9021 received data size 51
+4294967294:[00:03:35.713540]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x004e000000
+4294967294:[00:03:35.714446]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 20 request 78 duration 0:00:00.103472
+4294967294:[00:03:35.785872]:kDebug:MLog:lwip_cb_udp_socket.cpp:183:kLog:Received 51 bytes
+ 403:[00:03:35.787002]:kDebug:kTransportDebug:udp.cpp:83:kUdpTransportReceive:Socket 35.228.56.142:9021 received data size 51
+4294967294:[00:03:35.792536]:kDebug:MLog:client_api_unsafe.cpp:36:kLog:Client api unsafe data 0x004c000000
+4294967294:[00:03:35.793563]:kDebug:MLog:ping.cpp:171:kLog:Ping received server id 24 request 76 duration 0:00:00.241026

@@ -2150,7 +2150,9 @@ bool StartFastWifi(FastPathConfig const& cfg,
   }
   g_wifi_started = true;
 
-  (void)esp_wifi_set_max_tx_power(80);
+  if (!cfg.use_default_tx_power) {
+    (void)esp_wifi_set_max_tx_power(80);
+  }
   if (cfg.force_ht20) {
     (void)esp_wifi_set_bandwidth(WIFI_IF_STA, WIFI_BW20);
   }

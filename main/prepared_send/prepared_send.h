@@ -194,6 +194,8 @@ struct FastPathConfig {
   // false => WIFI_PS_NONE (reliability-first sleep campaign).
   bool ps_max_modem{false};
   bool fixed_1m{false};
+  // When true, do not override esp_wifi_set_max_tx_power (vanilla IDF defaults).
+  bool use_default_tx_power{false};
 
   // Power-factor bench (ignored by production probe unless set).
   bool pmf_off{false};
