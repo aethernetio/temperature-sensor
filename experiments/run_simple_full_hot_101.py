@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """One run: 1× FULL vanilla + 100× HOT (2 s sleep). No PPK capture."""
 from __future__ import annotations
-
 import hashlib
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
+import threading
 import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 PREPARED = Path(r"C:\Users\nickc\Projects\temperature-sensor-prepared")
@@ -25,55 +25,197 @@ RX_SRC = PREPARED / "temperature_receiver"
 RX_BUILD = HERE / "simple_full_hot_101_rx_build"
 BENCH_CLIENT_ID = "reliability_full_v1"
 VOLTAGE_MV = 3000
-
-FULL_ACTIVE_TIMEOUT_S = 120
-HOT_ACTIVE_TIMEOUT_S = 45
-SLEEP_S = 2
+USB_STARTUP_TIMEOUT_S = 90.0
+FULL_ACTIVE_TIMEOUT_S = 120.0
+HOT_CYCLE_TIMEOUT_S = 52.0
+TAIL_DELIVERY_S = 15.0
 HOT_COUNT = 100
-TAIL_DELIVERY_S = 30
-
+SLEEP_S = 2
 _VENV_PY = PREPARED / "experiments" / "ppk2-venv" / "Scripts" / "python.exe"
 if _VENV_PY.is_file() and Path(sys.executable).resolve() != _VENV_PY.resolve():
     try:
         import numpy  # noqa: F401
     except ModuleNotFoundError:
         os.execv(str(_VENV_PY), [str(_VENV_PY), *sys.argv])
-
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(PREPARED / "experiments"))
 import run_thermometer2_sleep_bisect as sb  # noqa: E402
 import run_thermometer2_aether_full_vanilla as vanilla  # noqa: E402
-
 RE_UID = re.compile(r"RECEIVER_UID=([0-9a-f-]{36})", re.I)
 RE_MSG = re.compile(
     r"MSG_NUM=(\d+)\s+sender=([0-9a-f-]{36})", re.I
 )
-
-
+RE_BOOT = re.compile(r"BOOT reset_reason=\d+ next_message=(\d+)", re.I)
+RE_FULL_BEGIN = re.compile(r"FULL_BEGIN service_uid=([0-9a-f-]{36})", re.I)
+RE_SELECT = re.compile(
+    r"SELECT_RESULT ok=(\d+) error=(-?\d+) sender_uid=([0-9a-f-]{36})?", re.I
+)
+RE_SCENARIO_FAIL = re.compile(
+    r"SCENARIO_FAIL stage=(\S+) error=(.*)", re.I
+)
+RE_HOT_BEGIN = re.compile(r"HOT_BEGIN number=(\d+)", re.I)
+RE_FULL_WRITE = re.compile(r"FULL_WRITE_STATUS=(\S+)", re.I)
+RE_RX_TCP = re.compile(r"RX_HEALTH .* tcp_up=(\d+)")
 def utc_tag() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-
-
+def iso_now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 def file_sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
-
-
 def git_head() -> str:
     return subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=str(ROOT), text=True
     ).strip()
-
-
 def git_status_porcelain() -> str:
     return subprocess.check_output(
         ["git", "status", "--porcelain"], cwd=str(ROOT), text=True
     )
+class ResultWriter:
+    def __init__(self, path: Path, latest: Path) -> None:
+        self.path = path
+        self.latest = latest
+        self._lock = threading.Lock()
+    def write(self, payload: dict) -> None:
+        payload = dict(payload)
+        payload["updated_at"] = iso_now()
+        body = json.dumps(payload, indent=2)
+        with self._lock:
+            RESULTS.mkdir(parents=True, exist_ok=True)
+            last_err: OSError | None = None
+            for attempt in range(8):
+                tmp = self.path.with_name(
+                    f"{self.path.stem}.tmp.{attempt}.{os.getpid()}.json"
+                )
+                try:
+                    tmp.write_text(body, encoding="utf-8")
+                    tmp.replace(self.path)
+                    last_err = None
+                    break
+                except OSError as e:
+                    last_err = e
+                    try:
+                        tmp.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    time.sleep(0.15 * (attempt + 1))
+            if last_err is not None:
+                self.path.write_text(body, encoding="utf-8")
+            self.latest.write_text(
+                json.dumps(
+                    {
+                        "latest_run_id": payload.get("run_id"),
+                        "result": str(self.path.relative_to(ROOT)),
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+class SerialCapture:
+    def __init__(self, log_path: Path) -> None:
+        self.log_path = log_path
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._port: str | None = None
+    def start(self, port: str) -> None:
+        self._port = port
+        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        self.log_path.write_text("", encoding="utf-8")
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=3.0)
+    def _run(self) -> None:
+        import serial
+
+        port = self._port
+        assert port
+        deadline = time.time() + 45.0
+        ser = None
+        while time.time() < deadline and not self._stop.is_set():
+            try:
+                ser = serial.Serial(port, 115200, timeout=0.4)
+                break
+            except Exception as e:
+                with self.log_path.open("a", encoding="utf-8") as f:
+                    f.write(f"SERIAL_OPEN_RETRY={e}\n")
+                time.sleep(1.0)
+        if ser is None:
+            with self.log_path.open("a", encoding="utf-8") as f:
+                f.write("SERIAL_CAPTURE_ERROR=open_timeout\n")
+            return
+        try:
+            with ser:
+                with self.log_path.open("a", encoding="utf-8", errors="replace") as f:
+                    while not self._stop.is_set():
+                        try:
+                            data = ser.read(4096)
+                        except Exception as e:
+                            f.write(f"SERIAL_READ_ERROR={e}\n")
+                            f.flush()
+                            time.sleep(0.5)
+                            continue
+                        if data:
+                            f.write(data.decode("utf-8", errors="replace"))
+                            f.flush()
+        except Exception as e:
+            with self.log_path.open("a", encoding="utf-8") as f:
+                f.write(f"\nSERIAL_CAPTURE_ERROR={e}\n")
 
 
+def parse_firmware_serial(text: str) -> dict:
+    out: dict = {
+        "last_firmware_marker": None,
+        "confirmed_failure_stage": None,
+        "firmware_service_uid": None,
+        "expected_sender_uid": None,
+        "full_write_statuses": [],
+        "hot_begin_count": 0,
+        "max_hot_begin": 0,
+        "scenario_done": False,
+    }
+    last_line = None
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("SERIAL_"):
+            continue
+        last_line = line
+        m = RE_FULL_BEGIN.search(line)
+        if m:
+            out["firmware_service_uid"] = m.group(1).lower()
+        m = RE_SELECT.search(line)
+        if m and m.group(1) == "1" and m.group(3):
+            out["expected_sender_uid"] = m.group(3).lower()
+        if RE_HOT_BEGIN.search(line):
+            out["hot_begin_count"] += 1
+            out["max_hot_begin"] = max(
+                out["max_hot_begin"], int(RE_HOT_BEGIN.search(line).group(1))
+            )
+        m = RE_FULL_WRITE.search(line)
+        if m:
+            out["full_write_statuses"].append(m.group(1))
+        if line == "SCENARIO_DONE":
+            out["scenario_done"] = True
+        m = RE_SCENARIO_FAIL.search(line)
+        if m:
+            out["confirmed_failure_stage"] = m.group(1)
+            out["fail_error"] = m.group(2).strip()
+    out["last_firmware_marker"] = last_line
+    return out
+def parse_receiver_meta(text: str) -> dict:
+    tcp_up = 0
+    for m in RE_RX_TCP.finditer(text):
+        tcp_up = max(tcp_up, int(m.group(1)))
+    uid_m = RE_UID.search(text)
+    return {
+        "receiver_uid": uid_m.group(1).lower() if uid_m else None,
+        "receiver_tcp_up": bool(tcp_up),
+    }
 def stop_experiment_holders() -> None:
     sb.stop_external_ppk_holders()
     if sys.platform != "win32":
@@ -95,8 +237,6 @@ Get-CimInstance Win32_Process |
         check=False,
     )
     time.sleep(1.0)
-
-
 def recover_esp_port(ppk: sb.PpkSession) -> str | None:
     for i in range(3):
         ppk.set_off()
@@ -111,8 +251,6 @@ def recover_esp_port(ppk: sb.PpkSession) -> str | None:
                 return port
         time.sleep(2.0)
     return None
-
-
 def build_receiver() -> tuple[Path, str]:
     RX_BUILD.mkdir(parents=True, exist_ok=True)
     stop_experiment_holders()
@@ -144,8 +282,6 @@ def build_receiver() -> tuple[Path, str]:
     if not exe.is_file():
         exe = RX_BUILD / "Release" / "aether_hot_tcp_receiver.exe"
     return exe, file_sha256(exe)
-
-
 def start_receiver(exe: Path, log_path: Path, session: Path) -> subprocess.Popen:
     session.mkdir(parents=True, exist_ok=True)
     log = open(log_path, "w", encoding="utf-8")
@@ -155,8 +291,6 @@ def start_receiver(exe: Path, log_path: Path, session: Path) -> subprocess.Popen
         stderr=subprocess.STDOUT,
         cwd=str(RX_BUILD),
     )
-
-
 def wait_uid(log_path: Path, timeout_s: float = 90.0) -> str:
     t0 = time.time()
     while time.time() - t0 < timeout_s:
@@ -166,8 +300,6 @@ def wait_uid(log_path: Path, timeout_s: float = 90.0) -> str:
                 return m.group(1)
         time.sleep(0.5)
     raise RuntimeError("RECEIVER_UID timeout")
-
-
 def build_esp(*, service_uid: str, ssid: str, pwd: str) -> str:
     b = BUILD.as_posix()
     sdk = (
@@ -191,6 +323,7 @@ $common = @(
   '-D','SERVICE_UID={service_uid}',
   '-D','BENCH_CLIENT_ID={BENCH_CLIENT_ID}',
   '-D','AE_EXP_SIMPLE_FULL_HOT_101=1',
+  '-D','AE_EXP_THERMOMETER2_FULL_VANILLA=',
   '-D','BOARD=0',
   '-D','AE_EXP_WIFI_CANONICAL=1',
   '-D','CPM_aether-client-cpp_SOURCE={aether}',
@@ -207,23 +340,10 @@ idf.py @common build
     if not bin_path.is_file():
         raise RuntimeError("firmware bin missing after build")
     return file_sha256(bin_path)
-
-
 def flash_firmware(port: str) -> None:
     b = BUILD.as_posix()
     extra = f"idf.py -B '{b}' -p {port} flash"
     vanilla.run_idf(extra)
-
-
-def campaign_deadline_s() -> float:
-    return (
-        FULL_ACTIVE_TIMEOUT_S
-        + HOT_COUNT * (HOT_ACTIVE_TIMEOUT_S + SLEEP_S)
-        + TAIL_DELIVERY_S
-        + 60
-    )
-
-
 def parse_log(log_path: Path, *, test_sender: str | None) -> tuple[list[int], str | None]:
     text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.is_file() else ""
     nums: list[int] = []
@@ -236,8 +356,6 @@ def parse_log(log_path: Path, *, test_sender: str | None) -> tuple[list[int], st
         if s == sender:
             nums.append(n)
     return nums, sender
-
-
 def evaluate(nums: list[int]) -> dict:
     c = Counter(nums)
     expect = set(range(1, 102))
@@ -262,25 +380,196 @@ def evaluate(nums: list[int]) -> dict:
         "msg_rx_count": len(nums),
         "pass": pass_ok,
     }
+def infer_actual_attempts(fw: dict) -> str | dict:
+    full_tries = len(fw.get("full_write_statuses") or [])
+    hot_tries = int(fw.get("hot_begin_count") or 0)
+    if full_tries == 0 and hot_tries == 0 and not fw.get("full_write_statuses"):
+        if fw.get("firmware_service_uid") or fw.get("last_firmware_marker"):
+            return {"full_begin": 1 if fw.get("firmware_service_uid") else 0, "hot_begin": hot_tries}
+        return "UNKNOWN"
+    return {"full_write_begin": full_tries, "hot_begin": hot_tries}
+def wait_campaign(
+    *,
+    rx_log: Path,
+    serial_log: Path,
+    rx_proc: subprocess.Popen,
+    writer: ResultWriter,
+    state: dict,
+) -> None:
+    test_sender: str | None = state.get("test_sender_uid")
+    phase = "USB_STARTUP"
+    last_progress = time.time()
+    full_begin_at: float | None = None
+    last_rx_num = 0
+    last_hot_begin = 0
+    overall_deadline = time.time() + (
+        USB_STARTUP_TIMEOUT_S
+        + FULL_ACTIVE_TIMEOUT_S
+        + HOT_COUNT * HOT_CYCLE_TIMEOUT_S
+        + TAIL_DELIVERY_S
+        + 30.0
+    )
+    last_marker: str | None = None
 
-
-def write_result(path: Path, payload: dict) -> None:
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-
-
+    def sync_state(extra: dict | None = None) -> None:
+        nonlocal test_sender, phase, last_rx_num, last_hot_begin, last_progress, last_marker
+        rx_text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
+        ser_text = (
+            serial_log.read_text(encoding="utf-8", errors="replace")
+            if serial_log.is_file()
+            else ""
+        )
+        nums, test_sender = parse_log(rx_log, test_sender=test_sender)
+        ev = evaluate(nums)
+        fw = parse_firmware_serial(ser_text)
+        rx_meta = parse_receiver_meta(rx_text)
+        if nums:
+            last_rx_num = max(nums)
+            last_progress = time.time()
+        if fw["max_hot_begin"] > last_hot_begin:
+            last_hot_begin = fw["max_hot_begin"]
+            last_progress = time.time()
+        if fw.get("confirmed_failure_stage"):
+            last_progress = time.time()
+        marker = fw.get("last_firmware_marker")
+        if marker and marker != last_marker:
+            last_marker = marker
+            last_progress = time.time()
+        state.update(ev)
+        state["phase"] = phase
+        state["run_status"] = state.get("run_status", "RUNNING")
+        state["test_sender_uid"] = test_sender
+        state["receiver_uid_live"] = rx_meta.get("receiver_uid")
+        state["receiver_tcp_up"] = rx_meta.get("receiver_tcp_up")
+        state["last_rx_num"] = last_rx_num
+        state["last_hot_begin"] = last_hot_begin
+        state["last_firmware_marker"] = fw.get("last_firmware_marker")
+        state["confirmed_failure_stage"] = fw.get("confirmed_failure_stage")
+        state["firmware_service_uid"] = fw.get("firmware_service_uid")
+        state["expected_sender_uid"] = fw.get("expected_sender_uid")
+        state["actual_attempts"] = infer_actual_attempts(fw)
+        state["full_write_statuses"] = fw.get("full_write_statuses")
+        if extra:
+            state.update(extra)
+        writer.write(state)
+        print(
+            f"PHASE={phase} last_rx={last_rx_num} hot_begin={last_hot_begin} "
+            f"marker={state.get('last_firmware_marker')}",
+            flush=True,
+        )
+    sync_state()
+    while time.time() < overall_deadline:
+        if rx_proc.poll() is not None:
+            phase = "RECEIVER_EXIT"
+            state["run_status"] = "FAIL"
+            state["error"] = f"receiver_exit_code={rx_proc.returncode}"
+            sync_state()
+            return
+        ser_text = (
+            serial_log.read_text(encoding="utf-8", errors="replace")
+            if serial_log.is_file()
+            else ""
+        )
+        fw = parse_firmware_serial(ser_text)
+        if RE_FULL_BEGIN.search(ser_text) and full_begin_at is None:
+            full_begin_at = time.time()
+            phase = "FULL"
+        if "Guru Meditation Error" in ser_text or "panic'ed" in ser_text:
+            phase = "ESP_PANIC"
+            state["run_status"] = "FAIL"
+            state["error"] = "esp_panic_in_serial"
+            if "Select loaded client" in ser_text:
+                state["confirmed_failure_stage"] = "select_client_panic_load_fault"
+            else:
+                state["confirmed_failure_stage"] = "esp_panic"
+            sync_state()
+            time.sleep(TAIL_DELIVERY_S)
+            sync_state()
+            return
+        if fw.get("confirmed_failure_stage"):
+            phase = "SCENARIO_FAIL"
+            state["run_status"] = "FAIL"
+            state["error"] = fw.get("fail_error")
+            sync_state()
+            time.sleep(TAIL_DELIVERY_S)
+            sync_state()
+            return
+        if fw.get("scenario_done"):
+            phase = "TAIL"
+            last_progress = time.time()
+        nums, test_sender = parse_log(rx_log, test_sender=test_sender)
+        ev = evaluate(nums)
+        if ev["pass"]:
+            phase = "PASS"
+            state["run_status"] = "PASS"
+            sync_state()
+            time.sleep(TAIL_DELIVERY_S)
+            sync_state()
+            return
+        now = time.time()
+        if phase == "USB_STARTUP" and RE_BOOT.search(ser_text):
+            phase = "FULL" if full_begin_at else "USB_STARTUP"
+            last_progress = now
+        if full_begin_at is not None:
+            if (
+                fw["max_hot_begin"] >= 2
+                or last_rx_num >= 1
+                or "PREPARED_EXPORT_RESULT=ok" in ser_text
+            ):
+                phase = "HOT"
+            else:
+                phase = "FULL"
+        deadline_hit = False
+        if full_begin_at is None:
+            if now - last_progress > USB_STARTUP_TIMEOUT_S:
+                deadline_hit = True
+                state["error"] = "usb_startup_timeout_no_full_begin"
+                phase = "USB_TIMEOUT"
+        elif phase == "FULL":
+            if now - full_begin_at > FULL_ACTIVE_TIMEOUT_S:
+                deadline_hit = True
+                state["error"] = "full_phase_timeout"
+                phase = "FULL_TIMEOUT"
+        elif phase == "HOT":
+            if now - last_progress > HOT_CYCLE_TIMEOUT_S:
+                deadline_hit = True
+                state["error"] = "hot_cycle_timeout"
+                phase = "HOT_TIMEOUT"
+        sync_state()
+        if deadline_hit:
+            state["run_status"] = "TIMEOUT"
+            sync_state()
+            time.sleep(TAIL_DELIVERY_S)
+            sync_state()
+            return
+        time.sleep(1.0)
+    state["run_status"] = "TIMEOUT"
+    state["error"] = state.get("error") or "overall_deadline"
+    phase = "OVERALL_TIMEOUT"
+    sync_state()
+def finalize_test_status(state: dict) -> None:
+    rs = state.get("run_status", "FAIL")
+    if rs == "PASS":
+        state["TEST"] = "PASS"
+    elif rs in ("TIMEOUT", "ABORTED"):
+        state["TEST"] = rs
+    else:
+        state["TEST"] = "FAIL"
 def main() -> int:
     run_id = utc_tag()
     log_path = RESULTS / f"receiver_{run_id}.log"
+    serial_path = RESULTS / f"serial_{run_id}.log"
     result_path = RESULTS / f"result_{run_id}.json"
+    latest_path = RESULTS / "LATEST.json"
     session = HERE / f"simple_full_hot_101_rx_session_{run_id}"
-
+    writer = ResultWriter(result_path, latest_path)
     aether_meta = vanilla.ensure_aether_patched()
     head = git_head()
     local_changes = git_status_porcelain().strip()
-
-    base = {
+    state: dict = {
         "run_id": run_id,
+        "phase": "INIT",
+        "run_status": "RUNNING",
         "git_head": head,
         "git_local_changes": local_changes or "(clean)",
         "aether_meta": aether_meta,
@@ -290,94 +579,112 @@ def main() -> int:
         "FLASH": "NOT_RUN",
         "TEST": "NOT_RUN",
         "USB_ACCESS": None,
-        "logs": {"receiver": str(log_path.relative_to(ROOT))},
+        "logs": {
+            "receiver": str(log_path.relative_to(ROOT)),
+            "serial": str(serial_path.relative_to(ROOT)),
+        },
         "result_json": str(result_path.relative_to(ROOT)),
+        "actual_attempts": "UNKNOWN",
     }
-
+    writer.write(state)
+    interrupted = {"flag": False}
+    def on_signal(_sig, _frame) -> None:
+        interrupted["flag"] = True
+    signal.signal(signal.SIGINT, on_signal)
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, on_signal)
     ppk: sb.PpkSession | None = None
+    rx_proc: subprocess.Popen | None = None
+    serial_cap: SerialCapture | None = None
     try:
         ssid, pwd = vanilla.load_wifi()
         rx_exe, rx_sha = build_receiver()
-        base["receiver_sha256"] = rx_sha
-        proc = start_receiver(rx_exe, log_path, session)
+        state["receiver_sha256"] = rx_sha
+        writer.write(state)
+        rx_proc = start_receiver(rx_exe, log_path, session)
         uid = wait_uid(log_path)
-        base["SERVICE_UID"] = uid
+        state["SERVICE_UID"] = uid
+        writer.write(state)
         print(f"RECEIVER_UID={uid}", flush=True)
-
         stop_experiment_holders()
         vanilla.stop_stage1_serial_holders()
         ppk = vanilla.open_ppk_session()
         ppk.set_on()
+        state["phase"] = "BUILD"
+        writer.write(state)
         fw_sha = build_esp(service_uid=uid, ssid=ssid, pwd=pwd)
-        base["firmware_sha256"] = fw_sha
-
+        state["firmware_sha256"] = fw_sha
+        writer.write(state)
         port = recover_esp_port(ppk)
         if not port:
-            base["USB_ACCESS"] = "BLOCKED"
-            base["FLASH"] = "BLOCKED"
-            base["TEST"] = "NOT_RUN"
-            base["FULL_RX"] = "0/1"
-            base["HOT_RX"] = "0/100"
-            base["missing_numbers"] = list(range(1, 102))
-            base["duplicates"] = []
-            base["actual_attempts"] = "UNKNOWN"
-            write_result(result_path, base)
-            (RESULTS / "LATEST.json").write_text(
-                json.dumps(
-                    {"latest_run_id": run_id, "result": str(result_path.relative_to(ROOT))},
-                    indent=2,
-                ),
-                encoding="utf-8",
-            )
-            print(json.dumps(base, indent=2), flush=True)
+            state["USB_ACCESS"] = "BLOCKED"
+            state["FLASH"] = "BLOCKED"
+            state["run_status"] = "ABORTED"
+            state["TEST"] = "NOT_RUN"
+            state["FULL_RX"] = "0/1"
+            state["HOT_RX"] = "0/100"
+            state["missing_numbers"] = list(range(1, 102))
+            state["duplicates"] = []
+            finalize_test_status(state)
+            writer.write(state)
+            print(f"TEST={state['TEST']}", flush=True)
             return 2
-
-        base["USB_ACCESS"] = "OK"
+        state["USB_ACCESS"] = "OK"
+        state["phase"] = "FLASH"
+        writer.write(state)
         flash_firmware(port)
-        base["FLASH"] = "PASS"
+        state["FLASH"] = "PASS"
+        state["phase"] = "POST_FLASH"
+        writer.write(state)
+        print(f"FLASH=PASS port={port}", flush=True)
         ppk.set_on()
         vanilla.cold_boot_dut(ppk, off_s=4.0, wait_com_s=20.0)
-
-        deadline = time.time() + campaign_deadline_s()
-        test_sender: str | None = None
-        while time.time() < deadline:
-            nums, test_sender = parse_log(log_path, test_sender=test_sender)
-            ev = evaluate(nums)
-            if ev["pass"]:
-                break
-            time.sleep(2.0)
-
-        time.sleep(TAIL_DELIVERY_S)
-        nums, test_sender = parse_log(log_path, test_sender=test_sender)
-        ev = evaluate(nums)
-        base.update(ev)
-        base["test_sender_uid"] = test_sender
-        base["actual_attempts"] = "UNKNOWN"
-        base["actual_attempts"] = "UNKNOWN"
-        base["TEST"] = "PASS" if ev["pass"] else "FAIL"
-        write_result(result_path, base)
-        (RESULTS / "LATEST.json").write_text(
-            json.dumps(
-                {"latest_run_id": run_id, "result": str(result_path.relative_to(ROOT))},
-                indent=2,
-            ),
-            encoding="utf-8",
+        time.sleep(2.0)
+        post_port = sb.wait_espressif_com(timeout_s=45.0) or port
+        serial_cap = SerialCapture(serial_path)
+        serial_cap.start(post_port)
+        state["phase"] = "CAMPAIGN"
+        writer.write(state)
+        wait_campaign(
+            rx_log=log_path,
+            serial_log=serial_path,
+            rx_proc=rx_proc,
+            writer=writer,
+            state=state,
         )
-        print(json.dumps(base, indent=2), flush=True)
-        return 0 if ev["pass"] else 1
+        if interrupted["flag"]:
+            state["run_status"] = "ABORTED"
+            state["error"] = "runner_interrupted"
+        nums, test_sender = parse_log(log_path, test_sender=state.get("test_sender_uid"))
+        state.update(evaluate(nums))
+        state["test_sender_uid"] = test_sender
+        finalize_test_status(state)
+        if state["TEST"] == "PASS":
+            state["run_status"] = "PASS"
+        writer.write(state)
+        print(f"TEST={state['TEST']}", flush=True)
+        print(json.dumps(state, indent=2), flush=True)
+        return 0 if state["TEST"] == "PASS" else 1
     except Exception as e:
-        base["TEST"] = "FAIL"
-        base["error"] = str(e)
-        write_result(result_path, base)
-        print(json.dumps(base, indent=2), flush=True)
+        state["run_status"] = "FAIL"
+        state["error"] = str(e)
+        finalize_test_status(state)
+        writer.write(state)
+        print(f"TEST={state['TEST']}", flush=True)
         return 1
     finally:
+        if serial_cap is not None:
+            serial_cap.stop()
+        if rx_proc is not None and rx_proc.poll() is None:
+            rx_proc.terminate()
+            try:
+                rx_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                rx_proc.kill()
         if ppk is not None:
             try:
                 ppk.set_off()
             except Exception:
                 pass
-
-
 if __name__ == "__main__":
     raise SystemExit(main())
