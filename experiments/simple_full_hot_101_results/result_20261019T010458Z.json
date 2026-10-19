@@ -1,0 +1,24 @@
+{
+  "run_id": "20261019T010458Z",
+  "git_head": "361b0c1e903e525be5be5a9ff22f44d90b95a652",
+  "aether_meta": {
+    "aether_pin": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
+    "aether_patch_sha256": "7f0c2642638142ed0c5eebc63e3b244ffaff6da5e93f046145617f85a54b888c"
+  },
+  "SERVICE_UID": "4384ecd1-5d1d-48ce-8068-5beef4290dc9",
+  "receiver_sha256": "70887f0739e4f1100dcf1cf02d220e7dad1e55a55bea2e45f5389f9357b41f08",
+  "firmware_sha256": "45d5683d96362bdfd8f3b099469c6259a8f04179b13e323183fc496b90c132d6",
+  "firmware_note": "built locally; flash not attempted (no ESP COM after PPK cycles)",
+  "USB_ACCESS": "BLOCKED",
+  "FLASH": "BLOCKED",
+  "TEST": "NOT_RUN",
+  "FULL_RX": "0/1",
+  "HOT_RX": "0/100",
+  "missing_numbers": "1-101",
+  "duplicates": [],
+  "actual_attempts": "UNKNOWN",
+  "logs": {
+    "receiver": "experiments/simple_full_hot_101_results/receiver_20261019T010458Z.log"
+  },
+  "result_json": "experiments/simple_full_hot_101_results/result_20261019T010458Z.json"
+}
