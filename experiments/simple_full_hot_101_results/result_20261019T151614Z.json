@@ -1,8 +1,8 @@
 {
   "run_id": "20261019T151614Z",
-  "phase": "USB_STARTUP",
-  "run_status": "RUNNING",
-  "git_head": "a1e973d2d63073282239200b867c1787b11137a8",
+  "phase": "FINALIZED",
+  "run_status": "FAIL",
+  "git_head": "b5abad5d63073282239200b867c1787b11137a8",
   "git_local_changes": "M experiments/patches/aether-157aadbe-full-vanilla-stage1.patch\n M experiments/run_simple_full_hot_101.py\n M experiments/simple_full_hot_101_results/LATEST.json\n M experiments/thermometer2_full_vanilla_results/branch_head.json\n M experiments/thermometer2_full_vanilla_results/build_profile_smoke.json\n M experiments/thermometer2_full_vanilla_results/build_provenance.json\n M experiments/thermometer2_full_vanilla_results/smoke_esp.log\n M experiments/thermometer2_full_vanilla_results/smoke_pass_run.json\n M experiments/thermometer2_full_vanilla_results/smoke_result.json\n M experiments/thermometer2_full_vanilla_results/usb_recovery.log\n M main/simple_full_hot_101_test.cpp\n?? build-aether-hot-100x-2s-ppk/\n?? build-esp32c6-save-bench-smoke/\n?? build-thermometer2-aether-full-vanilla/\n?? build-thermometer2-full-vanilla-v2/\n?? experiments/FULL_VANILLA.md\n?? experiments/build_snapshot_diag_precon_skip.json\n?? experiments/build_snapshot_fix_driver_release_2.json\n?? experiments/build_snapshot_fix_historical_precon.json\n?? experiments/build_snapshot_fix_idf6_precon_1.json\n?? experiments/build_snapshot_fix_precon0_1.json\n?? experiments/fsinit_hot_100x2s_results/\n?? experiments/patches/_e2e_trim.patch\n?? experiments/prepared_message_e2e_esp_diag_precon_skip.log\n?? experiments/prepared_message_e2e_esp_fix_driver_release_2.log\n?? experiments/prepared_message_e2e_esp_fix_historical_precon_1.log\n?? experiments/prepared_message_e2e_esp_fix_historical_precon_2.log\n?? experiments/prepared_message_e2e_esp_fix_idf6_precon_1.log\n?? experiments/prepared_message_e2e_esp_fix_precon0_1.log\n?? experiments/prepared_message_e2e_esp_restore.log\n?? experiments/prepared_message_e2e_receiver_diag_precon_skip.log\n?? experiments/prepared_message_e2e_receiver_diag_precon_skip.log.err\n?? experiments/prepared_message_e2e_receiver_fix_driver_release_1.log.err\n?? experiments/prepared_message_e2e_receiver_fix_driver_release_2.log\n?? experiments/prepared_message_e2e_receiver_fix_driver_release_2.log.err\n?? experiments/prepared_message_e2e_receiver_fix_historical_precon_1.log\n?? experiments/prepared_message_e2e_receiver_fix_historical_precon_1.log.err\n?? experiments/prepared_message_e2e_receiver_fix_historical_precon_2.log\n?? experiments/prepared_message_e2e_receiver_fix_historical_precon_2.log.err\n?? experiments/prepared_message_e2e_receiver_fix_idf6_precon_1.log\n?? experiments/prepared_message_e2e_receiver_fix_idf6_precon_1.log.err\n?? experiments/prepared_message_e2e_receiver_fix_precon0_1.log\n?? experiments/prepared_message_e2e_receiver_fix_precon0_1.log.err\n?? experiments/prepared_message_e2e_receiver_restore.log\n?? experiments/prepared_message_e2e_receiver_restore.log.err\n?? experiments/prepared_message_e2e_restore_result.json\n?? experiments/prepared_message_e2e_result_fix_historical_precon_1.json\n?? experiments/prepared_message_e2e_result_fix_historical_precon_2.json\n?? experiments/prepared_message_e2e_result_fix_idf6_precon_1.json\n?? experiments/prepared_message_receiver/build-mingw/\n?? experiments/prepared_message_receiver/build-msvc/\n?? experiments/prepared_message_receiver_uid_restore.txt\n?? experiments/prepared_message_rx_session_diag_precon_skip/\n?? experiments/prepared_message_rx_session_fix1_backup/\n?? experiments/prepared_message_rx_session_fix_driver_release_1/\n?? experiments/prepared_message_rx_session_fix_driver_release_2/\n?? experiments/prepared_message_rx_session_fix_historical_precon_1/\n?? experiments/prepared_message_rx_session_fix_historical_precon_2/\n?? experiments/prepared_message_rx_session_fix_idf6_precon_1/\n?? experiments/prepared_message_rx_session_fix_precon0_1/\n?? experiments/prepared_message_rx_session_restore/\n?? experiments/preprovision/reg_work_157/\n?? experiments/preprovision/regenerate_sender_fs_157aadbe.py\n?? experiments/run_fsinit_hot_100x2s_tcp_worktree.py\n?? experiments/run_hot_delivery_usb_only.py\n?? experiments/simple_full_hot_101_receiver.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T005736Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T010235Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T010345Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T010458Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T011649Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T014448Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T032627Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T033111Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T033738Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T034123Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T034831Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T052650Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T053351Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T054046Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T060919Z.log\n?? experiments/simple_full_hot_101_results/receiver_20261019T151327Z.log\n?? experiments/simple_full_hot_101_results/result_20261019T005645Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T005736Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T010235Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T010345Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T011649Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T032301Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T032627Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T033111Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T033738Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T034123Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T052504Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T052650Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T053351Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T054046Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T060919Z.json\n?? experiments/simple_full_hot_101_results/result_20261019T151327Z.json\n?? experiments/simple_full_hot_101_results/serial_20261019T032627Z.log\n?? experiments/simple_full_hot_101_results/serial_20261019T033111Z.log\n?? experiments/simple_full_hot_101_results/serial_20261019T033738Z.log\n?? experiments/simple_full_hot_101_results/serial_20261019T034123Z.log\n?? experiments/simple_full_hot_101_results/serial_20261019T060919Z.log\n?? experiments/simple_full_hot_101_rx_build/\n?? experiments/thermometer2_full_vanilla_results/measure_esp.log\n?? experiments/thermometer2_full_vanilla_results/ppk_raw/\n?? experiments/thermometer2_full_vanilla_results/receiver.log\n?? experiments/thermometer2_full_vanilla_results/receiver.log.prev\n?? experiments/thermometer2_full_vanilla_results/runs/campaign_20261018T223212Z/\n?? experiments/thermometer2_full_vanilla_results/runs/campaign_20261018T223401Z/\n?? experiments/thermometer2_full_vanilla_results/runs/campaign_20261018T225120Z/\n?? experiments/thermometer2_full_vanilla_results/runs/smoke_20261017T154226Z/\n?? experiments/thermometer2_full_vanilla_results/runs/smoke_20261017T160227Z/\n?? experiments/thermometer2_full_vanilla_results/runs/smoke_20261017T162327Z/\n?? experiments/thermometer2_full_vanilla_results/runs/smoke_20261017T163458Z/\n?? experiments/thermometer2_full_vanilla_results/runs/smoke_20261017T180617Z/\n?? experiments/thermometer2_full_vanilla_results/runs/smoke_20261017T183742Z/\n?? experiments/thermometer2_full_vanilla_results/smoke_pass_run_20261017T160227Z.json\n?? experiments/thermometer2_full_vanilla_results/smoke_run.log\n?? experiments/thermometer2_full_vanilla_results/smoke_run2.log\n?? experiments/thermometer2_full_vanilla_rx_build/\n?? experiments/thermometer2_full_vanilla_rx_session/",
   "aether_meta": {
     "aether_pin": "157aadbec8e7b852d0f89274307ff7cb8103e5f7",
@@ -14,7 +14,7 @@
   "receiver_sha256": "29ef383b96db73842124708ad2230df384afe1f0f1676aaa395690b184387fb5",
   "firmware_sha256": "f1caf486f752dfa84a3084a89328605875ab41c4be67fd34e07d028160d14e06",
   "FLASH": "PASS",
-  "TEST": "NOT_RUN",
+  "TEST": "FAIL",
   "USB_ACCESS": "OK",
   "logs": {
     "receiver": "experiments\\simple_full_hot_101_results\\receiver_20261019T151614Z.log",
@@ -80,12 +80,12 @@
   "last_firmware_marker": "4294967294:[00:05:48.183927]:kDebug:MLog:spifs_domain_storage.cpp:63:kLog:For object id=3904078666, class id=4177166869, version=0 crc is the sameSERIAL_READ_ERROR=ClearCommError failed (PermissionError(13, 'The device does not recognize the command.', None, 22))",
   "confirmed_failure_stage": null,
   "firmware_service_uid": null,
-  "expected_sender_uid": null,
+  "expected_sender_uid": "dcbed6e3-3fd6-44a5-8f71-4cd3dcf41035",
   "FULL_BEGIN": 0,
   "FULL_WRITE_CALLED": 0,
   "HOT_BEGIN": 0,
   "HOT_SENDTO_OK": 0,
-  "bootstrap_done": false,
+  "bootstrap_done": true,
   "bootstrap_select_fail": false,
   "client_reload_check": false,
   "full_wifi_psp_present": 0,
@@ -95,5 +95,13 @@
   "got_ip": true,
   "first_wifi_esp_error": null,
   "full_write_statuses": [],
-  "updated_at": "2026-10-19T15:30:57Z"
+  "updated_at": "2026-10-19T15:31:24Z",
+  "bootstrap_select_ok": true,
+  "HOT": "PARTIAL/68/100",
+  "backing_object_missing_confirmed": true,
+  "backing_object_missing_id": 2079829250,
+  "backing_object_why": "UNKNOWN",
+  "select_client_load_regression": "no_panic_this_run_bootstrap_reregister_ok",
+  "client_reload_after_sleep": "not_confirmed_in_serial",
+  "panic": false
 }
