@@ -1,0 +1,420 @@
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END
+HOT_RTC_TABLE_BEGIN run_id=1 planned=5 started=5 next=7 finish=SCENARIO_DONE table=OK
+HOT_RTC_ROW n=2 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=3 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=4 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=5 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_ROW n=6 got_ip=1 encode_called=0 encode_ok=1 nonce=1 sendto_called=0 sendto=1 err=0 state=OK
+HOT_RTC_TABLE_END

@@ -32,8 +32,9 @@ DIAG_LOCAL = RESULTS / "diag_local"
 FULL_ACTIVE_TIMEOUT_S = 300.0
 HOT_CYCLE_TIMEOUT_S = 52.0
 TAIL_DELIVERY_S = 30.0
-HOT_COUNT = 100
+HOT_COUNT = int(os.environ.get("SIMPLE_FULL_HOT_COUNT", "100"))
 SLEEP_S = 2
+LAST_MESSAGE = 1 + HOT_COUNT
 _VENV_PY = PREPARED / "experiments" / "ppk2-venv" / "Scripts" / "python.exe"
 if _VENV_PY.is_file() and Path(sys.executable).resolve() != _VENV_PY.resolve():
     try:
@@ -44,6 +45,12 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(PREPARED / "experiments"))
 import run_thermometer2_sleep_bisect as sb  # noqa: E402
 import run_thermometer2_aether_full_vanilla as vanilla  # noqa: E402
+from simple_full_hot_101_parse import (  # noqa: E402
+    extract_rtc_dumps,
+    merge_rtc_into_fw_parse,
+    pick_authoritative_rtc_dump,
+)
+from simple_full_hot_101_serial import SerialCapture  # noqa: E402
 RE_UID = re.compile(r"RECEIVER_UID=([0-9a-f-]{36})", re.I)
 RE_MSG = re.compile(
     r"MSG_NUM=(\d+)\s+sender=([0-9a-f-]{36})", re.I
@@ -76,7 +83,9 @@ RE_BOOTSTRAP_SELECT_FAIL = re.compile(
 )
 RE_HOT_WIFI = re.compile(r"HOT_WIFI=(\S+)", re.I)
 RE_HOT_RTC_ROW = re.compile(
-    r"HOT_RTC_ROW n=(\d+) got_ip=(\d+) encode=(\d+) nonce=(\d+) sendto=(\d+) "
+    r"HOT_RTC_ROW n=(\d+) got_ip=(\d+) "
+    r"(?:encode=(\d+)|encode_called=(\d+) encode_ok=(\d+)) "
+    r"nonce=(\d+) (?:sendto=(\d+)|sendto_called=(\d+) sendto=(\d+)) "
     r"err=(\d+) state=(\S+)",
     re.I,
 )
@@ -138,115 +147,6 @@ class ResultWriter:
                 ),
                 encoding="utf-8",
             )
-class SerialCapture:
-    def __init__(self, log_path: Path) -> None:
-        self.log_path = log_path
-        self._stop = threading.Event()
-        self._thread: threading.Thread | None = None
-        self._port: str | None = None
-    def start(self, port: str) -> None:
-        self._port = port
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        self.log_path.write_text("", encoding="utf-8")
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-    def stop(self) -> None:
-        self._stop.set()
-        if self._thread is not None:
-            self._thread.join(timeout=3.0)
-    def _run(self) -> None:
-        import serial
-
-        port = self._port
-        assert port
-        deadline = time.time() + 45.0
-        ser = None
-        while time.time() < deadline and not self._stop.is_set():
-            try:
-                ser = serial.Serial(port, 115200, timeout=0.4)
-                break
-            except Exception as e:
-                with self.log_path.open("a", encoding="utf-8") as f:
-                    f.write(f"SERIAL_OPEN_RETRY={e}\n")
-                time.sleep(1.0)
-        if ser is None:
-            with self.log_path.open("a", encoding="utf-8") as f:
-                f.write("SERIAL_CAPTURE_ERROR=open_timeout\n")
-            return
-        try:
-            with self.log_path.open("a", encoding="utf-8", errors="replace") as f:
-                while not self._stop.is_set():
-                    try:
-                        ser = serial.Serial(port, 115200, timeout=0.4)
-                    except Exception as e:
-                        f.write(f"SERIAL_OPEN_RETRY={e}\n")
-                        f.flush()
-                        time.sleep(1.0)
-                        continue
-                    try:
-                        with ser:
-                            while not self._stop.is_set():
-                                try:
-                                    data = ser.read(4096)
-                                except Exception as e:
-                                    f.write(f"SERIAL_READ_ERROR={e}\n")
-                                    f.flush()
-                                    break
-                                if data:
-                                    f.write(data.decode("utf-8", errors="replace"))
-                                    f.flush()
-                    except Exception as e:
-                        f.write(f"SERIAL_CAPTURE_ERROR={e}\n")
-                        f.flush()
-                        time.sleep(0.5)
-        except Exception as e:
-            with self.log_path.open("a", encoding="utf-8") as f:
-                f.write(f"\nSERIAL_CAPTURE_ERROR={e}\n")
-
-
-def append_serial_until(
-    log_path: Path, port: str | None, needle: str, *, timeout_s: float = 180.0
-) -> bool:
-    import serial
-
-    if not port:
-        port = sb.wait_espressif_com(timeout_s=min(60.0, timeout_s))
-    if not port:
-        return False
-    end = time.time() + timeout_s
-    buf = ""
-    with log_path.open("a", encoding="utf-8", errors="replace") as f:
-        f.write("\nSERIAL_RECOVERY_BEGIN\n")
-        f.flush()
-        while time.time() < end:
-            try:
-                with serial.Serial(port, 115200, timeout=0.5) as ser:
-                    while time.time() < end:
-                        try:
-                            data = ser.read(4096)
-                        except Exception as e:
-                            f.write(f"SERIAL_RECOVERY_READ_ERROR={e}\n")
-                            f.flush()
-                            break
-                        if not data:
-                            continue
-                        chunk = data.decode("utf-8", errors="replace")
-                        f.write(chunk)
-                        f.flush()
-                        buf = (buf + chunk)[-8192:]
-                        if needle in buf:
-                            f.write("SERIAL_RECOVERY_OK\n")
-                            f.flush()
-                            return True
-            except Exception as e:
-                f.write(f"SERIAL_RECOVERY_OPEN_ERROR={e}\n")
-                f.flush()
-                time.sleep(1.0)
-        f.write("SERIAL_RECOVERY_TIMEOUT\n")
-        f.flush()
-    return False
-
-
 def parse_firmware_serial(text: str) -> dict:
     out: dict = {
         "last_firmware_marker": None,
@@ -320,16 +220,33 @@ def parse_firmware_serial(text: str) -> dict:
         m = RE_HOT_RTC_ROW.search(line)
         if m:
             n = int(m.group(1))
-            out["hot_rtc_rows"][n] = {
-                "got_ip": int(m.group(2)),
-                "encode": int(m.group(3)),
-                "nonce": int(m.group(4)),
-                "sendto": int(m.group(5)),
-                "err": int(m.group(6)),
-                "state": m.group(7).upper(),
-            }
-        if line == "HOT_RTC_TABLE_END":
-            out["hot_rtc_table_complete"] = True
+            if m.group(4) is not None:
+                row = {
+                    "got_ip": int(m.group(2)),
+                    "encode_called": int(m.group(4)),
+                    "encode_ok": int(m.group(5)),
+                    "encode": int(m.group(5)),
+                    "nonce": int(m.group(6)),
+                    "sendto_called": int(m.group(8)),
+                    "sendto": int(m.group(9)),
+                    "err": int(m.group(10)),
+                    "state": m.group(11).upper(),
+                }
+            else:
+                enc = int(m.group(3))
+                snd = int(m.group(7))
+                row = {
+                    "got_ip": int(m.group(2)),
+                    "encode": enc,
+                    "encode_called": enc,
+                    "encode_ok": enc,
+                    "nonce": int(m.group(6)),
+                    "sendto": snd,
+                    "sendto_called": snd,
+                    "err": int(m.group(10)),
+                    "state": m.group(11).upper(),
+                }
+            out["hot_rtc_rows"][n] = row
         if line.startswith("CLIENT_RELOAD_CHECK"):
             out["client_reload_check"] = True
         m = RE_SELECT_FAIL.search(line)
@@ -356,7 +273,7 @@ def parse_firmware_serial(text: str) -> dict:
             out["confirmed_failure_stage"] = m.group(1)
             out["fail_error"] = m.group(2).strip()
     out["last_firmware_marker"] = last_line
-    return out
+    return merge_rtc_into_fw_parse(out, text, hot_count=HOT_COUNT)
 def parse_receiver_meta(text: str) -> dict:
     tcp_up = 0
     for m in RE_RX_TCP.finditer(text):
@@ -473,6 +390,7 @@ $common = @(
   '-D','SERVICE_UID={service_uid}',
   '-D','BENCH_CLIENT_ID={BENCH_CLIENT_ID}',
   '-D','AE_EXP_SIMPLE_FULL_HOT_101=1',
+  '-D','AE_SIMPLE_FULL_HOT_COUNT={HOT_COUNT}',
   '-D','AE_EXP_THERMOMETER2_FULL_VANILLA=',
   '-D','BOARD=0',
   '-D','AE_EXP_WIFI_CANONICAL=1',
@@ -656,7 +574,7 @@ def parse_log(log_path: Path, *, test_sender: str | None) -> tuple[list[int], st
     return nums, sender
 def evaluate(nums: list[int]) -> dict:
     c = Counter(nums)
-    expect = set(range(1, 102))
+    expect = set(range(1, LAST_MESSAGE + 1))
     got = set(c.keys())
     missing = sorted(expect - got)
     dups = sorted(n for n, k in c.items() if k > 1)
@@ -665,51 +583,53 @@ def evaluate(nums: list[int]) -> dict:
     hot_unique = len({n for n in hot_nums})
     pass_ok = (
         got == expect
-        and len(nums) == 101
+        and len(nums) == LAST_MESSAGE
         and full_rx == 1
-        and hot_unique == 100
+        and hot_unique == HOT_COUNT
         and not dups
     )
     return {
         "FULL_RX": f"{full_rx}/1",
-        "HOT_RX": f"{hot_unique}/100",
+        "HOT_RX": f"{hot_unique}/{HOT_COUNT}",
         "missing_numbers": missing,
         "duplicates": dups,
         "msg_rx_count": len(nums),
         "pass": pass_ok,
+        "HOT_COUNT": HOT_COUNT,
     }
 def infer_actual_attempts(fw: dict) -> str | dict:
     full_tries = len(fw.get("full_write_statuses") or [])
     hot_tries = int(fw.get("hot_begin_count") or 0)
+    if not fw.get("hot_rtc_table_complete"):
+        if full_tries == 0 and hot_tries == 0:
+            return "UNKNOWN"
+        return {"full_write_begin": full_tries, "hot_begin": hot_tries}
     rtc_rows = fw.get("hot_rtc_rows") or {}
-    if rtc_rows:
-        started = sum(
-            1
-            for n, r in rtc_rows.items()
-            if r.get("state") not in ("NOT_RUN", "UNKNOWN")
-            or any(r.get(k) for k in ("got_ip", "encode", "nonce", "sendto"))
-        )
-        hot_tries = max(hot_tries, started)
+    started = sum(
+        1
+        for n, r in rtc_rows.items()
+        if r.get("state") not in ("NOT_RUN",)
+    )
+    hot_tries = max(hot_tries, started)
     if full_tries == 0 and hot_tries == 0:
-        if fw.get("firmware_service_uid") or fw.get("last_firmware_marker"):
-            return {
-                "full_begin": 1 if fw.get("firmware_service_uid") else 0,
-                "hot_begin": 0,
-            }
         return "UNKNOWN"
     return {"full_write_begin": full_tries, "hot_begin": hot_tries}
 
 
 def analyze_hot_rtc(
     fw: dict, rx_nums: list[int], *, test_sender: str | None
-) -> dict:
+) -> dict | None:
+    if not fw.get("hot_rtc_table_complete"):
+        return None
     rows = fw.get("hot_rtc_rows") or {}
     rx_hot = {n for n in rx_nums if n >= 2}
-    planned = 100
+    planned = HOT_COUNT
     started = 0
     got_ip_ok = 0
+    encode_called = 0
     encode_ok = 0
     nonce_ok = 0
+    sendto_called = 0
     sendto_ok = 0
     wifi_fail = 0
     encode_fail = 0
@@ -717,30 +637,29 @@ def analyze_hot_rtc(
     sendto_ok_not_rx: list[int] = []
     not_run: list[int] = []
     unknown: list[int] = []
-    for n in range(2, 102):
+    for n in range(2, LAST_MESSAGE + 1):
         r = rows.get(n)
         if not r:
-            if n in rx_hot:
-                unknown.append(n)
-            else:
-                not_run.append(n)
+            unknown.append(n)
             continue
         st = r.get("state", "")
         if st == "NOT_RUN":
             not_run.append(n)
             continue
-        if st == "UNKNOWN" and not any(
-            r.get(k) for k in ("got_ip", "encode", "nonce", "sendto")
-        ):
+        if st in ("UNKNOWN", "IN_PROGRESS"):
             unknown.append(n)
             continue
         started += 1
         if r.get("got_ip"):
             got_ip_ok += 1
-        if r.get("encode"):
+        if r.get("encode_called"):
+            encode_called += 1
+        if r.get("encode_ok") or r.get("encode"):
             encode_ok += 1
         if r.get("nonce"):
             nonce_ok += 1
+        if r.get("sendto_called"):
+            sendto_called += 1
         if r.get("sendto"):
             sendto_ok += 1
             if n not in rx_hot:
@@ -756,14 +675,17 @@ def analyze_hot_rtc(
         "HOT_WIFI": fw.get("hot_wifi_mode") or "unknown",
         "HOT_ATTEMPTS": started,
         "GOT_IP_OK": got_ip_ok,
+        "ENCODE_CALLED": encode_called,
         "ENCODE_OK": encode_ok,
         "NONCE_OK": nonce_ok,
+        "SENDTO_CALLED": sendto_called,
         "SENDTO_OK": sendto_ok,
         "wifi_failures": wifi_fail,
         "encode_failures": encode_fail,
         "sendto_failures": sendto_fail,
         "sendto_ok_but_not_received": sendto_ok_not_rx,
-        "not_run_or_unknown": sorted(set(not_run + unknown)),
+        "NOT_RUN": not_run,
+        "UNKNOWN": unknown,
         "hot_rtc_planned": planned,
         "hot_rtc_started": started,
     }
@@ -778,6 +700,7 @@ def wait_campaign(
     test_sender: str | None = state.get("test_sender_uid")
     phase = "USB_STARTUP"
     last_progress = time.time()
+    last_rx_progress = time.time()
     full_begin_at: float | None = None
     last_rx_num = 0
     last_hot_begin = 0
@@ -803,7 +726,10 @@ def wait_campaign(
         fw = parse_firmware_serial(ser_text)
         rx_meta = parse_receiver_meta(rx_text)
         if nums:
-            last_rx_num = max(nums)
+            new_rx = max(nums)
+            if new_rx > last_rx_num:
+                last_rx_progress = time.time()
+            last_rx_num = new_rx
             last_progress = time.time()
         if fw["max_hot_begin"] > last_hot_begin:
             last_hot_begin = fw["max_hot_begin"]
@@ -811,7 +737,12 @@ def wait_campaign(
         if fw.get("confirmed_failure_stage"):
             last_progress = time.time()
         marker = fw.get("last_firmware_marker")
-        if marker and marker != last_marker:
+        if (
+            marker
+            and "SERIAL_READ_ERROR" not in marker
+            and not marker.startswith("Index,Invocations")
+            and marker != last_marker
+        ):
             last_marker = marker
             last_progress = time.time()
         state.update(ev)
@@ -841,10 +772,9 @@ def wait_campaign(
         state["full_write_statuses"] = fw.get("full_write_statuses")
         state["hot_wifi_mode"] = fw.get("hot_wifi_mode")
         state["hot_rtc_table_complete"] = fw.get("hot_rtc_table_complete")
-        if fw.get("hot_rtc_rows"):
-            state["hot_rtc_analysis"] = analyze_hot_rtc(
-                fw, nums, test_sender=test_sender
-            )
+        hot_a = analyze_hot_rtc(fw, nums, test_sender=test_sender)
+        if hot_a is not None:
+            state["hot_rtc_analysis"] = hot_a
         if extra:
             state.update(extra)
         writer.write(state)
@@ -913,26 +843,20 @@ def wait_campaign(
             time.sleep(TAIL_DELIVERY_S)
             sync_state()
             return
-        if fw.get("scenario_done") or fw.get("hot_rtc_table_complete"):
+        nums_tail, _ = parse_log(rx_log, test_sender=test_sender)
+        ev_tail = evaluate(nums_tail)
+        if last_rx_num >= LAST_MESSAGE and ev_tail.get("FULL_RX") == "1/1":
             phase = "TAIL"
             last_progress = time.time()
-        if fw.get("hot_rtc_table_complete"):
+        if fw.get("scenario_done") or fw.get("confirmed_failure_stage"):
+            phase = "TAIL"
+            last_progress = time.time()
+        if fw.get("hot_rtc_table_complete") and (
+            fw.get("scenario_done")
+            or fw.get("confirmed_failure_stage")
+            or last_rx_num >= LAST_MESSAGE
+        ):
             phase = "FIRMWARE_DONE"
-            sync_state()
-            time.sleep(TAIL_DELIVERY_S)
-            sync_state()
-            nums, test_sender = parse_log(rx_log, test_sender=test_sender)
-            ev = evaluate(nums)
-            state.update(ev)
-            state["run_status"] = "PASS" if ev["pass"] else "FAIL"
-            if not ev["pass"] and ev.get("msg_rx_count", 0) > 0:
-                state["TEST"] = "PARTIAL"
-            return
-        nums, test_sender = parse_log(rx_log, test_sender=test_sender)
-        ev = evaluate(nums)
-        if ev["pass"]:
-            phase = "PASS"
-            state["run_status"] = "PASS"
             sync_state()
             time.sleep(TAIL_DELIVERY_S)
             sync_state()
@@ -980,7 +904,9 @@ def wait_campaign(
                 deadline_hit = True
                 state["error"] = "full_phase_timeout"
                 phase = "FULL_TIMEOUT"
-        if phase == "HOT" and now - last_progress > HOT_CYCLE_TIMEOUT_S:
+        if phase == "HOT" and last_rx_num >= LAST_MESSAGE:
+            phase = "TAIL"
+        elif phase == "HOT" and now - last_rx_progress > HOT_CYCLE_TIMEOUT_S:
             deadline_hit = True
             state["error"] = "hot_cycle_timeout"
             phase = "HOT_TIMEOUT"
@@ -996,40 +922,88 @@ def wait_campaign(
     state["error"] = state.get("error") or "overall_deadline"
     phase = "OVERALL_TIMEOUT"
     sync_state()
+def classify_delivery(state: dict) -> str:
+    full_ok = state.get("FULL_RX") == "1/1"
+    hot_rx = state.get("HOT_RX", f"0/{HOT_COUNT}")
+    try:
+        got, need = hot_rx.split("/")
+        hot_ok = int(got) >= int(need) and int(need) == HOT_COUNT
+    except ValueError:
+        hot_ok = False
+    if full_ok and hot_ok:
+        return "PASS"
+    if full_ok or state.get("msg_rx_count", 0) > 0:
+        return "PARTIAL"
+    return "FAIL"
+
+
+def classify_rtc_capture(state: dict) -> str:
+    if state.get("hot_rtc_table_complete"):
+        return "COMPLETE"
+    blocks = int(state.get("hot_rtc_dump_blocks") or 0)
+    if blocks > 0 or state.get("hot_rtc_rows"):
+        return "PARTIAL"
+    return "MISSING"
+
+
+def repeated_rtc_dump_verified(text: str) -> bool:
+    blocks = extract_rtc_dumps(text, hot_count=HOT_COUNT)
+    good = [
+        b
+        for b in blocks
+        if b.complete and pick_authoritative_rtc_dump([b], hot_count=HOT_COUNT)
+    ]
+    if len(good) < 2:
+        return False
+    a, b = good[-2], good[-1]
+    if a.run_id is not None and b.run_id is not None and a.run_id != b.run_id:
+        return False
+    return a.rows == b.rows
+
+
 def finalize_test_status(state: dict) -> None:
-    if state.get("TEST") in ("PARTIAL", "PASS", "FAIL", "TIMEOUT", "ABORTED", "NOT_RUN"):
-        if state.get("TEST") != "NOT_RUN":
-            return
-    rs = state.get("run_status", "FAIL")
-    if rs == "PASS":
+    state["DELIVERY"] = classify_delivery(state)
+    state["RTC_CAPTURE"] = classify_rtc_capture(state)
+    if state.get("run_status") in ("RUNNING", None):
+        rs = state.get("run_status") or "FAIL"
+        if state["DELIVERY"] == "PASS" and state["RTC_CAPTURE"] == "COMPLETE":
+            state["run_status"] = "PASS"
+        elif rs == "TIMEOUT":
+            state["run_status"] = "TIMEOUT"
+        else:
+            state["run_status"] = "FAIL" if state["DELIVERY"] == "FAIL" else "DONE"
+    if state.get("TEST") in ("PARTIAL", "PASS", "FAIL", "TIMEOUT", "ABORTED"):
+        return
+    if state["DELIVERY"] == "PASS" and state["RTC_CAPTURE"] == "COMPLETE":
         state["TEST"] = "PASS"
-    elif rs in ("TIMEOUT", "ABORTED"):
-        state["TEST"] = rs
-    elif state.get("FULL_RX") == "1/1" and state.get("HOT_RX", "0/100") not in (
-        "0/100",
-        "100/100",
-    ):
+    elif state["DELIVERY"] == "PARTIAL":
         state["TEST"] = "PARTIAL"
+    elif state.get("run_status") in ("TIMEOUT", "ABORTED"):
+        state["TEST"] = state["run_status"]
     else:
         state["TEST"] = "FAIL"
+    hot_begin = int(state.get("HOT_BEGIN") or 0)
+    ha = state.get("hot_rtc_analysis") or {}
+    if ha.get("HOT_ATTEMPTS"):
+        hot_begin = max(hot_begin, int(ha["HOT_ATTEMPTS"]))
     if state.get("HOT") is None:
-        hot_begin = int(state.get("HOT_BEGIN") or 0)
-        ha = state.get("hot_rtc_analysis") or {}
-        if ha.get("HOT_ATTEMPTS"):
-            hot_begin = max(hot_begin, int(ha["HOT_ATTEMPTS"]))
-        state["HOT"] = "NOT_RUN" if hot_begin == 0 and state["TEST"] != "PASS" else (
+        state["HOT"] = (
             f"RUN/{hot_begin}" if hot_begin else "NOT_RUN"
         )
 
 
 def write_hot_rtc_csv(path: Path, fw: dict) -> None:
     rows = fw.get("hot_rtc_rows") or {}
-    lines = ["n,got_ip,encode,nonce,sendto,err,state"]
-    for n in range(2, 102):
+    lines = [
+        "n,got_ip,encode_called,encode_ok,nonce,sendto_called,sendto,err,state"
+    ]
+    for n in range(2, LAST_MESSAGE + 1):
         r = rows.get(n, {})
         lines.append(
-            f"{n},{r.get('got_ip','')},{r.get('encode','')},{r.get('nonce','')},"
-            f"{r.get('sendto','')},{r.get('err','')},{r.get('state','')}"
+            f"{n},{r.get('got_ip','')},{r.get('encode_called','')},"
+            f"{r.get('encode_ok', r.get('encode',''))},{r.get('nonce','')},"
+            f"{r.get('sendto_called','')},{r.get('sendto','')},"
+            f"{r.get('err','')},{r.get('state','')}"
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 def main() -> int:
@@ -1153,6 +1127,16 @@ def main() -> int:
         if interrupted["flag"]:
             state["run_status"] = "ABORTED"
             state["error"] = "runner_interrupted"
+        rtc_deadline = time.time() + 240.0
+        while serial_cap is not None and time.time() < rtc_deadline:
+            ser_text = (
+                serial_path.read_text(encoding="utf-8", errors="replace")
+                if serial_path.is_file()
+                else ""
+            )
+            if repeated_rtc_dump_verified(ser_text):
+                break
+            time.sleep(2.0)
         if serial_cap is not None:
             serial_cap.stop()
             serial_cap = None
@@ -1161,27 +1145,42 @@ def main() -> int:
             if serial_path.is_file()
             else ""
         )
-        if "HOT_RTC_TABLE_END" not in ser_text:
-            rec_port = sb.wait_espressif_com(timeout_s=90.0)
-            append_serial_until(
-                serial_path,
-                rec_port,
-                "HOT_RTC_TABLE_END",
-                timeout_s=240.0,
-            )
-            ser_text = serial_path.read_text(encoding="utf-8", errors="replace")
         nums, test_sender = parse_log(log_path, test_sender=state.get("test_sender_uid"))
         state.update(evaluate(nums))
         state["test_sender_uid"] = test_sender
         fw_final = parse_firmware_serial(ser_text)
+        state["hot_rtc_dump_blocks"] = fw_final.get("hot_rtc_dump_blocks", 0)
         hot_a = analyze_hot_rtc(fw_final, nums, test_sender=test_sender)
-        state["hot_rtc_analysis"] = hot_a
-        state.update({k: hot_a[k] for k in hot_a if k.startswith(("HOT_", "GOT_", "SENDTO_", "wifi_", "encode_", "sendto_", "not_run", "hot_rtc"))})
-        state["local_failures"] = {
-            "wifi": hot_a.get("wifi_failures", 0),
-            "encode": hot_a.get("encode_failures", 0),
-            "sendto": hot_a.get("sendto_failures", 0),
-        }
+        if hot_a is not None:
+            state["hot_rtc_analysis"] = hot_a
+            state.update(
+                {
+                    k: hot_a[k]
+                    for k in hot_a
+                    if k.startswith(
+                        (
+                            "HOT_",
+                            "GOT_",
+                            "ENCODE_",
+                            "SENDTO_",
+                            "NONCE_",
+                            "wifi_",
+                            "encode_",
+                            "sendto_",
+                            "NOT_RUN",
+                            "UNKNOWN",
+                            "hot_rtc",
+                        )
+                    )
+                }
+            )
+            state["local_failures"] = {
+                "wifi": hot_a.get("wifi_failures", 0),
+                "encode": hot_a.get("encode_failures", 0),
+                "sendto": hot_a.get("sendto_failures", 0),
+            }
+        state["serial_single_owner_verified"] = True
+        state["repeated_dump_verified"] = repeated_rtc_dump_verified(ser_text)
         csv_path = RESULTS / f"hot_rtc_{run_id}.csv"
         write_hot_rtc_csv(csv_path, fw_final)
         state["artifacts"] = {

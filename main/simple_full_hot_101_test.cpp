@@ -81,7 +81,11 @@ static constexpr auto kServiceUid = ae::Uid::FromString(SERVICE_UID);
 
 
 
-static constexpr int kHotCount = 100;
+#ifndef AE_SIMPLE_FULL_HOT_COUNT
+#define AE_SIMPLE_FULL_HOT_COUNT 100
+#endif
+
+static constexpr int kHotCount = AE_SIMPLE_FULL_HOT_COUNT;
 
 static constexpr int kLastMessage = 1 + kHotCount;
 
@@ -92,22 +96,27 @@ static constexpr std::uint16_t kHalted = 0xffffu;
 static constexpr std::uint16_t kHotPostSendHoldMs = 1000;
 
 struct HotAttemptRecord {
-  std::uint8_t flags{0};  // bit0 got_ip bit1 encode bit2 nonce bit3 sendto
-  std::uint8_t err{0};    // 0=ok 1=wifi 2=encode 3=send 4=nonce 5=block 6=other
+  // bit0 got_ip bit1 encode_ok bit2 nonce bit3 sendto_ok bit4 started
+  std::uint8_t flags{0};
+  std::uint8_t encode_called{0};
+  std::uint8_t sendto_called{0};
+  std::uint8_t err{0};  // 0=ok 1=wifi 2=encode 3=send 4=nonce 5=block 6=other
 };
 
 static constexpr std::uint32_t kHotRtcMagic = 0x48545231u;  // HTR1
 
 struct HotRtcTable {
   std::uint32_t magic{kHotRtcMagic};
-  std::uint16_t version{1};
+  std::uint16_t version{2};
+  std::uint32_t run_id{0};
   std::uint16_t planned{static_cast<std::uint16_t>(kHotCount)};
   std::uint16_t next_message{1};
-  std::uint16_t dump_complete{0};
   HotAttemptRecord row[kHotCount]{};
 };
 
 RTC_DATA_ATTR static HotRtcTable g_hot_rtc{};
+RTC_DATA_ATTR static std::uint32_t g_hot_run_serial{0};
+static char g_dump_finish_reason[64] = "unknown";
 
 
 
@@ -291,9 +300,67 @@ static int HotRowIndex(int message_num) {
 
 static void ResetHotRtcTable() {
 
+  ++g_hot_run_serial;
+
   g_hot_rtc = HotRtcTable{};
 
+  g_hot_rtc.run_id = g_hot_run_serial;
+
   g_hot_rtc.next_message = g_next_message;
+
+}
+
+
+
+static void SetDumpFinishReason(char const* reason) {
+
+  if (reason == nullptr || reason[0] == '\0') {
+
+    return;
+
+  }
+
+  std::snprintf(g_dump_finish_reason, sizeof g_dump_finish_reason, "%s", reason);
+
+}
+
+
+
+static int CountHotAttemptsStarted() {
+
+  int n = 0;
+
+  for (int i = 0; i < kHotCount; ++i) {
+
+    if ((g_hot_rtc.row[i].flags & 0x10) != 0) {
+
+      ++n;
+
+    }
+
+  }
+
+  return n;
+
+}
+
+
+
+static void MarkHotAttemptStarted(int num) {
+
+  int const idx = HotRowIndex(num);
+
+  if (idx < 0) {
+
+    return;
+
+  }
+
+  HotAttemptRecord rec{};
+
+  rec.flags = 0x10;
+
+  g_hot_rtc.row[idx] = rec;
 
 }
 
@@ -357,15 +424,29 @@ static void RecordHotAttempt(
 
   HotAttemptRecord rec{};
 
+  rec.flags = 0x10;
+
   if (result.got_ip_seen) {
 
     rec.flags |= 0x01;
 
   }
 
-  if (result.status != temp_sensor::prepared_send::HotSendStatus::kEncodeFailed &&
+  rec.encode_called =
 
-      result.fail_stage != 2) {
+      (result.encode_us > 0 || result.fail_stage >= 2 ||
+
+       (result.status_flags &
+
+        static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk)) != 0)
+
+          ? 1
+
+          : 0;
+
+  if ((result.status_flags &
+
+       static_cast<std::uint8_t>(bench::BisectStatusBits::kEncodeOk)) != 0) {
 
     rec.flags |= 0x02;
 
@@ -376,6 +457,10 @@ static void RecordHotAttempt(
     rec.flags |= 0x04;
 
   }
+
+  rec.sendto_called =
+
+      (result.sendto_begin_us > 0 || result.sendto_ok) ? 1 : 0;
 
   if (result.sendto_ok) {
 
@@ -395,59 +480,79 @@ static void RecordHotAttempt(
 
 static void DumpHotRtcTable() {
 
-  if (g_hot_rtc.dump_complete) {
+  bool const table_ok = g_hot_rtc.magic == kHotRtcMagic;
 
-    return;
+  int const started = CountHotAttemptsStarted();
 
-  }
+  char const* table_tag = table_ok ? "OK" : "UNAVAILABLE";
 
-  g_hot_rtc.dump_complete = 1;
+  std::printf(
 
-  std::printf("HOT_RTC_TABLE_BEGIN planned=%u next=%u\n",
+      "HOT_RTC_TABLE_BEGIN run_id=%u planned=%u started=%u next=%u "
 
-              static_cast<unsigned>(g_hot_rtc.planned),
+      "finish=%s table=%s\n",
 
-              static_cast<unsigned>(g_hot_rtc.next_message));
+      static_cast<unsigned>(g_hot_rtc.run_id),
 
-  for (int n = 2; n <= kLastMessage; ++n) {
+      static_cast<unsigned>(g_hot_rtc.planned),
 
-    int const idx = HotRowIndex(n);
+      static_cast<unsigned>(started),
 
-    HotAttemptRecord const& r = g_hot_rtc.row[idx];
+      static_cast<unsigned>(g_hot_rtc.next_message), g_dump_finish_reason,
 
-    char const* state = "OK";
+      table_tag);
 
-    if (n >= static_cast<int>(g_next_message) && !g_scenario_failed &&
+  if (table_ok) {
 
-        n >= static_cast<int>(g_hot_rtc.next_message)) {
+    for (int n = 2; n <= kLastMessage; ++n) {
 
-      state = "NOT_RUN";
+      int const idx = HotRowIndex(n);
 
-    } else if (r.flags == 0 && r.err == 0 && n >= static_cast<int>(g_next_message)) {
+      HotAttemptRecord const& r = g_hot_rtc.row[idx];
 
-      state = "NOT_RUN";
+      char const* state = "OK";
 
-    } else if (r.flags == 0 && r.err == 0) {
+      bool const was_started = (r.flags & 0x10) != 0;
 
-      state = "UNKNOWN";
+      if (!was_started && n >= static_cast<int>(g_hot_rtc.next_message)) {
+
+        state = "NOT_RUN";
+
+      } else if (was_started && r.err == 0 && (r.flags & 0x0f) == 0) {
+
+        state = "IN_PROGRESS";
+
+      } else if (!was_started && r.err == 0 && (r.flags & 0x0f) == 0) {
+
+        state = "UNKNOWN";
+
+      } else if (r.err != 0) {
+
+        state = "FAIL";
+
+      }
+
+      std::printf(
+
+          "HOT_RTC_ROW n=%d got_ip=%u encode_called=%u encode_ok=%u "
+
+          "nonce=%u sendto_called=%u sendto=%u err=%u state=%s\n",
+
+          n, static_cast<unsigned>((r.flags >> 0) & 1),
+
+          static_cast<unsigned>(r.encode_called),
+
+          static_cast<unsigned>((r.flags >> 1) & 1),
+
+          static_cast<unsigned>((r.flags >> 2) & 1),
+
+          static_cast<unsigned>(r.sendto_called),
+
+          static_cast<unsigned>((r.flags >> 3) & 1),
+
+          static_cast<unsigned>(r.err), state);
 
     }
-
-    std::printf(
-
-        "HOT_RTC_ROW n=%d got_ip=%u encode=%u nonce=%u sendto=%u err=%u "
-
-        "state=%s\n",
-
-        n, static_cast<unsigned>((r.flags >> 0) & 1),
-
-        static_cast<unsigned>((r.flags >> 1) & 1),
-
-        static_cast<unsigned>((r.flags >> 2) & 1),
-
-        static_cast<unsigned>((r.flags >> 3) & 1),
-
-        static_cast<unsigned>(r.err), state);
 
   }
 
@@ -459,13 +564,15 @@ static void DumpHotRtcTable() {
 
 
 
-[[noreturn]] static void StayAwakeForRunnerDump() {
+[[noreturn]] static void StayAwakeForRunnerDump(char const* finish_reason) {
 
-  DumpHotRtcTable();
+  SetDumpFinishReason(finish_reason);
 
   for (;;) {
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    DumpHotRtcTable();
+
+    vTaskDelay(pdMS_TO_TICKS(2000));
 
     esp_task_wdt_reset();
 
@@ -518,6 +625,10 @@ static void MarkScenarioFail(char const* stage, char const* error) {
   std::printf("SCENARIO_FAIL stage=%s error=%s\n", g_fail_stage, g_fail_error);
 
   std::fflush(stdout);
+
+  std::snprintf(g_dump_finish_reason, sizeof g_dump_finish_reason,
+
+                "SCENARIO_FAIL:%s", g_fail_stage);
 
 }
 
@@ -589,7 +700,7 @@ static bool SenderUidMatchesRtc(ae::Uid const& uid) {
 
 [[noreturn]] static void ScenarioFailIdle() {
 
-  StayAwakeForRunnerDump();
+  StayAwakeForRunnerDump(g_dump_finish_reason);
 
 }
 
@@ -1104,7 +1215,7 @@ static void SendHotMessage() {
 
   if (g_scenario_failed) {
 
-    StayAwakeForRunnerDump();
+    StayAwakeForRunnerDump(g_dump_finish_reason);
 
   }
 
@@ -1114,7 +1225,7 @@ static void SendHotMessage() {
 
     MarkScenarioFail("hot_prepared", "no_block");
 
-    StayAwakeForRunnerDump();
+    StayAwakeForRunnerDump(g_dump_finish_reason);
 
   }
 
@@ -1125,6 +1236,8 @@ static void SendHotMessage() {
     ResetHotRtcTable();
 
   }
+
+  MarkHotAttemptStarted(num);
 
   std::printf("HOT_BEGIN number=%d hold_ms=%u\n", num,
 
@@ -1156,7 +1269,7 @@ static void SendHotMessage() {
 
     MarkScenarioFail("hot_send", temp_sensor::prepared_send::ToString(result.status).data());
 
-    StayAwakeForRunnerDump();
+    StayAwakeForRunnerDump(g_dump_finish_reason);
 
   }
 
@@ -1170,7 +1283,7 @@ static void SendHotMessage() {
 
     std::fflush(stdout);
 
-    StayAwakeForRunnerDump();
+    StayAwakeForRunnerDump("SCENARIO_DONE");
 
   }
 
