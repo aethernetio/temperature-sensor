@@ -54,11 +54,12 @@
 
 #include <esp_timer.h>
 
-#include <functional>
+#include <esp_err.h>
+#include <esp_wifi.h>
 
 #include "bench_payload.h"
 
-
+static bool g_ae_exp_got_ip_flag = false;
 
 namespace temp_sensor {
 
@@ -144,21 +145,53 @@ static ae::WriteAction::Status g_bootstrap_write_status =
 static ae::Subscription g_bootstrap_select_sub;
 static ae::Subscription g_bootstrap_write_sub;
 
-
+static std::int64_t g_bootstrap_deadline_us = 0;
 
 static ae::WiFiInit VanillaWifi() {
-
-  ae::WiFiPowerSaveParam ps{};
-
-  ps.wifi_ps_type = WIFI_PS_NONE;
 
   return ae::WiFiInit{
 
       std::vector<ae::WiFiAp>{{ae::WifiCreds{WIFI_SSID, WIFI_PASSWORD}, {}}},
 
-      ps,
+      std::nullopt,
 
   };
+
+}
+
+
+
+static void ApplyVanillaWifiInitToRegistry() {
+
+  if (!g_app || !g_app->aether() || !g_app->aether()->adapter_registry) {
+
+    return;
+
+  }
+
+  auto const init = VanillaWifi();
+
+  for (auto const& adapter : g_app->aether()->adapter_registry->adapters()) {
+
+    ae::WifiAdapter::ptr wa{adapter};
+
+    if (!wa.is_valid()) {
+
+      continue;
+
+    }
+
+    if (auto loaded = wa.Load()) {
+
+      loaded->wifi_init_ = init;
+
+    }
+
+  }
+
+  std::printf("FULL_WIFI_PSP_PRESENT=0\n");
+
+  std::fflush(stdout);
 
 }
 
@@ -298,20 +331,6 @@ static bool SenderUidMatchesRtc(ae::Uid const& uid) {
 
 
 
-static void PumpAppUntil(std::function<bool()> done) {
-  if (!g_app) {
-    return;
-  }
-  auto const deadline_us = esp_timer_get_time() + 180LL * 1000000;
-  while (!done() && esp_timer_get_time() < deadline_us && !g_scenario_failed) {
-    auto const t = g_app->Update(ae::Now());
-    g_app->WaitUntil(t);
-    esp_task_wdt_reset();
-  }
-}
-
-
-
 [[noreturn]] static void DeepSleep2s() {
 
   std::printf("SLEEP_ENTER\n");
@@ -387,6 +406,7 @@ static void ConstructVanillaAether() {
           })
 #endif
   );
+  ApplyVanillaWifiInitToRegistry();
 }
 
 
@@ -656,15 +676,9 @@ static void StartBootstrapPhase() {
 
   ConstructVanillaAether();
 
-  for (int i = 0; i < 450 && g_app; ++i) {
+  g_bootstrap_deadline_us = esp_timer_get_time() + 180LL * 1000000;
 
-    auto const t = g_app->Update(ae::Now());
-
-    g_app->WaitUntil(t);
-
-    esp_task_wdt_reset();
-
-  }
+  g_ae_exp_got_ip_flag = false;
 
   g_bootstrap_select_sub = g_app->aether()
 
@@ -682,9 +696,14 @@ static void StartBootstrapPhase() {
 
                                      std::printf(
 
-                                         "BOOTSTRAP_SELECT ok=0 error=%d\n",
+                                         "BOOTSTRAP_SELECT ok=0 error=%d "
 
-                                         g_bootstrap_select_err);
+                                         "got_ip=%u\n",
+
+                                         g_bootstrap_select_err,
+
+                                         static_cast<unsigned>(
+                                             g_ae_exp_got_ip_flag ? 1 : 0));
 
                                      std::fflush(stdout);
 
@@ -1025,21 +1044,41 @@ void AppLoop() {
 
   if (g_bootstrap_active && g_app) {
 
-    PumpAppUntil([]() {
-
-      if (g_bootstrap_select_done && !g_bootstrap_select_ok) {
-
-        return true;
-
-      }
-
-      return g_bootstrap_select_done && g_bootstrap_write_terminal;
-
-    });
-
     if (g_bootstrap_select_done && !g_bootstrap_select_ok) {
 
       ScenarioFailIdle();
+
+    }
+
+    if (esp_timer_get_time() >= g_bootstrap_deadline_us && !g_bootstrap_write_terminal &&
+
+        !(g_bootstrap_select_done && g_bootstrap_select_ok)) {
+
+      MarkScenarioFail("bootstrap_select", "deadline");
+
+      ScenarioFailIdle();
+
+    }
+
+    auto const t = g_app->Update(ae::Now());
+
+    esp_task_wdt_reset();
+
+    auto wait_until = t;
+
+    auto const cap = ae::Now() + std::chrono::microseconds(
+
+        std::max<std::int64_t>(0, g_bootstrap_deadline_us - esp_timer_get_time()));
+
+    if (wait_until > cap) {
+
+      wait_until = cap;
+
+    }
+
+    if (wait_until > ae::Now()) {
+
+      g_app->WaitUntil(wait_until);
 
     }
 
@@ -1094,6 +1133,32 @@ void AppLoop() {
 }  // namespace
 
 }  // namespace temp_sensor
+
+
+
+extern "C" void ae_exp_on_wifi_start(void) {
+
+  esp_err_t const err = esp_wifi_set_ps(WIFI_PS_NONE);
+
+  std::printf("FULL_WIFI_SET_PS err=%d name=%s\n", static_cast<int>(err),
+
+              esp_err_to_name(err));
+
+  std::fflush(stdout);
+
+}
+
+
+
+extern "C" void ae_exp_on_wifi_got_ip(void) {
+
+  g_ae_exp_got_ip_flag = true;
+
+  std::printf("GOT_IP=1\n");
+
+  std::fflush(stdout);
+
+}
 
 
 

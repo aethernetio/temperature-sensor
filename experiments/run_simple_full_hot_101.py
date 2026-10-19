@@ -64,6 +64,16 @@ RE_SELECT_FAIL = re.compile(
     r"(?:SELECT_RESULT|BOOTSTRAP_SELECT) ok=0 error=(\d+)", re.I
 )
 RE_HOT_SENDTO = re.compile(r"HOT_RESULT .* sendto_ok=(\d+)", re.I)
+RE_WIFI_ESP = re.compile(r"WIFI_ESP call=(\S+) err=(-?\d+) name=(\S+)", re.I)
+RE_FIRST_WIFI_ESP = re.compile(
+    r"FIRST_WIFI_ESP call=(\S+) err=(-?\d+) name=(\S+)", re.I
+)
+RE_WIFI_RADIO = re.compile(r"WIFI_RADIO (\S+)", re.I)
+RE_FULL_WIFI_PSP = re.compile(r"FULL_WIFI_PSP_PRESENT=(\d+)", re.I)
+RE_GOT_IP = re.compile(r"^GOT_IP=1$")
+RE_BOOTSTRAP_SELECT_FAIL = re.compile(
+    r"BOOTSTRAP_SELECT ok=0 error=(\d+)", re.I
+)
 def utc_tag() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 def iso_now() -> str:
@@ -189,8 +199,14 @@ def parse_firmware_serial(text: str) -> dict:
         "hot_sendto_ok_count": 0,
         "max_hot_begin": 0,
         "bootstrap_done": False,
+        "bootstrap_select_fail": False,
         "client_reload_check": False,
         "scenario_done": False,
+        "full_wifi_psp_present": None,
+        "wifi_radio_applied": [],
+        "got_ip": False,
+        "first_wifi_esp_error": None,
+        "wifi_esp_calls": [],
     }
     last_line = None
     for line in text.splitlines():
@@ -206,6 +222,34 @@ def parse_firmware_serial(text: str) -> dict:
             out["full_write_called"] += 1
         if line == "BOOTSTRAP_DONE":
             out["bootstrap_done"] = True
+        if line.startswith("BOOTSTRAP_WRITE_STATUS=Success"):
+            out["bootstrap_done"] = True
+        m = re.search(r"BOOTSTRAP_SELECT ok=1 sender_uid=([0-9a-f-]{36})", line, re.I)
+        if m:
+            out["expected_sender_uid"] = m.group(1).lower()
+            out["bootstrap_select_ok"] = True
+        if RE_BOOTSTRAP_SELECT_FAIL.search(line):
+            out["bootstrap_select_fail"] = True
+        m = RE_FULL_WIFI_PSP.search(line)
+        if m:
+            out["full_wifi_psp_present"] = int(m.group(1))
+        m = RE_WIFI_RADIO.search(line)
+        if m:
+            out["wifi_radio_applied"].append(m.group(1))
+        if RE_GOT_IP.search(line):
+            out["got_ip"] = True
+        m = RE_FIRST_WIFI_ESP.search(line)
+        if m and out["first_wifi_esp_error"] is None:
+            out["first_wifi_esp_error"] = {
+                "call": m.group(1),
+                "err": int(m.group(2)),
+                "name": m.group(3),
+            }
+        m = RE_WIFI_ESP.search(line)
+        if m:
+            out["wifi_esp_calls"].append(
+                {"call": m.group(1), "err": int(m.group(2)), "name": m.group(3)}
+            )
         if line.startswith("CLIENT_RELOAD_CHECK"):
             out["client_reload_check"] = True
         m = RE_SELECT_FAIL.search(line)
@@ -627,7 +671,12 @@ def wait_campaign(
         state["HOT_BEGIN"] = fw.get("hot_begin_count", 0)
         state["HOT_SENDTO_OK"] = fw.get("hot_sendto_ok_count", 0)
         state["bootstrap_done"] = fw.get("bootstrap_done")
+        state["bootstrap_select_fail"] = fw.get("bootstrap_select_fail")
         state["client_reload_check"] = fw.get("client_reload_check")
+        state["full_wifi_psp_present"] = fw.get("full_wifi_psp_present")
+        state["wifi_radio_applied"] = fw.get("wifi_radio_applied")
+        state["got_ip"] = fw.get("got_ip")
+        state["first_wifi_esp_error"] = fw.get("first_wifi_esp_error")
         state["full_write_statuses"] = fw.get("full_write_statuses")
         if extra:
             state.update(extra)
@@ -666,10 +715,22 @@ def wait_campaign(
             time.sleep(TAIL_DELIVERY_S)
             sync_state()
             return
+        if fw.get("bootstrap_select_fail") and not fw.get("bootstrap_done"):
+            phase = "BOOTSTRAP_FAIL"
+            state["run_status"] = "FAIL"
+            state["confirmed_failure_stage"] = "bootstrap_select"
+            state["error"] = fw.get("fail_error") or "bootstrap_select_failed"
+            state["HOT"] = "NOT_RUN"
+            sync_state()
+            time.sleep(TAIL_DELIVERY_S)
+            sync_state()
+            return
         if fw.get("confirmed_failure_stage"):
             phase = "SCENARIO_FAIL"
             state["run_status"] = "FAIL"
             state["error"] = fw.get("fail_error") or fw["confirmed_failure_stage"]
+            if not fw.get("hot_begin_count"):
+                state["HOT"] = "NOT_RUN"
             sync_state()
             time.sleep(TAIL_DELIVERY_S)
             sync_state()
@@ -747,6 +808,11 @@ def finalize_test_status(state: dict) -> None:
         state["TEST"] = rs
     else:
         state["TEST"] = "FAIL"
+    if state.get("HOT") is None:
+        hot_begin = int(state.get("HOT_BEGIN") or 0)
+        state["HOT"] = "NOT_RUN" if hot_begin == 0 and state["TEST"] != "PASS" else (
+            f"RUN/{hot_begin}" if hot_begin else "NOT_RUN"
+        )
 def main() -> int:
     run_id = utc_tag()
     log_path = RESULTS / f"receiver_{run_id}.log"
@@ -819,6 +885,8 @@ def main() -> int:
                 "panic_addr2line",
             )
         }
+        writer.write(state)
+        state["storage_erase"] = "skipped"
         writer.write(state)
         if os.environ.get("SIMPLE_ERASE_AETHER_STORAGE", "").strip() == "1":
             if not port:

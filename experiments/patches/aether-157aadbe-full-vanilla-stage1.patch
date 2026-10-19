@@ -1,8 +1,60 @@
-﻿diff --git a/aether/adapters/wifi_adapter.cpp b/aether/adapters/wifi_adapter.cpp
-index 173df64..3a2e9cc 100644
+﻿diff --git a/aether/access_points/wifi_access_point.cpp b/aether/access_points/wifi_access_point.cpp
+index 4dfa03e..d64f41d 100644
+--- a/aether/access_points/wifi_access_point.cpp
++++ b/aether/access_points/wifi_access_point.cpp
+@@ -32,6 +32,22 @@
+ 
+ namespace ae {
+ 
++namespace {
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++std::optional<WiFiPowerSaveParam> const& PspForDriverConnect(
++    std::optional<WiFiPowerSaveParam> const& stored) {
++  (void)stored;
++  static std::optional<WiFiPowerSaveParam> const kNone{};
++  return kNone;
++}
++#  else
++std::optional<WiFiPowerSaveParam> const& PspForDriverConnect(
++    std::optional<WiFiPowerSaveParam> const& stored) {
++  return stored;
++}
++#  endif
++}  // namespace
++
+ WifiConnectAction::WifiConnectAction(AeContext const& ae_context,
+                                      WifiAccessPoint& access_point,
+                                      WifiDriver& driver, WiFiAp wifi_ap,
+@@ -89,7 +105,7 @@ void WifiConnectAction::Connect() {
+         }
+       });
+ 
+-  driver_->Connect(wifi_ap_, psp_);
++  driver_->Connect(wifi_ap_, PspForDriverConnect(psp_));
+ }
+ 
+ void WifiConnectAction::SetConnected(bool is_connected) {
+diff --git a/aether/adapters/wifi_adapter.cpp b/aether/adapters/wifi_adapter.cpp
+index 173df64..325a7cf 100644
 --- a/aether/adapters/wifi_adapter.cpp
 +++ b/aether/adapters/wifi_adapter.cpp
-@@ -87,5 +87,17 @@ WifiDriver& WifiAdapter::driver() {
+@@ -66,9 +66,14 @@ std::vector<AccessPoint::ptr> WifiAdapter::access_points() {
+     auto self_ptr = WifiAdapter::ptr::MakeFromThis(this);
+ 
+     for (const auto& ap : wifi_init_.wifi_ap) {
++      std::optional<WiFiPowerSaveParam> psp_for_connect = wifi_init_.psp;
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++      // FULL vanilla: PS/radio tuning via ae_exp_on_wifi_start, not partial psp.
++      psp_for_connect = std::nullopt;
++#  endif
+       auto access_point =
+           WifiAccessPoint::ptr::Create(domain, aether_, self_ptr, poller_,
+-                                       dns_resolver_, ap, wifi_init_.psp);
++                                       dns_resolver_, ap, psp_for_connect);
+       access_points_.emplace_back(std::move(access_point));
+     }
+   }
+@@ -87,5 +92,17 @@ WifiDriver& WifiAdapter::driver() {
    }
    return *wifi_driver_;
  }
@@ -218,6 +270,165 @@ index cf1f3ac..92bf330 100644
    ServerId server_id{};
    std::vector<Endpoint> endpoints;
    std::vector<Channel::ptr> channels;
+diff --git a/aether/wifi/esp_wifi_driver.cpp b/aether/wifi/esp_wifi_driver.cpp
+index d05a9db..731833b 100644
+--- a/aether/wifi/esp_wifi_driver.cpp
++++ b/aether/wifi/esp_wifi_driver.cpp
+@@ -61,6 +61,23 @@ namespace esp_wifi_driver_internal {
+ static constexpr char kTag[] = "EspWifiDriver";
+ static constexpr int kMaxRetry = 10;
+ 
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++#    include <cstdio>
++void LogWifiEspStep(char const* step, esp_err_t err) {
++  std::printf("WIFI_ESP call=%s err=%d name=%s\n", step, static_cast<int>(err),
++              esp_err_to_name(err));
++  if (err != ESP_OK) {
++    static bool logged_first = false;
++    if (!logged_first) {
++      logged_first = true;
++      std::printf("FIRST_WIFI_ESP call=%s err=%d name=%s\n", step,
++                  static_cast<int>(err), esp_err_to_name(err));
++    }
++  }
++  std::fflush(stdout);
++}
++#  endif
++
+ void EventHandler(void* arg, esp_event_base_t event_base, int32_t event_id,
+                   [[maybe_unused]] void* event_data) {
+   auto base_type = [](esp_event_base_t event_base) {
+@@ -291,30 +308,51 @@ esp_err_t StartWifiConnection(
+   }
+ 
+   err = esp_wifi_set_mode(WIFI_MODE_STA);
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++  LogWifiEspStep("esp_wifi_set_mode", err);
++#  endif
+   if (err != ESP_OK) {
+     ESP_LOGE(kTag, "Failed to set mode.");
+     // If an error occurs, exit
+     return err;
+   }
+   err = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++  LogWifiEspStep("esp_wifi_set_config", err);
++#  endif
+   if (err != ESP_OK) {
+     ESP_LOGE(kTag, "Failed to set config.");
+     // If an error occurs, exit
+     return err;
+   }
+   if (psp) {
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++    std::printf("WIFI_RADIO psp_present=1\n");
++    std::fflush(stdout);
++#  endif
+     err = esp_wifi_set_ps(static_cast<wifi_ps_type_t>(psp->wifi_ps_type));
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++    LogWifiEspStep("esp_wifi_set_ps", err);
++#  endif
+     if (err != ESP_OK) {
+       ESP_LOGE(kTag, "Failed to set ps.");
+       // If an error occurs, exit
+       return err;
+     }
+     err = esp_wifi_set_protocol(WIFI_IF_STA, psp->protocol_bitmap);
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++    LogWifiEspStep("esp_wifi_set_protocol", err);
++#  endif
+     if (err != ESP_OK) {
+       ESP_LOGE(kTag, "Failed to set protocol.");
+       // If an error occurs, exit
+       return err;
+     }
++  } else {
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++    std::printf("WIFI_RADIO psp_present=0 applied=none\n");
++    std::fflush(stdout);
++#  endif
+   }
+ 
+   if (ae_exp_on_wifi_start) {
+@@ -323,6 +361,9 @@ esp_err_t StartWifiConnection(
+   AE_EXP_LC("EspWifiDriver", driver != nullptr ? driver->ExpId() : 0, driver, 0,
+             "esp_wifi_start", "");
+   err = esp_wifi_start();
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++  LogWifiEspStep("esp_wifi_start", err);
++#  endif
+   if (err != ESP_OK) {
+     ESP_LOGE(kTag, "Failed to start WiFi!");
+     // If an error occurs, exit
+@@ -332,6 +373,9 @@ esp_err_t StartWifiConnection(
+   if (psp) {
+     err = esp_wifi_internal_set_fix_rate(
+         WIFI_IF_STA, true, static_cast<wifi_phy_rate_t>(psp->fix_rate));
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++    LogWifiEspStep("esp_wifi_internal_set_fix_rate", err);
++#  endif
+     if (err != ESP_OK) {
+       ESP_LOGE(kTag, "Failed to set fix rate.");
+       // If an error occurs, exit
+@@ -339,12 +383,18 @@ esp_err_t StartWifiConnection(
+     }
+     err =
+         esp_wifi_internal_set_retry_counter(psp->short_retry, psp->long_retry);
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++    LogWifiEspStep("esp_wifi_internal_set_retry_counter", err);
++#  endif
+     if (err != ESP_OK) {
+       ESP_LOGE(kTag, "Failed to set retry counter.");
+       // If an error occurs, exit
+       return err;
+     }
+     err = esp_wifi_set_max_tx_power(psp->power);
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++    LogWifiEspStep("esp_wifi_set_max_tx_power", err);
++#  endif
+     if (err != ESP_OK) {
+       ESP_LOGE(kTag, "Failed to set tx power.");
+       // If an error occurs, exit
+@@ -408,6 +458,9 @@ void EspWifiDriver::Connect(WiFiAp const& wifi_ap,
+       this, static_cast<esp_netif_t*>(espt_init_sta_), wifi_ap, psp);
+   // the connection result will be handled in ConnectingEventHandler
+   if (err != ESP_OK) {
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++    esp_wifi_driver_internal::LogWifiEspStep("StartWifiConnection", err);
++#  endif
+     // Emitting the error, 2 for example.
+     connect_res_event_.Emit(Error(2));
+   }
+@@ -428,6 +481,9 @@ void EspWifiDriver::Init() {
+   InitNvs();
+ 
+   err = esp_netif_init();
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++  esp_wifi_driver_internal::LogWifiEspStep("esp_netif_init", err);
++#  endif
+   if (err != ESP_OK) {
+     ESP_LOGE(esp_wifi_driver_internal::kTag, "Failed to netif init.");
+     // If an error occurs, exit
+@@ -435,6 +491,9 @@ void EspWifiDriver::Init() {
+     return;
+   }
+   err = esp_event_loop_create_default();
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++  esp_wifi_driver_internal::LogWifiEspStep("esp_event_loop_create_default", err);
++#  endif
+   if (err != ESP_OK) {
+     ESP_LOGE(esp_wifi_driver_internal::kTag, "Failed to create event loop.");
+     // If an error occurs, exit
+@@ -453,6 +512,9 @@ void EspWifiDriver::Init() {
+ #  endif
+ 
+   err = esp_wifi_init(&wifi_init_config);
++#  if defined(AE_EXP_SIMPLE_FULL_HOT_101) && AE_EXP_SIMPLE_FULL_HOT_101
++  esp_wifi_driver_internal::LogWifiEspStep("esp_wifi_init", err);
++#  endif
+   if (err != ESP_OK) {
+     ESP_LOGE(esp_wifi_driver_internal::kTag, "Failed to wifi init.");
+     // If an error occurs, exit
 diff --git a/tests/test-server-connection/CMakeLists.txt b/tests/test-server-connection/CMakeLists.txt
 index d1b6cc1..dd1f68d 100644
 --- a/tests/test-server-connection/CMakeLists.txt
