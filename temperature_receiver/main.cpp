@@ -919,8 +919,33 @@ void OnNosleep(temp_sensor::bench::NosleepPayload const& p) {
   std::cout.flush();
 }
 
-void OnMessage(ae::Uid, ae::DataBuffer const& data) {
+void OnMessage(ae::Uid sender, ae::DataBuffer const& data) {
   std::lock_guard lock{g_mu};
+
+  if (data.size() == 1) {
+    unsigned const num = static_cast<unsigned>(data[0]);
+    std::cout << "MSG_NUM=" << num << " sender=" << ae::Format("{}", sender)
+              << "\n";
+    std::cout.flush();
+    return;
+  }
+
+  if (data.size() >= 1 && data.size() <= 8) {
+    bool digits = true;
+    for (auto b : data) {
+      if (b < '0' || b > '9') {
+        digits = false;
+        break;
+      }
+    }
+    if (digits) {
+      std::string num(data.begin(), data.end());
+      std::cout << "MSG_NUM=" << num << " sender=" << ae::Format("{}", sender)
+                << "\n";
+      std::cout.flush();
+      return;
+    }
+  }
 
   temp_sensor::bench::ReliabilityPayload rp{};
   if (temp_sensor::bench::DecodeReliability(data, rp)) {
