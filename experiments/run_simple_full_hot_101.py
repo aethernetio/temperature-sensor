@@ -986,7 +986,11 @@ def main() -> int:
         state["campaign_log_offset"] = (
             log_path.stat().st_size if log_path.is_file() else 0
         )
-        state["measured_campaign_deadline_s"] = MEASURED_CAMPAIGN_DEADLINE_S
+        state["measured_campaign_deadline_s"] = (
+            CONTROL_CAMPAIGN_DEADLINE_S
+            if control_run
+            else MEASURED_CAMPAIGN_DEADLINE_S
+        )
         state["phase"] = "ARMED"
         writer.write(state)
         ppk.set_on()
