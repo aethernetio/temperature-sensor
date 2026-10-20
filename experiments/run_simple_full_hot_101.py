@@ -896,9 +896,6 @@ def wait_campaign(
             time.sleep(TAIL_DELIVERY_S)
             sync_state()
             return
-        if phase == "USB_STARTUP" and RE_BOOT.search(ser_text):
-            phase = "FULL" if timers.full_begin is not None else "USB_STARTUP"
-            timers.note_usb_progress(now=now)
         hot_lane_active = (
             fw["max_hot_begin"] >= 2
             or int(fw.get("hot_begin_count") or 0) >= 1
@@ -1029,7 +1026,6 @@ def finalize_stale_running_results() -> list[str]:
 def finalize_test_status(state: dict) -> None:
     state["DELIVERY"] = classify_delivery(state)
     state["RTC_CAPTURE"] = classify_rtc_capture(state)
-    state["EXECUTION"] = execution_status(state)
     state["campaign_timer_monotonic"] = True
     state["last_rx_progress_unique_only"] = True
     if state.get("run_status") in ("RUNNING", None):
@@ -1040,6 +1036,7 @@ def finalize_test_status(state: dict) -> None:
             state["run_status"] = "TIMEOUT"
         else:
             state["run_status"] = "FAIL" if state["DELIVERY"] == "FAIL" else "DONE"
+    state["EXECUTION"] = execution_status(state)
     if state.get("TEST") in ("PARTIAL", "PASS", "FAIL", "TIMEOUT", "ABORTED"):
         return
     if state["DELIVERY"] == "PASS" and state["RTC_CAPTURE"] == "COMPLETE":
@@ -1268,7 +1265,8 @@ def main() -> int:
                 "encode": hot_a.get("encode_failures", 0),
                 "sendto": hot_a.get("sendto_failures", 0),
             }
-        state["serial_single_owner_verified"] = True
+        # One capture thread does not verify COM ownership across processes.
+        state["serial_single_owner_verified"] = False
         state["repeated_dump_verified"] = repeated_rtc_dump_verified(ser_text)
         csv_path = RESULTS / f"hot_rtc_{run_id}.csv"
         write_hot_rtc_csv(csv_path, fw_final)
