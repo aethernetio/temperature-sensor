@@ -36,6 +36,7 @@ FULL_ACTIVE_TIMEOUT_S = 300.0
 HOT_CYCLE_TIMEOUT_S = 120.0
 TAIL_DELIVERY_S = 30.0
 MEASURED_CAMPAIGN_DEADLINE_S = 20 * 60.0
+CONTROL_CAMPAIGN_DEADLINE_S = 180.0
 EXPECTED_SENDER_UID = "dcbed6e3-3fd6-44a5-8f71-4cd3dcf41035"
 HOT_COUNT = 100
 SLEEP_S = 2
@@ -514,15 +515,9 @@ def capture_storage_diagnostics(port: str | None, run_id: str) -> dict:
     bounds = storage_partition_bounds()
     meta: dict = {
         "run_id": run_id,
-        "client_map_source": "aether_domain_spiffs_clients_map",
-        "fs_init_used": False,
         "bench_client_id": BENCH_CLIENT_ID,
-        "missing_object_id": 2079829250,
-        "failure_class": "map_entry_present_storage_object_missing",
-        "spiffs_physical_corruption": "not_proven",
         "storage_partition": None,
         "spiffs_dump_path": None,
-        "panic_addr2line": None,
     }
     if bounds:
         offset, size = bounds
@@ -548,8 +543,6 @@ def capture_storage_diagnostics(port: str | None, run_id: str) -> dict:
                 meta["spiffs_dump_path"] = str(dump_path)
             except (subprocess.CalledProcessError, FileNotFoundError) as e:
                 meta["spiffs_read_error"] = str(e)
-    elf = BUILD / "temperature_sensor.elf"
-    meta["panic_addr2line"] = addr2line_panic(elf, "0x4200be46")
     (diag_dir / "storage_diag.json").write_text(
         json.dumps(meta, indent=2), encoding="utf-8"
     )
@@ -735,6 +728,7 @@ def wait_campaign(
     overall_deadline = clock.now() + deadline_s
     test_sender: str | None = expected_sender.lower()
     tail_enter: float | None = None
+    control_stop = bool(state.get("control_stop_at_msg_2"))
 
     def sync_state() -> None:
         nums, _ = parse_log(
@@ -767,11 +761,16 @@ def wait_campaign(
             byte_offset=byte_offset,
             expected_sender_uid=expected_sender,
         )
-        if tail_enter is None and LAST_MESSAGE in nums:
-            tail_enter = clock.now()
-        elif tail_enter is not None and clock.now() - tail_enter >= TAIL_DELIVERY_S:
+        if control_stop and 1 in nums and 2 in nums:
             sync_state()
+            state["run_status"] = "DONE"
             return
+        if not control_stop:
+            if tail_enter is None and LAST_MESSAGE in nums:
+                tail_enter = clock.now()
+            elif tail_enter is not None and clock.now() - tail_enter >= TAIL_DELIVERY_S:
+                sync_state()
+                return
         sync_state()
         time.sleep(1.0)
     state["run_status"] = "TIMEOUT"
@@ -850,6 +849,7 @@ def main() -> int:
     stale = finalize_stale_running_results()
     if stale:
         print(f"FINALIZED_STALE_RUNS={','.join(stale)}", flush=True)
+    control_run = os.environ.get("SIMPLE_FULL_HOT_CONTROL", "").strip() == "1"
     run_id = utc_tag()
     log_path = RESULTS / f"receiver_{run_id}.log"
     serial_path = RESULTS / f"serial_{run_id}.log"
@@ -909,7 +909,11 @@ def main() -> int:
         ppk.set_on()
         bin_path = BUILD / "temperature_sensor.bin"
         skip_build = os.environ.get("SIMPLE_FULL_HOT_SKIP_BUILD", "").strip() == "1"
-        state["phase"] = "BUILD"
+        state["phase"] = "CONTROL" if control_run else "BUILD"
+        state["control_run"] = control_run
+        if control_run:
+            state["measured_campaign_deadline_s"] = CONTROL_CAMPAIGN_DEADLINE_S
+            state["control_stop_at_msg_2"] = True
         state["hot_count"] = HOT_COUNT
         state["smoke_overall_deadline_s"] = smoke_overall_deadline_s(
             CampaignTimerConfig(
@@ -939,14 +943,9 @@ def main() -> int:
         port = recover_esp_port(ppk)
         storage_diag = capture_storage_diagnostics(port, run_id)
         state["storage_diag_summary"] = {
-            k: storage_diag.get(k)
-            for k in (
-                "failure_class",
-                "missing_object_id",
-                "fs_init_used",
-                "spiffs_physical_corruption",
-                "panic_addr2line",
-            )
+            k: storage_diag[k]
+            for k in ("storage_partition", "spiffs_dump_path", "spiffs_read_error")
+            if storage_diag.get(k) is not None
         }
         writer.write(state)
         state["storage_erase"] = "skipped"

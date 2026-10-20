@@ -212,7 +212,7 @@ void AppSetup() {
                            loaded->message_stream_manager().CreatePort(kServiceUid);
                        g_stream = std::make_unique<ae::P2pStream>(
                            *g_app, loaded, kServiceUid, std::move(handle));
-                       g_stream_sub = g_stream->stream_update_event().Subscribe([]() {
+                       auto full_write = [&]() {
                          if (g_write_armed || !g_stream->stream_info().is_writable) {
                            return;
                          }
@@ -271,7 +271,10 @@ void AppSetup() {
                                esp_sleep_enable_timer_wakeup(kSleepUs);
                                esp_deep_sleep_start();
                              });
-                       });
+                       };
+                       g_stream_sub =
+                           g_stream->stream_update_event().Subscribe(full_write);
+                       full_write();
                      });
 }
 
