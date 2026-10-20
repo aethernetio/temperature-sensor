@@ -602,7 +602,9 @@ def compile_command_service_uid() -> str | None:
             cmd = " ".join(cmd)
         if not isinstance(cmd, str):
             continue
-        m = re.search(r"-DSERVICE_UID=([0-9a-f-]{36})", cmd, re.I)
+        m = re.search(
+            r"-DSERVICE_UID=\\?\"?([0-9a-f-]{36})\\?\"?", cmd, re.I
+        )
         if m:
             return m.group(1).lower()
     return None
