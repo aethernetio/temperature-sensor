@@ -76,6 +76,14 @@ if(AE_EXP_THERMOMETER2_FULL_VANILLA STREQUAL "1")
   set(USER_CONFIG
       "${CMAKE_CURRENT_LIST_DIR}/main/user_config_full_vanilla.h"
       CACHE PATH "" FORCE)
+elseif(AE_EXP_SIMPLE_FULL_HOT_101 STREQUAL "1")
+  set(SDKCONFIG_DEFAULTS
+      "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
+      "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.thermometer2_aether_full_vanilla"
+      "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.simple_full_hot_101")
+  set(USER_CONFIG
+      "${CMAKE_CURRENT_LIST_DIR}/main/user_config_simple_full_hot_fsinit.h"
+      CACHE PATH "" FORCE)
 elseif(AE_EXP_FULL_AETHER_AETHERNETIO STREQUAL "1")
   # Exclusive minimal defaults — do NOT append silent/fastest/wpa2 overlays.
   set(SDKCONFIG_DEFAULTS

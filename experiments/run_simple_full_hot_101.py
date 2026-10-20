@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One run: 1× FULL vanilla + 100× HOT (2 s sleep). No PPK capture."""
+"""One run: 1× FULL vanilla + N× HOT (2 s sleep) with PPK2 power capture."""
 from __future__ import annotations
 import hashlib
 import json
@@ -21,7 +21,8 @@ BUILD = ROOT / "build-simple-full-hot-101"
 RESULTS = HERE / "simple_full_hot_101_results"
 AETHER = ROOT / "deps" / "aether-client-cpp-157aadbe-diag"
 AETHER_PATCH = HERE / "patches" / "aether-157aadbe-full-vanilla-stage1.patch"
-USER_CONFIG = ROOT / "main" / "user_config_full_vanilla.h"
+USER_CONFIG = ROOT / "main" / "user_config_simple_full_hot_fsinit.h"
+FS_INIT_HEADER = HERE / "preprovision" / "sender_fs_157aadbe.h"
 RX_SRC = PREPARED / "temperature_receiver"
 RX_BUILD = HERE / "simple_full_hot_101_rx_build"
 BENCH_CLIENT_ID = "reliability_full_v1"
@@ -33,7 +34,7 @@ FULL_ACTIVE_TIMEOUT_S = 300.0
 # Vanilla HOT wake: 2 s sleep + Wi-Fi + 1 s hold often exceeds 52 s wall time.
 HOT_CYCLE_TIMEOUT_S = 120.0
 TAIL_DELIVERY_S = 30.0
-HOT_COUNT = int(os.environ.get("SIMPLE_FULL_HOT_COUNT", "100"))
+HOT_COUNT = 100
 SLEEP_S = 2
 LAST_MESSAGE = 1 + HOT_COUNT
 _VENV_PY = PREPARED / "experiments" / "ppk2-venv" / "Scripts" / "python.exe"
@@ -58,6 +59,12 @@ from simple_full_hot_101_campaign_timers import (  # noqa: E402
     SystemMonotonicClock,
     evaluate_deadlines,
     smoke_overall_deadline_s,
+)
+from simple_full_hot_101_ppk_capture import (  # noqa: E402
+    SimpleFullHotPpkCapture,
+    analyze_power_capture,
+    classify_power_capture_status,
+    sync_events_from_serial,
 )
 RE_UID = re.compile(r"RECEIVER_UID=([0-9a-f-]{36})", re.I)
 RE_MSG = re.compile(
@@ -379,13 +386,17 @@ def build_esp(*, service_uid: str, ssid: str, pwd: str) -> str:
     b = BUILD.as_posix()
     sdk = (
         f"{ROOT.as_posix()}/sdkconfig.defaults;"
-        f"{ROOT.as_posix()}/sdkconfig.defaults.thermometer2_aether_full_vanilla"
+        f"{ROOT.as_posix()}/sdkconfig.defaults.thermometer2_aether_full_vanilla;"
+        f"{ROOT.as_posix()}/sdkconfig.defaults.simple_full_hot_101"
     )
     sdkconfig = f"{b}/sdkconfig"
     ssid_ps = ssid.replace("'", "''")
     pwd_ps = pwd.replace("'", "''")
     aether = AETHER.as_posix()
     ucfg = USER_CONFIG.as_posix()
+    fs_init = FS_INIT_HEADER.as_posix()
+    if not FS_INIT_HEADER.is_file():
+        raise RuntimeError(f"missing FS_INIT header: {FS_INIT_HEADER}")
     extra = f"""
 $env:AETHER_WIFI_PASSWORD = '{pwd_ps}'
 $env:SDKCONFIG = '{sdkconfig}'
@@ -398,17 +409,17 @@ $common = @(
   '-D','SERVICE_UID={service_uid}',
   '-D','BENCH_CLIENT_ID={BENCH_CLIENT_ID}',
   '-D','AE_EXP_SIMPLE_FULL_HOT_101=1',
-  '-D','AE_SIMPLE_FULL_HOT_COUNT={HOT_COUNT}',
   '-D','AE_EXP_THERMOMETER2_FULL_VANILLA=',
   '-D','BOARD=0',
   '-D','AE_EXP_WIFI_CANONICAL=1',
   '-D','CPM_aether-client-cpp_SOURCE={aether}',
-  '-D','USER_CONFIG={ucfg}'
+  '-D','USER_CONFIG={ucfg}',
+  '-D','FS_INIT={fs_init}'
 )
 if (-not (Test-Path '{b}/CMakeCache.txt')) {{
   idf.py @common set-target esp32c6
 }}
-idf.py @common build
+idf.py @common reconfigure build
 """
     vanilla.ensure_aether_patched()
     vanilla.run_idf(extra)
@@ -704,6 +715,7 @@ def wait_campaign(
     rx_proc: subprocess.Popen,
     writer: ResultWriter,
     state: dict,
+    ppk_capture: SimpleFullHotPpkCapture | None = None,
 ) -> None:
     clock = SystemMonotonicClock()
     timer_cfg = CampaignTimerConfig(
@@ -724,6 +736,7 @@ def wait_campaign(
     overall_deadline = clock.now() + smoke_overall_deadline_s(timer_cfg, HOT_COUNT)
     last_marker: str | None = None
     tail_enter: float | None = None
+    ppk_serial_seen: set[str] = set()
 
     def sync_state(extra: dict | None = None) -> None:
         nonlocal test_sender, phase, last_rx_num, last_msg_count, last_hot_begin, last_marker
@@ -734,6 +747,8 @@ def wait_campaign(
             if serial_log.is_file()
             else ""
         )
+        if ppk_capture is not None:
+            sync_events_from_serial(ppk_capture, ser_text, seen=ppk_serial_seen)
         nums, test_sender = parse_log(rx_log, test_sender=test_sender)
         ev = evaluate(nums)
         fw = parse_firmware_serial(ser_text)
@@ -1026,6 +1041,7 @@ def finalize_stale_running_results() -> list[str]:
 def finalize_test_status(state: dict) -> None:
     state["DELIVERY"] = classify_delivery(state)
     state["RTC_CAPTURE"] = classify_rtc_capture(state)
+    state["POWER_CAPTURE"] = classify_power_capture_status(state.get("power_capture"))
     state["campaign_timer_monotonic"] = True
     state["last_rx_progress_unique_only"] = True
     if state.get("run_status") in ("RUNNING", None):
@@ -1039,7 +1055,11 @@ def finalize_test_status(state: dict) -> None:
     state["EXECUTION"] = execution_status(state)
     if state.get("TEST") in ("PARTIAL", "PASS", "FAIL", "TIMEOUT", "ABORTED"):
         return
-    if state["DELIVERY"] == "PASS" and state["RTC_CAPTURE"] == "COMPLETE":
+    if (
+        state["DELIVERY"] == "PASS"
+        and state["RTC_CAPTURE"] == "COMPLETE"
+        and state["POWER_CAPTURE"] == "COMPLETE"
+    ):
         state["TEST"] = "PASS"
     elif state["DELIVERY"] == "PARTIAL":
         state["TEST"] = "PARTIAL"
@@ -1113,6 +1133,8 @@ def main() -> int:
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, on_signal)
     ppk: sb.PpkSession | None = None
+    ppk_capture: SimpleFullHotPpkCapture | None = None
+    ppk_raw: Path | None = None
     rx_proc: subprocess.Popen | None = None
     serial_cap: SerialCapture | None = None
     try:
@@ -1150,6 +1172,9 @@ def main() -> int:
             fw_sha = build_esp(service_uid=uid, ssid=ssid, pwd=pwd)
             state["build"] = "fresh"
         state["firmware_sha256"] = fw_sha
+        state["fs_init_header"] = str(FS_INIT_HEADER.relative_to(ROOT))
+        state["fs_init_sha256"] = file_sha256(FS_INIT_HEADER)
+        state["user_config"] = str(USER_CONFIG.relative_to(ROOT))
         writer.write(state)
         port = recover_esp_port(ppk)
         storage_diag = capture_storage_diagnostics(port, run_id)
@@ -1194,7 +1219,13 @@ def main() -> int:
         state["phase"] = "POST_FLASH"
         writer.write(state)
         print(f"FLASH=PASS port={port}", flush=True)
+        ppk_raw = RESULTS / f"ppk_raw_{run_id}.bin"
+        ppk_capture = SimpleFullHotPpkCapture(
+            ppk, ppk_raw, voltage_mv=VOLTAGE_MV, voltage_source="set_source_meter"
+        )
+        ppk_capture.start()
         ppk.set_on()
+        ppk_capture.mark_cold_boot()
         vanilla.cold_boot_dut(ppk, off_s=4.0, wait_com_s=20.0)
         time.sleep(2.0)
         post_port = sb.wait_espressif_com(timeout_s=45.0) or port
@@ -1208,6 +1239,7 @@ def main() -> int:
             rx_proc=rx_proc,
             writer=writer,
             state=state,
+            ppk_capture=ppk_capture,
         )
         if interrupted["flag"]:
             state["run_status"] = "ABORTED"
@@ -1220,9 +1252,21 @@ def main() -> int:
                 if serial_path.is_file()
                 else ""
             )
+            if ppk_capture is not None:
+                seen_rtc = {e.name for e in ppk_capture.events}
+                sync_events_from_serial(ppk_capture, ser_text, seen=seen_rtc)
             if repeated_rtc_dump_verified(ser_text):
                 break
             time.sleep(2.0)
+        if ppk_capture is not None:
+            ppk_meta = ppk_capture.stop()
+            state["power_capture"] = analyze_power_capture(
+                meta=ppk_meta,
+                events=ppk_capture.events,
+                raw_bin=ppk_raw,
+                voltage_mv=VOLTAGE_MV,
+                hot_count=HOT_COUNT,
+            )
         if serial_cap is not None:
             serial_cap.stop()
             serial_cap = None
@@ -1276,6 +1320,14 @@ def main() -> int:
             "receiver_log": str(log_path.relative_to(ROOT)),
             "serial_log": str(serial_path.relative_to(ROOT)),
         }
+        if ppk_capture is not None:
+            state["artifacts"]["ppk_raw_bin"] = str(ppk_raw.relative_to(ROOT))
+            state["artifacts"]["ppk_meta_json"] = str(
+                ppk_raw.with_suffix(".json").relative_to(ROOT)
+            )
+            state["artifacts"]["ppk_events_json"] = str(
+                ppk_raw.with_suffix(".events.json").relative_to(ROOT)
+            )
         finalize_test_status(state)
         if state["TEST"] == "PASS":
             state["run_status"] = "PASS"
@@ -1308,6 +1360,11 @@ def main() -> int:
                 rx_proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 rx_proc.kill()
+        if ppk_capture is not None and ppk_capture.active:
+            try:
+                ppk_capture.stop()
+            except Exception:
+                pass
         if ppk is not None:
             try:
                 ppk.set_off()

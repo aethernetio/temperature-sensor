@@ -165,8 +165,6 @@ elseif(AE_EXP_PREPARED_MESSAGE_E2E)
 elseif(AE_EXP_SIMPLE_FULL_HOT_101)
   list(APPEND src_list
     "simple_full_hot_101_test.cpp"
-    "udp_cached_lwip_send.cpp"
-    "prepared_send/prepared_send.cpp"
   )
 elseif(AE_EXP_THERMOMETER2_FULL_VANILLA)
   list(APPEND src_list
@@ -303,7 +301,6 @@ set(AE_EXP_WIFI_LIFECYCLE_CYCLES "" CACHE STRING "Wi-Fi lifecycle cycles (defaul
 set(AE_EXP_WIFI_COOLDOWN_MS "" CACHE STRING "Cooldown between cycles, outside timer (ms)")
 set(AE_EXP_PREPARED_MESSAGE_E2E "" CACHE STRING "No-sleep prepared-message E2E bench (set to 1)")
 set(AE_EXP_SIMPLE_FULL_HOT_101 "" CACHE STRING "Simple 1 FULL + 100 HOT deep-sleep test (set to 1)")
-set(AE_SIMPLE_FULL_HOT_COUNT "" CACHE STRING "HOT message count for simple_full_hot_101 (default 100, smoke=5)")
 set(AE_EXP_THERMOMETER2_FULL_VANILLA "" CACHE STRING "Thermometer2 full Aether vanilla Wi-Fi deep-sleep bench (set to 1)")
 set(AE_THERM_FULL_VANILLA_SLEEP_S "" CACHE STRING "Deep sleep seconds between FULL cycles (default 20)")
 set(AE_THERM_FULL_ACTIVE_TIMEOUT_MS "" CACHE STRING "Active cycle timeout ms (default 60000)")
@@ -393,7 +390,6 @@ ae_exp_define_if_set(AE_EXP_WIFI_LIFECYCLE_CYCLES)
 ae_exp_define_if_set(AE_EXP_WIFI_COOLDOWN_MS)
 ae_exp_define_if_set(AE_EXP_PREPARED_MESSAGE_E2E)
 ae_exp_define_if_set(AE_EXP_SIMPLE_FULL_HOT_101)
-ae_exp_define_if_set(AE_SIMPLE_FULL_HOT_COUNT)
 if(AE_EXP_SIMPLE_FULL_HOT_101)
   target_compile_definitions(${TARGET_NAME} PRIVATE AE_SIMPLE_HOT_UDP_LWIP_B=1)
 endif()
