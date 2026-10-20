@@ -47,9 +47,9 @@ def discover_espressif_port(
         import run_thermometer2_sleep_bisect as sb
 
         wait_fn = sb.wait_espressif_com
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        port = wait_fn(min(5.0, max(0.5, deadline - time.time())))
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        port = wait_fn(min(5.0, max(0.5, deadline - time.monotonic())))
         if port:
             return port
         time.sleep(0.5)
@@ -108,9 +108,9 @@ class SerialCapture:
         return discover_espressif_port()
 
     def _run(self) -> None:
-        open_deadline = time.time() + 45.0
+        open_deadline = time.monotonic() + 45.0
         with self.log_path.open("a", encoding="utf-8", errors="replace") as log:
-            while not self._stop.is_set() and time.time() < open_deadline:
+            while not self._stop.is_set() and time.monotonic() < open_deadline:
                 port = self._resolve_port()
                 if not port:
                     log.write("SERIAL_OPEN_RETRY=no_port\n")
@@ -127,7 +127,7 @@ class SerialCapture:
                 with self._handle_lock:
                     self._handle = ser
                 try:
-                    self._read_loop(log, ser, port)
+                    read_succeeded = self._read_loop(log, ser, port)
                 finally:
                     with self._handle_lock:
                         if self._handle is ser:
@@ -136,6 +136,10 @@ class SerialCapture:
                 if self._stop.is_set():
                     break
                 self._port_hint = None
+                if read_succeeded:
+                    # A working connection may outlive the previous open window.
+                    # An open followed by an immediate read error is still recovery.
+                    open_deadline = time.monotonic() + 45.0
                 log.write("SERIAL_REDISCOVER\n")
                 log.flush()
                 time.sleep(0.5)
@@ -143,7 +147,8 @@ class SerialCapture:
                 log.write("SERIAL_CAPTURE_ERROR=open_timeout\n")
                 log.flush()
 
-    def _read_loop(self, log, ser, port: str) -> None:
+    def _read_loop(self, log, ser, port: str) -> bool:
+        read_succeeded = False
         while not self._stop.is_set():
             try:
                 data = self._backend.read(ser, 4096)
@@ -152,6 +157,7 @@ class SerialCapture:
                 log.flush()
                 break
             if data:
+                read_succeeded = True
                 log.write(data.decode("utf-8", errors="replace"))
                 log.flush()
                 continue
@@ -159,3 +165,5 @@ class SerialCapture:
                 log.write(f"SERIAL_DISCONNECT port={port}\n")
                 log.flush()
                 break
+            read_succeeded = True
+        return read_succeeded

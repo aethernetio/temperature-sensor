@@ -84,6 +84,21 @@ def evaluate_deadlines(
     if full_begin_seen and timers.full_begin is None:
         timers.mark_full_begin(now=now)
 
+    if phase == "HOT":
+        if (
+            timers.hot_begin is not None
+            and last_rx_num < last_message
+            and not fw.get("scenario_done")
+        ):
+            anchor = timers.hot_begin
+            if timers.last_unique_rx is not None:
+                anchor = max(anchor, timers.last_unique_rx)
+            if now - anchor > cfg.hot_cycle_timeout_s:
+                out.hit = True
+                out.error = "hot_cycle_timeout"
+                out.phase_tag = "HOT_TIMEOUT"
+        return out
+
     if timers.full_begin is None:
         usb_limit = cfg.usb_startup_timeout_s
         if "BOOTSTRAP_BEGIN" in ser_text and not fw.get("bootstrap_done"):
@@ -108,17 +123,6 @@ def evaluate_deadlines(
             out.phase_tag = "FULL_TIMEOUT"
         return out
 
-    if (
-        phase == "HOT"
-        and timers.hot_begin is not None
-        and last_rx_num < last_message
-        and not fw.get("scenario_done")
-    ):
-        anchor = timers.last_unique_rx if timers.last_unique_rx is not None else timers.hot_begin
-        if now - anchor > cfg.hot_cycle_timeout_s:
-            out.hit = True
-            out.error = "hot_cycle_timeout"
-            out.phase_tag = "HOT_TIMEOUT"
     return out
 
 

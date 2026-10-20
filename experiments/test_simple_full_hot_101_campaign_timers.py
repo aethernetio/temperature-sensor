@@ -153,6 +153,53 @@ class CampaignTimerTests(unittest.TestCase):
         self.assertTrue(dl.hit)
         self.assertEqual(dl.error, "hot_cycle_timeout")
 
+    def test_full_rx_before_hot_does_not_shorten_hot_deadline(self) -> None:
+        timers = CampaignTimerState(campaign_start=0.0, usb_last_progress=0.0)
+        timers.mark_full_begin(now=0.0)
+        timers.note_unique_rx([1], now=100.0)
+        timers.mark_hot_begin(now=300.0)
+        for now, expected_hit in ((301.0, False), (420.0, False), (421.0, True)):
+            with self.subTest(now=now):
+                dl = evaluate_deadlines(
+                    phase="HOT",
+                    cfg=self.cfg,
+                    timers=timers,
+                    now=now,
+                    ser_text="",
+                    fw={"scenario_done": False},
+                    last_rx_num=1,
+                    last_message=6,
+                    hot_lane_active=True,
+                    full_begin_seen=True,
+                )
+                self.assertEqual(dl.hit, expected_hit)
+                if expected_hit:
+                    self.assertEqual(dl.error, "hot_cycle_timeout")
+
+    def test_hot_timeout_without_captured_full_begin(self) -> None:
+        timers = CampaignTimerState(campaign_start=0.0, usb_last_progress=0.0)
+        timers.note_unique_rx([1, 3], now=100.0)
+        timers.mark_hot_begin(now=100.0)
+        for now, expected_hit in ((220.0, False), (221.0, True)):
+            with self.subTest(now=now):
+                dl = evaluate_deadlines(
+                    phase="HOT",
+                    cfg=self.cfg,
+                    timers=timers,
+                    now=now,
+                    ser_text="",
+                    fw={"bootstrap_done": True, "scenario_done": False},
+                    last_rx_num=3,
+                    last_message=6,
+                    hot_lane_active=True,
+                    full_begin_seen=False,
+                )
+                self.assertEqual(dl.hit, expected_hit)
+                self.assertIsNone(timers.full_begin)
+                if expected_hit:
+                    self.assertEqual(dl.error, "hot_cycle_timeout")
+                    self.assertEqual(dl.phase_tag, "HOT_TIMEOUT")
+
     def test_full_timeout_not_bootstrap_usb_limit(self) -> None:
         clock = FakeClock(0.0)
         timers = CampaignTimerState(
