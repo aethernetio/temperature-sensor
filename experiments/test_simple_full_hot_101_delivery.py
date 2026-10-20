@@ -80,14 +80,23 @@ def test_aborted_never_test_pass():
     assert state["TEST"] == "ABORTED"
 
 
-def test_ppk_unknown_when_bytes_mismatch():
+def test_ppk_never_complete_without_continuity_check():
     from simple_full_hot_101_ppk_capture import analyze_power_capture
+    import tempfile
 
-    out = analyze_power_capture(
-        meta={"sample_count": 100, "read_error": None, "write_error": None},
-        events=[],
-        raw_bin=Path(os.devnull),
-        voltage_mv=3000,
-        hot_count=100,
-    )
-    assert out["status"] == "UNKNOWN"
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tmp:
+        tmp.write(b"\0" * 400)
+        path = Path(tmp.name)
+    try:
+        out = analyze_power_capture(
+            meta={"sample_count": 100, "read_error": None, "write_error": None},
+            events=[],
+            raw_bin=path,
+            voltage_mv=3000,
+            hot_count=100,
+        )
+        assert out["status"] == "UNKNOWN"
+        assert out["continuity"] == "UNKNOWN"
+        assert out["file_bytes_consistent"] is True
+    finally:
+        path.unlink(missing_ok=True)

@@ -35,6 +35,8 @@ FULL_ACTIVE_TIMEOUT_S = 300.0
 # Vanilla HOT wake: 2 s sleep + Wi-Fi + 1 s hold often exceeds 52 s wall time.
 HOT_CYCLE_TIMEOUT_S = 120.0
 TAIL_DELIVERY_S = 30.0
+MEASURED_CAMPAIGN_DEADLINE_S = 20 * 60.0
+EXPECTED_SENDER_UID = "dcbed6e3-3fd6-44a5-8f71-4cd3dcf41035"
 HOT_COUNT = 100
 SLEEP_S = 2
 LAST_MESSAGE = 1 + HOT_COUNT
@@ -571,10 +573,23 @@ def flash_firmware(port: str) -> None:
     b = BUILD.as_posix()
     extra = f"idf.py -B '{b}' -p {port} flash"
     vanilla.run_idf(extra)
-def parse_log(log_path: Path, *, test_sender: str | None) -> tuple[list[int], str | None]:
-    text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.is_file() else ""
+def parse_log(
+    log_path: Path,
+    *,
+    test_sender: str | None,
+    byte_offset: int = 0,
+    expected_sender_uid: str | None = None,
+) -> tuple[list[int], str | None]:
+    if not log_path.is_file():
+        return [], expected_sender_uid or test_sender
+    raw = log_path.read_bytes()
+    if byte_offset > 0:
+        raw = raw[byte_offset:]
+    text = raw.decode("utf-8", errors="replace")
     nums: list[int] = []
-    sender = test_sender
+    sender = (expected_sender_uid or test_sender)
+    if sender is not None:
+        sender = sender.lower()
     for m in RE_MSG.finditer(text):
         n = int(m.group(1))
         s = m.group(2).lower()
@@ -712,13 +727,22 @@ def wait_campaign(
         full_active_timeout_s=FULL_ACTIVE_TIMEOUT_S,
         hot_cycle_timeout_s=HOT_CYCLE_TIMEOUT_S,
     )
-    overall_deadline = clock.now() + smoke_overall_deadline_s(timer_cfg, HOT_COUNT)
-    test_sender: str | None = state.get("test_sender_uid")
+    byte_offset = int(state.get("campaign_log_offset") or 0)
+    expected_sender = state.get("expected_sender_uid") or EXPECTED_SENDER_UID
+    deadline_s = float(
+        state.get("measured_campaign_deadline_s") or MEASURED_CAMPAIGN_DEADLINE_S
+    )
+    overall_deadline = clock.now() + deadline_s
+    test_sender: str | None = expected_sender.lower()
     tail_enter: float | None = None
 
     def sync_state() -> None:
-        nonlocal test_sender
-        nums, test_sender = parse_log(rx_log, test_sender=test_sender)
+        nums, _ = parse_log(
+            rx_log,
+            test_sender=test_sender,
+            byte_offset=byte_offset,
+            expected_sender_uid=expected_sender,
+        )
         state.update(evaluate(nums))
         state["test_sender_uid"] = test_sender
         state["last_rx_num"] = max(nums) if nums else 0
@@ -737,7 +761,12 @@ def wait_campaign(
             state["error"] = f"receiver_exit_code={rx_proc.returncode}"
             sync_state()
             return
-        nums, _ = parse_log(rx_log, test_sender=test_sender)
+        nums, _ = parse_log(
+            rx_log,
+            test_sender=test_sender,
+            byte_offset=byte_offset,
+            expected_sender_uid=expected_sender,
+        )
         if tail_enter is None and LAST_MESSAGE in nums:
             tail_enter = clock.now()
         elif tail_enter is not None and clock.now() - tail_enter >= TAIL_DELIVERY_S:
@@ -746,7 +775,7 @@ def wait_campaign(
         sync_state()
         time.sleep(1.0)
     state["run_status"] = "TIMEOUT"
-    state["error"] = state.get("error") or "overall_deadline"
+    state["error"] = state.get("error") or "measured_campaign_deadline"
     sync_state()
 def classify_delivery(state: dict) -> str:
     if state.get("pass"):
@@ -899,6 +928,10 @@ def main() -> int:
             fw_sha = build_esp(service_uid=uid, ssid=ssid, pwd=pwd)
             state["build"] = "fresh"
         state["firmware_sha256"] = fw_sha
+        elf_path = BUILD / "temperature_sensor.elf"
+        if elf_path.is_file():
+            state["firmware_elf_sha256"] = file_sha256(elf_path)
+        state["expected_sender_uid"] = EXPECTED_SENDER_UID
         state["fs_init_header"] = str(FS_INIT_HEADER.relative_to(ROOT))
         state["fs_init_sha256"] = file_sha256(FS_INIT_HEADER)
         state["user_config"] = str(USER_CONFIG.relative_to(ROOT))
@@ -951,11 +984,18 @@ def main() -> int:
             ppk, ppk_raw, voltage_mv=VOLTAGE_MV, voltage_source="set_source_meter"
         )
         ppk_capture.start()
+        state["campaign_log_offset"] = (
+            log_path.stat().st_size if log_path.is_file() else 0
+        )
+        state["measured_campaign_deadline_s"] = MEASURED_CAMPAIGN_DEADLINE_S
+        state["phase"] = "ARMED"
+        writer.write(state)
         ppk.set_on()
         ppk_capture.mark_cold_boot()
         vanilla.cold_boot_dut(ppk, off_s=4.0, wait_com_s=20.0)
         time.sleep(2.0)
         state["phase"] = "CAMPAIGN"
+        state["campaign_started_at"] = datetime.now(timezone.utc).isoformat()
         state["serial_capture"] = "disabled"
         writer.write(state)
         wait_campaign(
@@ -974,7 +1014,12 @@ def main() -> int:
                 voltage_mv=VOLTAGE_MV,
                 hot_count=HOT_COUNT,
             )
-        nums, test_sender = parse_log(log_path, test_sender=state.get("test_sender_uid"))
+        nums, test_sender = parse_log(
+            log_path,
+            test_sender=state.get("test_sender_uid"),
+            byte_offset=int(state.get("campaign_log_offset") or 0),
+            expected_sender_uid=state.get("expected_sender_uid"),
+        )
         state.update(evaluate(nums))
         state["test_sender_uid"] = test_sender
         state["artifacts"] = {
@@ -1032,7 +1077,10 @@ def main() -> int:
                 pass
         try:
             nums, test_sender = parse_log(
-                log_path, test_sender=state.get("test_sender_uid")
+                log_path,
+                test_sender=state.get("test_sender_uid"),
+                byte_offset=int(state.get("campaign_log_offset") or 0),
+                expected_sender_uid=state.get("expected_sender_uid"),
             )
             state.update(evaluate(nums))
             state["test_sender_uid"] = test_sender

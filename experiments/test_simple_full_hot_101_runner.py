@@ -51,7 +51,13 @@ class RunnerTests(unittest.TestCase):
 
     def wait_rx(self, *, numbers: list[int], sender: str | None = None) -> tuple[dict, float]:
         sender = sender or "00000000-0000-0000-0000-000000000001"
-        state = {"run_status": "RUNNING", "test_sender_uid": sender}
+        state = {
+            "run_status": "RUNNING",
+            "test_sender_uid": sender,
+            "expected_sender_uid": sender,
+            "campaign_log_offset": 0,
+            "measured_campaign_deadline_s": 3600.0,
+        }
         clock = FakeClock()
         with tempfile.TemporaryDirectory() as folder:
             receiver_log = Path(folder) / "receiver.log"

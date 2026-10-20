@@ -118,21 +118,22 @@ def analyze_power_capture(
     write_error = meta.get("write_error")
     expected_bytes = sample_count * 4
     actual_bytes = raw_bin.stat().st_size if raw_bin.is_file() else 0
+    file_bytes_consistent = (
+        sample_count > 0 and actual_bytes == expected_bytes and expected_bytes > 0
+    )
     if read_error or write_error:
         status = "FAILED"
     elif sample_count == 0:
         status = "EMPTY"
-    elif actual_bytes == expected_bytes and expected_bytes > 0:
-        status = "COMPLETE"
-    elif sample_count > 0:
-        status = "UNKNOWN"
     else:
-        status = "EMPTY"
+        status = "UNKNOWN"
     out: dict[str, Any] = {
         "status": status,
+        "continuity": "UNKNOWN",
         "sample_count": sample_count,
         "expected_bytes": expected_bytes,
         "actual_bytes": actual_bytes,
+        "file_bytes_consistent": file_bytes_consistent,
         "read_error": read_error,
         "write_error": write_error,
     }
