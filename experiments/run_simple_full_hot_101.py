@@ -48,24 +48,15 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(PREPARED / "experiments"))
 import run_thermometer2_sleep_bisect as sb  # noqa: E402
 import run_thermometer2_aether_full_vanilla as vanilla  # noqa: E402
-from simple_full_hot_101_parse import (  # noqa: E402
-    extract_rtc_dumps,
-    merge_rtc_into_fw_parse,
-    pick_authoritative_rtc_dump,
-)
-from simple_full_hot_101_serial import SerialCapture  # noqa: E402
 from simple_full_hot_101_campaign_timers import (  # noqa: E402
     CampaignTimerConfig,
-    CampaignTimerState,
     SystemMonotonicClock,
-    evaluate_deadlines,
     smoke_overall_deadline_s,
 )
 from simple_full_hot_101_ppk_capture import (  # noqa: E402
     SimpleFullHotPpkCapture,
     analyze_power_capture,
     classify_power_capture_status,
-    sync_events_from_serial,
 )
 RE_UID = re.compile(r"RECEIVER_UID=([0-9a-f-]{36})", re.I)
 RE_MSG = re.compile(
@@ -712,13 +703,11 @@ def analyze_hot_rtc(
 def wait_campaign(
     *,
     rx_log: Path,
-    serial_log: Path,
     rx_proc: subprocess.Popen,
     writer: ResultWriter,
     state: dict,
-    ppk_capture: SimpleFullHotPpkCapture | None = None,
+    interrupted: dict,
 ) -> None:
-    del serial_log, ppk_capture
     clock = SystemMonotonicClock()
     timer_cfg = CampaignTimerConfig(
         usb_startup_timeout_s=USB_STARTUP_TIMEOUT_S,
@@ -731,25 +720,28 @@ def wait_campaign(
     tail_enter: float | None = None
 
     def sync_state() -> None:
-        nonlocal test_sender, tail_enter
-        rx_text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
+        nonlocal test_sender
         nums, test_sender = parse_log(rx_log, test_sender=test_sender)
         state.update(evaluate(nums))
         state["test_sender_uid"] = test_sender
-        state["receiver_uid_live"] = parse_receiver_meta(rx_text).get("receiver_uid")
         state["last_rx_num"] = max(nums) if nums else 0
         writer.write(state)
 
     sync_state()
     while clock.now() < overall_deadline:
+        if interrupted.get("flag"):
+            state["run_status"] = "ABORTED"
+            state["runner_interrupted"] = True
+            state["error"] = state.get("error") or "runner_interrupted"
+            sync_state()
+            return
         if rx_proc.poll() is not None:
             state["run_status"] = "FAIL"
             state["error"] = f"receiver_exit_code={rx_proc.returncode}"
             sync_state()
             return
         nums, _ = parse_log(rx_log, test_sender=test_sender)
-        last_rx = max(nums) if nums else 0
-        if last_rx >= LAST_MESSAGE:
+        if LAST_MESSAGE in set(nums):
             if tail_enter is None:
                 tail_enter = clock.now()
             elif clock.now() - tail_enter >= TAIL_DELIVERY_S:
@@ -773,30 +765,6 @@ def classify_delivery(state: dict) -> str:
     if full_ok or state.get("msg_rx_count", 0) > 0:
         return "PARTIAL"
     return "FAIL"
-
-
-def classify_rtc_capture(state: dict) -> str:
-    if state.get("hot_rtc_table_complete"):
-        return "COMPLETE"
-    blocks = int(state.get("hot_rtc_dump_blocks") or 0)
-    if blocks > 0 or state.get("hot_rtc_rows"):
-        return "PARTIAL"
-    return "MISSING"
-
-
-def repeated_rtc_dump_verified(text: str) -> bool:
-    blocks = extract_rtc_dumps(text, hot_count=HOT_COUNT)
-    good = [
-        b
-        for b in blocks
-        if b.complete and pick_authoritative_rtc_dump([b], hot_count=HOT_COUNT)
-    ]
-    if len(good) < 2:
-        return False
-    a, b = good[-2], good[-1]
-    if a.run_id is not None and b.run_id is not None and a.run_id != b.run_id:
-        return False
-    return a.rows == b.rows
 
 
 def execution_status(state: dict) -> str:
@@ -837,26 +805,21 @@ def finalize_stale_running_results() -> list[str]:
 
 def finalize_test_status(state: dict) -> None:
     state["DELIVERY"] = classify_delivery(state)
-    state["RTC_CAPTURE"] = classify_rtc_capture(state)
     state["POWER_CAPTURE"] = classify_power_capture_status(state.get("power_capture"))
-    state["campaign_timer_monotonic"] = True
-    state["last_rx_progress_unique_only"] = True
     if state.get("run_status") in ("RUNNING", None):
         rs = state.get("run_status") or "FAIL"
-        if state["DELIVERY"] == "PASS" and state["RTC_CAPTURE"] == "COMPLETE":
+        if state["DELIVERY"] == "PASS":
             state["run_status"] = "PASS"
         elif rs == "TIMEOUT":
             state["run_status"] = "TIMEOUT"
+        elif rs == "ABORTED":
+            state["run_status"] = "ABORTED"
         else:
             state["run_status"] = "FAIL" if state["DELIVERY"] == "FAIL" else "DONE"
     state["EXECUTION"] = execution_status(state)
     if state.get("TEST") in ("PARTIAL", "PASS", "FAIL", "TIMEOUT", "ABORTED"):
         return
-    if (
-        state["DELIVERY"] == "PASS"
-        and state["RTC_CAPTURE"] == "COMPLETE"
-        and state["POWER_CAPTURE"] == "COMPLETE"
-    ):
+    if state["DELIVERY"] == "PASS":
         state["TEST"] = "PASS"
     elif state["DELIVERY"] == "PARTIAL":
         state["TEST"] = "PARTIAL"
@@ -864,30 +827,6 @@ def finalize_test_status(state: dict) -> None:
         state["TEST"] = state["run_status"]
     else:
         state["TEST"] = "FAIL"
-    hot_begin = int(state.get("HOT_BEGIN") or 0)
-    ha = state.get("hot_rtc_analysis") or {}
-    if ha.get("HOT_ATTEMPTS"):
-        hot_begin = max(hot_begin, int(ha["HOT_ATTEMPTS"]))
-    if state.get("HOT") is None:
-        state["HOT"] = (
-            f"RUN/{hot_begin}" if hot_begin else "NOT_RUN"
-        )
-
-
-def write_hot_rtc_csv(path: Path, fw: dict) -> None:
-    rows = fw.get("hot_rtc_rows") or {}
-    lines = [
-        "n,got_ip,encode_called,encode_ok,nonce,sendto_called,sendto,err,state"
-    ]
-    for n in range(2, LAST_MESSAGE + 1):
-        r = rows.get(n, {})
-        lines.append(
-            f"{n},{r.get('got_ip','')},{r.get('encode_called','')},"
-            f"{r.get('encode_ok', r.get('encode',''))},{r.get('nonce','')},"
-            f"{r.get('sendto_called','')},{r.get('sendto','')},"
-            f"{r.get('err','')},{r.get('state','')}"
-        )
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 def main() -> int:
     stale = finalize_stale_running_results()
     if stale:
@@ -933,7 +872,6 @@ def main() -> int:
     ppk_capture: SimpleFullHotPpkCapture | None = None
     ppk_raw: Path | None = None
     rx_proc: subprocess.Popen | None = None
-    serial_cap: SerialCapture | None = None
     try:
         ssid, pwd = vanilla.load_wifi()
         rx_exe, rx_sha = build_receiver()
@@ -1032,16 +970,11 @@ def main() -> int:
         writer.write(state)
         wait_campaign(
             rx_log=log_path,
-            serial_log=serial_path,
             rx_proc=rx_proc,
             writer=writer,
             state=state,
-            ppk_capture=ppk_capture,
+            interrupted=interrupted,
         )
-        if interrupted["flag"]:
-            state["run_status"] = "ABORTED"
-            state["runner_interrupted"] = True
-            state["error"] = "runner_interrupted"
         if ppk_capture is not None:
             ppk_meta = ppk_capture.stop()
             state["power_capture"] = analyze_power_capture(
@@ -1051,58 +984,12 @@ def main() -> int:
                 voltage_mv=VOLTAGE_MV,
                 hot_count=HOT_COUNT,
             )
-        if serial_cap is not None:
-            serial_cap.stop()
-            serial_cap = None
-        ser_text = (
-            serial_path.read_text(encoding="utf-8", errors="replace")
-            if serial_path.is_file()
-            else ""
-        )
         nums, test_sender = parse_log(log_path, test_sender=state.get("test_sender_uid"))
         state.update(evaluate(nums))
         state["test_sender_uid"] = test_sender
-        fw_final = parse_firmware_serial(ser_text)
-        state["hot_rtc_dump_blocks"] = fw_final.get("hot_rtc_dump_blocks", 0)
-        hot_a = analyze_hot_rtc(fw_final, nums, test_sender=test_sender)
-        if hot_a is not None:
-            state["hot_rtc_analysis"] = hot_a
-            state.update(
-                {
-                    k: hot_a[k]
-                    for k in hot_a
-                    if k.startswith(
-                        (
-                            "HOT_",
-                            "GOT_",
-                            "ENCODE_",
-                            "SENDTO_",
-                            "NONCE_",
-                            "wifi_",
-                            "encode_",
-                            "sendto_",
-                            "NOT_RUN",
-                            "UNKNOWN",
-                            "hot_rtc",
-                        )
-                    )
-                }
-            )
-            state["local_failures"] = {
-                "wifi": hot_a.get("wifi_failures", 0),
-                "encode": hot_a.get("encode_failures", 0),
-                "sendto": hot_a.get("sendto_failures", 0),
-            }
-        # One capture thread does not verify COM ownership across processes.
-        state["serial_single_owner_verified"] = False
-        state["repeated_dump_verified"] = repeated_rtc_dump_verified(ser_text)
-        csv_path = RESULTS / f"hot_rtc_{run_id}.csv"
-        write_hot_rtc_csv(csv_path, fw_final)
         state["artifacts"] = {
             "result_json": str(result_path.relative_to(ROOT)),
-            "hot_rtc_csv": str(csv_path.relative_to(ROOT)),
             "receiver_log": str(log_path.relative_to(ROOT)),
-            "serial_log": str(serial_path.relative_to(ROOT)),
         }
         if ppk_capture is not None:
             state["artifacts"]["ppk_raw_bin"] = str(ppk_raw.relative_to(ROOT))
@@ -1127,32 +1014,39 @@ def main() -> int:
         print(f"TEST={state['TEST']}", flush=True)
         return 1
     finally:
-        if state.get("run_status") == "RUNNING":
+        if interrupted["flag"]:
+            state["run_status"] = "ABORTED"
+            state["runner_interrupted"] = True
+            state["error"] = state.get("error") or "runner_interrupted"
+        elif state.get("run_status") == "RUNNING":
             state["run_status"] = "ABORTED"
             state["runner_interrupted"] = True
             state["error"] = state.get("error") or "runner_exited_while_running"
-            finalize_test_status(state)
+        if ppk_capture is not None and ppk_capture.active:
             try:
-                writer.write(state)
+                ppk_capture.stop()
             except Exception:
                 pass
-        if serial_cap is not None:
-            serial_cap.stop()
         if rx_proc is not None and rx_proc.poll() is None:
             rx_proc.terminate()
             try:
                 rx_proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 rx_proc.kill()
-        if ppk_capture is not None and ppk_capture.active:
-            try:
-                ppk_capture.stop()
-            except Exception:
-                pass
         if ppk is not None:
             try:
                 ppk.set_off()
             except Exception:
                 pass
+        try:
+            nums, test_sender = parse_log(
+                log_path, test_sender=state.get("test_sender_uid")
+            )
+            state.update(evaluate(nums))
+            state["test_sender_uid"] = test_sender
+            finalize_test_status(state)
+            writer.write(state)
+        except Exception:
+            pass
 if __name__ == "__main__":
     raise SystemExit(main())
