@@ -69,6 +69,8 @@ set(AE_EXP_FULL_1MIN_10 "" CACHE STRING
     "10 FULL Aether sends at 1-min cadence (set to 1)")
 set(AE_EXP_THERMOMETER2_FULL_VANILLA "" CACHE STRING
     "Thermometer2 full Aether vanilla Wi-Fi deep-sleep bench (set to 1)")
+set(AE_EXP_SIMPLE_FULL_HOT_101 "" CACHE STRING
+    "Simple 1 FULL + 100 HOT deep-sleep test (set to 1)")
 if(AE_EXP_THERMOMETER2_FULL_VANILLA STREQUAL "1")
   set(SDKCONFIG_DEFAULTS
       "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults"
@@ -209,7 +211,8 @@ set(AE_FILTRATION On CACHE BOOL "Set filtration mode by default" FORCE)
 # add user provided config wich will be included as regular .h file
 # Add a user-provided config file, which will be included as a regular .h file
 if(NOT AE_EXP_FULL_AETHER_AETHERNETIO STREQUAL "1" AND
-   NOT AE_EXP_THERMOMETER2_FULL_VANILLA STREQUAL "1")
+   NOT AE_EXP_THERMOMETER2_FULL_VANILLA STREQUAL "1" AND
+   NOT AE_EXP_SIMPLE_FULL_HOT_101 STREQUAL "1")
   set(USER_CONFIG "${CMAKE_CURRENT_LIST_DIR}/main/user_config.h" CACHE FILEPATH "" FORCE)
 endif()
 # ${USER_CONFIG} must be an absolute path or a path to something listed in include directories

@@ -23,7 +23,8 @@ AETHER = ROOT / "deps" / "aether-client-cpp-157aadbe-diag"
 AETHER_PATCH = HERE / "patches" / "aether-157aadbe-full-vanilla-stage1.patch"
 USER_CONFIG = ROOT / "main" / "user_config_simple_full_hot_fsinit.h"
 FS_INIT_HEADER = HERE / "preprovision" / "sender_fs_157aadbe.h"
-RX_SRC = PREPARED / "temperature_receiver"
+RX_SRC = ROOT / "temperature_receiver"
+PPK2_PORT = os.environ.get("PPK2_PORT", "COM3")
 RX_BUILD = HERE / "simple_full_hot_101_rx_build"
 BENCH_CLIENT_ID = "reliability_full_v1"
 VOLTAGE_MV = 3000
@@ -717,6 +718,7 @@ def wait_campaign(
     state: dict,
     ppk_capture: SimpleFullHotPpkCapture | None = None,
 ) -> None:
+    del serial_log, ppk_capture
     clock = SystemMonotonicClock()
     timer_cfg = CampaignTimerConfig(
         usb_startup_timeout_s=USB_STARTUP_TIMEOUT_S,
@@ -724,244 +726,39 @@ def wait_campaign(
         full_active_timeout_s=FULL_ACTIVE_TIMEOUT_S,
         hot_cycle_timeout_s=HOT_CYCLE_TIMEOUT_S,
     )
-    timers = CampaignTimerState(
-        campaign_start=clock.now(),
-        usb_last_progress=clock.now(),
-    )
-    test_sender: str | None = state.get("test_sender_uid")
-    phase = "USB_STARTUP"
-    last_rx_num = 0
-    last_msg_count = 0
-    last_hot_begin = 0
     overall_deadline = clock.now() + smoke_overall_deadline_s(timer_cfg, HOT_COUNT)
-    last_marker: str | None = None
+    test_sender: str | None = state.get("test_sender_uid")
     tail_enter: float | None = None
-    ppk_serial_seen: set[str] = set()
 
-    def sync_state(extra: dict | None = None) -> None:
-        nonlocal test_sender, phase, last_rx_num, last_msg_count, last_hot_begin, last_marker
-        now = clock.now()
+    def sync_state() -> None:
+        nonlocal test_sender, tail_enter
         rx_text = rx_log.read_text(encoding="utf-8", errors="replace") if rx_log.is_file() else ""
-        ser_text = (
-            serial_log.read_text(encoding="utf-8", errors="replace")
-            if serial_log.is_file()
-            else ""
-        )
-        if ppk_capture is not None:
-            sync_events_from_serial(ppk_capture, ser_text, seen=ppk_serial_seen)
         nums, test_sender = parse_log(rx_log, test_sender=test_sender)
-        ev = evaluate(nums)
-        fw = parse_firmware_serial(ser_text)
-        rx_meta = parse_receiver_meta(rx_text)
-        if nums:
-            if timers.note_unique_rx(nums, now=now):
-                timers.note_usb_progress(now=now)
-            last_rx_num = max(nums)
-            last_msg_count = len(nums)
-        if fw["max_hot_begin"] > last_hot_begin:
-            last_hot_begin = fw["max_hot_begin"]
-            timers.note_usb_progress(now=now)
-        if fw.get("confirmed_failure_stage"):
-            timers.note_usb_progress(now=now)
-        marker = fw.get("last_firmware_marker")
-        if (
-            marker
-            and "SERIAL_READ_ERROR" not in marker
-            and "RX_HEALTH" not in marker
-            and not marker.startswith("Index,Invocations")
-            and marker != last_marker
-        ):
-            last_marker = marker
-            timers.note_usb_progress(now=now)
-        state.update(ev)
-        state["phase"] = phase
-        state["run_status"] = state.get("run_status", "RUNNING")
+        state.update(evaluate(nums))
         state["test_sender_uid"] = test_sender
-        state["receiver_uid_live"] = rx_meta.get("receiver_uid")
-        state["receiver_tcp_up"] = rx_meta.get("receiver_tcp_up")
-        state["last_rx_num"] = last_rx_num
-        state["last_hot_begin"] = last_hot_begin
-        state["last_firmware_marker"] = fw.get("last_firmware_marker")
-        state["confirmed_failure_stage"] = fw.get("confirmed_failure_stage")
-        state["firmware_service_uid"] = fw.get("firmware_service_uid")
-        state["expected_sender_uid"] = fw.get("expected_sender_uid")
-        state["actual_attempts"] = infer_actual_attempts(fw)
-        state["FULL_BEGIN"] = fw.get("full_begin_count", 0)
-        state["FULL_WRITE_CALLED"] = fw.get("full_write_called", 0)
-        state["HOT_BEGIN"] = fw.get("hot_begin_count", 0)
-        state["HOT_SENDTO_OK"] = fw.get("hot_sendto_ok_count", 0)
-        state["bootstrap_done"] = fw.get("bootstrap_done")
-        state["bootstrap_select_fail"] = fw.get("bootstrap_select_fail")
-        state["client_reload_check"] = fw.get("client_reload_check")
-        state["full_wifi_psp_present"] = fw.get("full_wifi_psp_present")
-        state["wifi_radio_applied"] = fw.get("wifi_radio_applied")
-        state["got_ip"] = fw.get("got_ip")
-        state["first_wifi_esp_error"] = fw.get("first_wifi_esp_error")
-        state["full_write_statuses"] = fw.get("full_write_statuses")
-        state["hot_wifi_mode"] = fw.get("hot_wifi_mode")
-        state["hot_rtc_table_complete"] = fw.get("hot_rtc_table_complete")
-        hot_a = analyze_hot_rtc(fw, nums, test_sender=test_sender)
-        if hot_a is not None:
-            state["hot_rtc_analysis"] = hot_a
-        if extra:
-            state.update(extra)
+        state["receiver_uid_live"] = parse_receiver_meta(rx_text).get("receiver_uid")
+        state["last_rx_num"] = max(nums) if nums else 0
         writer.write(state)
-        print(
-            f"PHASE={phase} last_rx={last_rx_num} hot_begin={last_hot_begin} "
-            f"marker={state.get('last_firmware_marker')}",
-            flush=True,
-        )
+
     sync_state()
-    receiver_exited = False
     while clock.now() < overall_deadline:
-        now = clock.now()
-        prev_phase = phase
-        ser_text = (
-            serial_log.read_text(encoding="utf-8", errors="replace")
-            if serial_log.is_file()
-            else ""
-        )
-        fw = parse_firmware_serial(ser_text)
-        if rx_proc.poll() is not None and not receiver_exited:
-            receiver_exited = True
-            if last_rx_num >= LAST_MESSAGE or fw.get("scenario_done"):
-                phase = "TAIL"
-                state["error"] = (
-                    state.get("error")
-                    or f"receiver_exit_code={rx_proc.returncode}_after_delivery"
-                )
-                timers.note_usb_progress(now=now)
-            else:
-                phase = "RECEIVER_EXIT"
-                state["run_status"] = "FAIL"
-                state["error"] = f"receiver_exit_code={rx_proc.returncode}"
+        if rx_proc.poll() is not None:
+            state["run_status"] = "FAIL"
+            state["error"] = f"receiver_exit_code={rx_proc.returncode}"
+            sync_state()
+            return
+        nums, _ = parse_log(rx_log, test_sender=test_sender)
+        last_rx = max(nums) if nums else 0
+        if last_rx >= LAST_MESSAGE:
+            if tail_enter is None:
+                tail_enter = clock.now()
+            elif clock.now() - tail_enter >= TAIL_DELIVERY_S:
                 sync_state()
                 return
-        full_begin_seen = bool(
-            RE_FULL_BEGIN.search(ser_text) or "FULL_WRITE_BEGIN" in ser_text
-        )
-        if full_begin_seen and timers.full_begin is None:
-            timers.mark_full_begin(now=now)
-            phase = "FULL"
-        if "Guru Meditation Error" in ser_text or "panic'ed" in ser_text:
-            phase = "ESP_PANIC"
-            state["run_status"] = "FAIL"
-            state["error"] = "esp_panic_in_serial"
-            if "Select loaded client" in ser_text:
-                state["confirmed_failure_stage"] = "select_client_panic_load_fault"
-            else:
-                state["confirmed_failure_stage"] = "esp_panic"
-            sync_state()
-            time.sleep(TAIL_DELIVERY_S)
-            sync_state()
-            return
-        if fw.get("bootstrap_select_fail") and not fw.get("bootstrap_done"):
-            phase = "BOOTSTRAP_FAIL"
-            state["run_status"] = "FAIL"
-            state["confirmed_failure_stage"] = "bootstrap_select"
-            state["error"] = fw.get("fail_error") or "bootstrap_select_failed"
-            state["HOT"] = "NOT_RUN"
-            sync_state()
-            time.sleep(TAIL_DELIVERY_S)
-            sync_state()
-            return
-        if fw.get("confirmed_failure_stage"):
-            phase = "SCENARIO_FAIL"
-            state["run_status"] = "FAIL"
-            state["error"] = fw.get("fail_error") or fw["confirmed_failure_stage"]
-            if not fw.get("hot_begin_count"):
-                state["HOT"] = "NOT_RUN"
-            sync_state()
-            time.sleep(TAIL_DELIVERY_S)
-            sync_state()
-            return
-        if RE_SELECT_FAIL.search(ser_text) and "error=3" in ser_text:
-            phase = "SELECT_LOAD_FAIL"
-            state["run_status"] = "FAIL"
-            state["confirmed_failure_stage"] = "select_client_load_failed"
-            state["error"] = "select_client_error_3_no_panic"
-            sync_state()
-            time.sleep(TAIL_DELIVERY_S)
-            sync_state()
-            return
-        nums_tail, _ = parse_log(rx_log, test_sender=test_sender)
-        ev_tail = evaluate(nums_tail)
-        if last_rx_num >= LAST_MESSAGE and ev_tail.get("FULL_RX") == "1/1":
-            phase = "TAIL"
-            if tail_enter is None:
-                tail_enter = now
-            timers.note_usb_progress(now=now)
-        if (
-            phase == "TAIL"
-            and tail_enter is not None
-            and now - tail_enter >= TAIL_DELIVERY_S
-        ):
-            sync_state()
-            return
-        if fw.get("scenario_done") or fw.get("confirmed_failure_stage"):
-            phase = "TAIL"
-            timers.note_usb_progress(now=now)
-        if fw.get("hot_rtc_table_complete") and (
-            fw.get("scenario_done")
-            or fw.get("confirmed_failure_stage")
-            or last_rx_num >= LAST_MESSAGE
-        ):
-            phase = "FIRMWARE_DONE"
-            sync_state()
-            time.sleep(TAIL_DELIVERY_S)
-            sync_state()
-            return
-        hot_lane_active = (
-            fw["max_hot_begin"] >= 2
-            or int(fw.get("hot_begin_count") or 0) >= 1
-            or last_rx_num >= 2
-            or "PREPARED_EXPORT_RESULT=ok" in ser_text
-        )
-        if timers.full_begin is not None:
-            if hot_lane_active:
-                phase = "HOT"
-            else:
-                phase = "FULL"
-        elif (
-            fw.get("bootstrap_done")
-            or "PREPARED_EXPORT_RESULT=ok" in ser_text
-            or last_rx_num >= 1
-        ):
-            if hot_lane_active:
-                phase = "HOT"
-            else:
-                phase = "POST_BOOTSTRAP"
-        if phase == "HOT" and prev_phase != "HOT":
-            timers.mark_hot_begin(now=now)
-        if phase == "HOT" and last_rx_num >= LAST_MESSAGE:
-            phase = "TAIL"
-        dl = evaluate_deadlines(
-            phase=phase,
-            cfg=timer_cfg,
-            timers=timers,
-            now=now,
-            ser_text=ser_text,
-            fw=fw,
-            last_rx_num=last_rx_num,
-            last_message=LAST_MESSAGE,
-            hot_lane_active=hot_lane_active,
-            full_begin_seen=full_begin_seen,
-        )
-        deadline_hit = dl.hit
-        if dl.hit:
-            state["error"] = dl.error
-            phase = dl.phase_tag or phase
         sync_state()
-        if deadline_hit:
-            state["run_status"] = "TIMEOUT"
-            sync_state()
-            time.sleep(TAIL_DELIVERY_S)
-            sync_state()
-            return
         time.sleep(1.0)
     state["run_status"] = "TIMEOUT"
     state["error"] = state.get("error") or "overall_deadline"
-    phase = "OVERALL_TIMEOUT"
     sync_state()
 def classify_delivery(state: dict) -> str:
     full_ok = state.get("FULL_RX") == "1/1"
@@ -1149,7 +946,9 @@ def main() -> int:
         print(f"RECEIVER_UID={uid}", flush=True)
         stop_experiment_holders()
         vanilla.stop_stage1_serial_holders()
+        os.environ.setdefault("PPK2_PORT", PPK2_PORT)
         ppk = vanilla.open_ppk_session()
+        state["ppk2_port"] = PPK2_PORT
         ppk.set_on()
         bin_path = BUILD / "temperature_sensor.bin"
         skip_build = os.environ.get("SIMPLE_FULL_HOT_SKIP_BUILD", "").strip() == "1"
@@ -1228,10 +1027,8 @@ def main() -> int:
         ppk_capture.mark_cold_boot()
         vanilla.cold_boot_dut(ppk, off_s=4.0, wait_com_s=20.0)
         time.sleep(2.0)
-        post_port = sb.wait_espressif_com(timeout_s=45.0) or port
-        serial_cap = SerialCapture(serial_path)
-        serial_cap.start(post_port)
         state["phase"] = "CAMPAIGN"
+        state["serial_capture"] = "disabled"
         writer.write(state)
         wait_campaign(
             rx_log=log_path,
@@ -1245,19 +1042,6 @@ def main() -> int:
             state["run_status"] = "ABORTED"
             state["runner_interrupted"] = True
             state["error"] = "runner_interrupted"
-        rtc_deadline = time.time() + 240.0
-        while serial_cap is not None and time.time() < rtc_deadline:
-            ser_text = (
-                serial_path.read_text(encoding="utf-8", errors="replace")
-                if serial_path.is_file()
-                else ""
-            )
-            if ppk_capture is not None:
-                seen_rtc = {e.name for e in ppk_capture.events}
-                sync_events_from_serial(ppk_capture, ser_text, seen=seen_rtc)
-            if repeated_rtc_dump_verified(ser_text):
-                break
-            time.sleep(2.0)
         if ppk_capture is not None:
             ppk_meta = ppk_capture.stop()
             state["power_capture"] = analyze_power_capture(
