@@ -1,7 +1,6 @@
 """Continuous PPK2 raw capture for simple_full_hot_101 (single PPK owner)."""
 from __future__ import annotations
 
-import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -13,8 +12,6 @@ import numpy as np
 
 FS_HZ = 100_000.0
 DT_S = 1.0 / FS_HZ
-RE_HOT_BEGIN = re.compile(r"HOT_BEGIN number=(\d+)", re.I)
-RE_FULL_BEGIN = re.compile(r"FULL_BEGIN service_uid=", re.I)
 
 
 @dataclass
@@ -32,6 +29,8 @@ class SimpleFullHotPpkCapture:
     voltage_source: str = "set_source_meter"
     events: list[PpkEvent] = field(default_factory=list)
     sample_count: int = 0
+    read_error: str | None = None
+    write_error: str | None = None
     _thread: threading.Thread | None = None
     _stop: threading.Event = field(default_factory=threading.Event)
     _bin_f: Any = None
@@ -65,10 +64,13 @@ class SimpleFullHotPpkCapture:
             "fs_hz": FS_HZ,
             "voltage_mv": self.voltage_mv,
             "stopped_at": datetime.now(timezone.utc).isoformat(),
+            "read_error": self.read_error,
+            "write_error": self.write_error,
         }
-        self.raw_bin.with_suffix(".json").write_text(
-            __import__("json").dumps(meta, indent=2), encoding="utf-8"
-        )
+        if self.raw_bin.is_file():
+            self.raw_bin.with_suffix(".json").write_text(
+                __import__("json").dumps(meta, indent=2), encoding="utf-8"
+            )
         return meta
 
     def _run(self) -> None:
@@ -78,9 +80,9 @@ class SimpleFullHotPpkCapture:
             while not self._stop.is_set():
                 try:
                     raw = api.get_data()
-                except Exception:
-                    time.sleep(0.05)
-                    continue
+                except Exception as e:
+                    self.read_error = str(e)
+                    break
                 if not raw:
                     time.sleep(0.01)
                     continue
@@ -88,28 +90,18 @@ class SimpleFullHotPpkCapture:
                 if not chunk:
                     continue
                 arr = np.asarray(chunk, dtype=np.float32)
-                arr.tofile(self._bin_f)
+                try:
+                    arr.tofile(self._bin_f)
+                except Exception as e:
+                    self.write_error = str(e)
+                    break
                 self.sample_count += int(arr.size)
         finally:
             try:
                 api.stop_measuring()
-            except Exception:
-                pass
-
-
-def sync_events_from_serial(
-    capture: SimpleFullHotPpkCapture, ser_text: str, *, seen: set[str]
-) -> None:
-    for m in RE_FULL_BEGIN.finditer(ser_text):
-        name = "full_begin"
-        if name not in seen:
-            seen.add(name)
-            capture.events.append(PpkEvent(name, time.time(), capture.sample_count))
-    for m in RE_HOT_BEGIN.finditer(ser_text):
-        name = f"hot_begin_{m.group(1)}"
-        if name not in seen:
-            seen.add(name)
-            capture.events.append(PpkEvent(name, time.time(), capture.sample_count))
+            except Exception as e:
+                if self.read_error is None:
+                    self.read_error = str(e)
 
 
 def analyze_power_capture(
@@ -120,14 +112,33 @@ def analyze_power_capture(
     voltage_mv: int,
     hot_count: int,
 ) -> dict[str, Any]:
-    return {
-        "status": "COMPLETE" if meta.get("sample_count", 0) > 0 else "EMPTY",
-        "sample_count": meta.get("sample_count", 0),
-        "event_count": len(events),
-        "hot_count": hot_count,
-        "voltage_mv": voltage_mv,
-        "raw_bin": str(raw_bin),
+    del events, hot_count, voltage_mv
+    sample_count = int(meta.get("sample_count") or 0)
+    read_error = meta.get("read_error")
+    write_error = meta.get("write_error")
+    expected_bytes = sample_count * 4
+    actual_bytes = raw_bin.stat().st_size if raw_bin.is_file() else 0
+    if read_error or write_error:
+        status = "FAILED"
+    elif sample_count == 0:
+        status = "EMPTY"
+    elif actual_bytes == expected_bytes and expected_bytes > 0:
+        status = "COMPLETE"
+    elif sample_count > 0:
+        status = "UNKNOWN"
+    else:
+        status = "EMPTY"
+    out: dict[str, Any] = {
+        "status": status,
+        "sample_count": sample_count,
+        "expected_bytes": expected_bytes,
+        "actual_bytes": actual_bytes,
+        "read_error": read_error,
+        "write_error": write_error,
     }
+    if raw_bin.is_file():
+        out["raw_bin"] = str(raw_bin)
+    return out
 
 
 def classify_power_capture_status(power: dict[str, Any] | None) -> str:

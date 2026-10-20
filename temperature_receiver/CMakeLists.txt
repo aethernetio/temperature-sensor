@@ -5,13 +5,15 @@ project(temperature_receiver LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(USER_CONFIG "${CMAKE_CURRENT_LIST_DIR}/user_config.h" CACHE PATH "Aether user config header")
+set(AETHER_HOT_RX_USER_CONFIG
+    "${CMAKE_CURRENT_LIST_DIR}/user_config_tcp.h" CACHE FILEPATH "" FORCE)
+set(USER_CONFIG "${AETHER_HOT_RX_USER_CONFIG}" CACHE PATH "Aether user config header" FORCE)
 set(AE_DISTILLATION OFF CACHE BOOL "" FORCE)
 set(AE_FILTRATION ON CACHE BOOL "" FORCE)
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/CPM.cmake")
 # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
-  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
+CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
 
 # MinGW + Parallel STL emits #pragma message noise that breaks -Werror builds.
 if(TARGET aether AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -25,13 +27,9 @@ target_compile_definitions(temperature_receiver PRIVATE
   "USER_CONFIG=\"${USER_CONFIG}\"")
 target_link_libraries(temperature_receiver PRIVATE aether)
 
-set(AETHER_HOT_RX_USER_CONFIG
-    "${CMAKE_CURRENT_LIST_DIR}/user_config_tcp.h" CACHE FILEPATH "" FORCE)
 add_executable(aether_hot_tcp_receiver simple_full_hot_tcp_receiver.cpp)
 target_include_directories(aether_hot_tcp_receiver PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/../main")
-target_compile_definitions(aether_hot_tcp_receiver PRIVATE
-  "USER_CONFIG=\"${AETHER_HOT_RX_USER_CONFIG}\"")
 target_link_libraries(aether_hot_tcp_receiver PRIVATE aether)
 
 # Keep aether state under ./state next to the binary cwd.

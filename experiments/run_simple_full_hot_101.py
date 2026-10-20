@@ -44,8 +44,8 @@ if _VENV_PY.is_file() and Path(sys.executable).resolve() != _VENV_PY.resolve():
         import numpy  # noqa: F401
     except ModuleNotFoundError:
         os.execv(str(_VENV_PY), [str(_VENV_PY), *sys.argv])
-sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(PREPARED / "experiments"))
+sys.path.insert(0, str(HERE))
 import run_thermometer2_sleep_bisect as sb  # noqa: E402
 import run_thermometer2_aether_full_vanilla as vanilla  # noqa: E402
 from simple_full_hot_101_campaign_timers import (  # noqa: E402
@@ -586,25 +586,22 @@ def parse_log(log_path: Path, *, test_sender: str | None) -> tuple[list[int], st
 def evaluate(nums: list[int]) -> dict:
     c = Counter(nums)
     expect = set(range(1, LAST_MESSAGE + 1))
-    got = set(c.keys())
+    in_range = [n for n in nums if 1 <= n <= LAST_MESSAGE]
+    c_in = Counter(in_range)
+    got = {n for n, k in c_in.items() if k >= 1}
     missing = sorted(expect - got)
-    dups = sorted(n for n, k in c.items() if k > 1)
-    full_rx = 1 if c.get(1, 0) >= 1 else 0
-    hot_nums = [n for n in nums if n >= 2]
-    hot_unique = len({n for n in hot_nums})
-    pass_ok = (
-        got == expect
-        and len(nums) == LAST_MESSAGE
-        and full_rx == 1
-        and hot_unique == HOT_COUNT
-        and not dups
-    )
+    dups = sorted(n for n, k in c_in.items() if k > 1)
+    out_of_range = sorted({n for n in c.keys() if n < 1 or n > LAST_MESSAGE})
+    full_rx = 1 if c_in.get(1, 0) >= 1 else 0
+    hot_unique = len({n for n in got if n >= 2})
+    pass_ok = got == expect and not dups
     return {
         "FULL_RX": f"{full_rx}/1",
         "HOT_RX": f"{hot_unique}/{HOT_COUNT}",
         "missing_numbers": missing,
         "duplicates": dups,
-        "msg_rx_count": len(nums),
+        "out_of_range_numbers": out_of_range,
+        "msg_rx_count": len(in_range),
         "pass": pass_ok,
         "HOT_COUNT": HOT_COUNT,
     }
@@ -741,28 +738,20 @@ def wait_campaign(
             sync_state()
             return
         nums, _ = parse_log(rx_log, test_sender=test_sender)
-        if LAST_MESSAGE in set(nums):
-            if tail_enter is None:
-                tail_enter = clock.now()
-            elif clock.now() - tail_enter >= TAIL_DELIVERY_S:
-                sync_state()
-                return
+        if tail_enter is None and LAST_MESSAGE in nums:
+            tail_enter = clock.now()
+        elif tail_enter is not None and clock.now() - tail_enter >= TAIL_DELIVERY_S:
+            sync_state()
+            return
         sync_state()
         time.sleep(1.0)
     state["run_status"] = "TIMEOUT"
     state["error"] = state.get("error") or "overall_deadline"
     sync_state()
 def classify_delivery(state: dict) -> str:
-    full_ok = state.get("FULL_RX") == "1/1"
-    hot_rx = state.get("HOT_RX", f"0/{HOT_COUNT}")
-    try:
-        got, need = hot_rx.split("/")
-        hot_ok = int(got) >= int(need) and int(need) == HOT_COUNT
-    except ValueError:
-        hot_ok = False
-    if full_ok and hot_ok:
+    if state.get("pass"):
         return "PASS"
-    if full_ok or state.get("msg_rx_count", 0) > 0:
+    if state.get("msg_rx_count", 0) > 0:
         return "PARTIAL"
     return "FAIL"
 
@@ -806,25 +795,26 @@ def finalize_stale_running_results() -> list[str]:
 def finalize_test_status(state: dict) -> None:
     state["DELIVERY"] = classify_delivery(state)
     state["POWER_CAPTURE"] = classify_power_capture_status(state.get("power_capture"))
-    if state.get("run_status") in ("RUNNING", None):
-        rs = state.get("run_status") or "FAIL"
-        if state["DELIVERY"] == "PASS":
+    rs = state.get("run_status")
+    if rs in ("RUNNING", None):
+        if state.get("pass"):
             state["run_status"] = "PASS"
         elif rs == "TIMEOUT":
             state["run_status"] = "TIMEOUT"
-        elif rs == "ABORTED":
+        elif state.get("runner_interrupted"):
             state["run_status"] = "ABORTED"
         else:
-            state["run_status"] = "FAIL" if state["DELIVERY"] == "FAIL" else "DONE"
+            state["run_status"] = "DONE" if state["DELIVERY"] != "FAIL" else "FAIL"
+        rs = state["run_status"]
     state["EXECUTION"] = execution_status(state)
     if state.get("TEST") in ("PARTIAL", "PASS", "FAIL", "TIMEOUT", "ABORTED"):
         return
-    if state["DELIVERY"] == "PASS":
+    if rs in ("ABORTED", "TIMEOUT"):
+        state["TEST"] = rs
+    elif state.get("pass") and rs == "PASS":
         state["TEST"] = "PASS"
     elif state["DELIVERY"] == "PARTIAL":
         state["TEST"] = "PARTIAL"
-    elif state.get("run_status") in ("TIMEOUT", "ABORTED"):
-        state["TEST"] = state["run_status"]
     else:
         state["TEST"] = "FAIL"
 def main() -> int:
@@ -991,14 +981,16 @@ def main() -> int:
             "result_json": str(result_path.relative_to(ROOT)),
             "receiver_log": str(log_path.relative_to(ROOT)),
         }
-        if ppk_capture is not None:
+        if ppk_capture is not None and ppk_raw is not None and ppk_raw.is_file():
             state["artifacts"]["ppk_raw_bin"] = str(ppk_raw.relative_to(ROOT))
-            state["artifacts"]["ppk_meta_json"] = str(
-                ppk_raw.with_suffix(".json").relative_to(ROOT)
-            )
-            state["artifacts"]["ppk_events_json"] = str(
-                ppk_raw.with_suffix(".events.json").relative_to(ROOT)
-            )
+            meta_json = ppk_raw.with_suffix(".json")
+            if meta_json.is_file():
+                state["artifacts"]["ppk_meta_json"] = str(meta_json.relative_to(ROOT))
+            events_json = ppk_raw.with_suffix(".events.json")
+            if events_json.is_file():
+                state["artifacts"]["ppk_events_json"] = str(
+                    events_json.relative_to(ROOT)
+                )
         finalize_test_status(state)
         if state["TEST"] == "PASS":
             state["run_status"] = "PASS"

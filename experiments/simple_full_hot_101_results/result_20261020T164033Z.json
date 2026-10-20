@@ -113,5 +113,5 @@
   "EXECUTION": "ABORTED",
   "DELIVERY": "PARTIAL",
   "delivery_finalized_at": "2026-10-20T17:55:00Z",
-  "delivery_note": "MSG_NUM=101 received; set 1..101 incomplete (no FULL, 40 HOT missing)."
+  "delivery_note": "MSG_NUM=101 received; 1 FULL and 39 HOT missing from 1..101 (40 numbers total)."
 }

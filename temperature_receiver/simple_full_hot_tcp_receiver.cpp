@@ -1,5 +1,5 @@
 /*
- * Minimal TCP Æther receiver for simple FULL + HOT 101 experiment.
+ * Minimal TCP-only Æther receiver for simple FULL + HOT 101 experiment.
  */
 #include <chrono>
 #include <cstdlib>
@@ -20,8 +20,10 @@ static constexpr auto kParentUid =
 static constexpr char const* kClientName = "prepared_wifi_cache_rx_v1";
 
 std::vector<std::unique_ptr<ae::P2pStream>> g_streams;
+bool g_handlers_armed;
+bool g_ready_announced;
 
-void EnforceTcp(ae::Client& client) {
+bool TcpRxLinked(ae::Client& client) {
   for (auto* csc : client.cloud_connection().servers()) {
     auto* cc = csc->client_connection();
     if (cc->stream_info().link_state != ae::LinkState::kLinked) {
@@ -29,40 +31,32 @@ void EnforceTcp(ae::Client& client) {
     }
     auto ch = cc->server_connection().current_channel();
     if (auto ep = ch->endpoint()) {
-      if (ep->protocol != ae::Protocol::kTcp) {
-        csc->Restream();
+      if (ep->protocol == ae::Protocol::kTcp) {
+        return true;
       }
     }
   }
+  return false;
 }
 
 void OnMessage(ae::Uid sender, ae::DataBuffer const& data) {
-  if (data.size() == 1) {
-    std::cout << "MSG_NUM=" << static_cast<unsigned>(data[0])
-              << " sender=" << ae::Format("{}", sender) << '\n';
+  if (data.size() != 1) {
     return;
   }
-  if (data.size() >= 1 && data.size() <= 8) {
-    bool digits = true;
-    for (auto b : data) {
-      if (b < '0' || b > '9') {
-        digits = false;
-        break;
-      }
-    }
-    if (digits) {
-      std::cout << "MSG_NUM=" << std::string(data.begin(), data.end())
-                << " sender=" << ae::Format("{}", sender) << '\n';
-    }
-  }
+  std::cout << "MSG_NUM=" << static_cast<unsigned>(data[0])
+            << " sender=" << ae::Format("{}", sender) << '\n';
 }
 
-std::filesystem::path ParseStateDir(int argc, char** argv) {
+std::filesystem::path ParseArgs(int argc, char** argv) {
   std::filesystem::path state_dir = std::filesystem::current_path();
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
     if ((arg == "--state-dir" || arg == "--session") && i + 1 < argc) {
       state_dir = std::filesystem::path{argv[++i]};
+    } else if (arg == "--require-tcp" && i + 1 < argc) {
+      ++i;
+    } else if (arg == "--require-tcp") {
+      continue;
     }
   }
   return state_dir;
@@ -72,7 +66,7 @@ std::filesystem::path ParseStateDir(int argc, char** argv) {
 
 int main(int argc, char** argv) {
   std::cout.setf(std::ios::unitbuf);
-  auto const session_root = ParseStateDir(argc, argv);
+  auto const session_root = ParseArgs(argc, argv);
   std::filesystem::create_directories(session_root / "state");
   std::filesystem::current_path(session_root);
 
@@ -83,14 +77,10 @@ int main(int argc, char** argv) {
       .result_event()
       .Subscribe([&](ae::Result<ae::Client::ptr, int> const& res) {
         client = res.value();
-        std::cout << "RECEIVER_UID=" << ae::Format("{}", client->uid()) << '\n';
         client->connectivity_policy()->ResetRxTimings();
         client->connectivity_policy()
             ->ConfigureRxTimings(ae::RequestPolicy::All{})
             .ForAllPriorities(ae::RxTimingConf::Every(1s).WithWindow(1s));
-        EnforceTcp(*client);
-        client->cloud_connection().servers_update_event().Subscribe(
-            [client]() { EnforceTcp(*client); });
         client->message_stream_manager().new_port_event().Subscribe(
             [&](ae::P2pPortHandle handle) {
               auto sender = handle.destination();
@@ -100,12 +90,14 @@ int main(int argc, char** argv) {
                   [sender](auto const& d) { OnMessage(sender, d); });
               g_streams.push_back(std::move(stream));
             });
+        g_handlers_armed = true;
       });
 
   while (!aether_app->IsExited()) {
     auto t = aether_app->Update(ae::Now());
-    if (client) {
-      EnforceTcp(*client);
+    if (!g_ready_announced && client && g_handlers_armed && TcpRxLinked(*client)) {
+      std::cout << "RECEIVER_UID=" << ae::Format("{}", client->uid()) << '\n';
+      g_ready_announced = true;
     }
     aether_app->WaitUntil(t);
   }
