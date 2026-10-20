@@ -564,10 +564,86 @@ def erase_aether_storage_partition(port: str) -> None:
     )
 
 
+def idf_python_exe() -> str:
+    py = os.environ.get("PYTHON", "").strip()
+    if py and Path(py).is_file():
+        return py
+    candidate = Path(
+        r"C:\Espressif\python_env\idf6.0_py3.11_env\Scripts\python.exe"
+    )
+    if candidate.is_file():
+        return str(candidate)
+    return sys.executable
+
+
+def cmake_cache_service_uid() -> str | None:
+    cache = BUILD / "CMakeCache.txt"
+    if not cache.is_file():
+        return None
+    for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("SERVICE_UID:STRING="):
+            return line.split("=", 1)[1].strip()
+    return None
+
+
+def compile_command_service_uid() -> str | None:
+    cc = BUILD / "compile_commands.json"
+    if not cc.is_file():
+        return None
+    import json as _json
+
+    data = _json.loads(cc.read_text(encoding="utf-8"))
+    needle = "simple_full_hot_101_test.cpp"
+    for entry in data:
+        if needle not in entry.get("file", ""):
+            continue
+        cmd = entry.get("command") or entry.get("arguments")
+        if isinstance(cmd, list):
+            cmd = " ".join(cmd)
+        if not isinstance(cmd, str):
+            continue
+        m = re.search(r"-DSERVICE_UID=([0-9a-f-]{36})", cmd, re.I)
+        if m:
+            return m.group(1).lower()
+    return None
+
+
+def verify_firmware_service_uid(expected: str) -> dict:
+    expected_l = expected.lower()
+    cmake_uid = cmake_cache_service_uid()
+    compile_uid = compile_command_service_uid()
+    ok = cmake_uid == expected_l and compile_uid == expected_l
+    return {
+        "expected_service_uid": expected_l,
+        "cmake_cache_service_uid": cmake_uid,
+        "compile_command_service_uid": compile_uid,
+        "service_uid_build_match": ok,
+    }
+
+
 def flash_firmware(port: str) -> None:
-    b = BUILD.as_posix()
-    extra = f"idf.py -B '{b}' -p {port} flash"
-    vanilla.run_idf(extra)
+    """Flash pre-built artifacts only (no idf.py flash / implicit rebuild)."""
+    py = idf_python_exe()
+    subprocess.check_call(
+        [
+            py,
+            "-m",
+            "esptool",
+            "--chip",
+            "esp32c6",
+            "-p",
+            port,
+            "-b",
+            "460800",
+            "--before",
+            "default-reset",
+            "--after",
+            "hard-reset",
+            "write-flash",
+            "@flash_args",
+        ],
+        cwd=str(BUILD),
+    )
 def parse_log(
     log_path: Path,
     *,
@@ -911,7 +987,6 @@ def main() -> int:
         state["ppk2_port"] = PPK2_PORT
         ppk.set_on()
         bin_path = BUILD / "temperature_sensor.bin"
-        skip_build = os.environ.get("SIMPLE_FULL_HOT_SKIP_BUILD", "").strip() == "1"
         state["phase"] = "CONTROL" if control_run else "BUILD"
         state["control_run"] = control_run
         if control_run:
@@ -928,12 +1003,15 @@ def main() -> int:
             HOT_COUNT,
         )
         writer.write(state)
-        if skip_build and bin_path.is_file():
-            fw_sha = file_sha256(bin_path)
-            state["build"] = "skipped_existing_bin"
-        else:
-            fw_sha = build_esp(service_uid=uid, ssid=ssid, pwd=pwd)
-            state["build"] = "fresh"
+        fw_sha = build_esp(service_uid=uid, ssid=ssid, pwd=pwd)
+        state["build"] = "fresh"
+        uid_evidence = verify_firmware_service_uid(uid)
+        state["firmware_service_uid_evidence"] = uid_evidence
+        if not uid_evidence.get("service_uid_build_match"):
+            raise RuntimeError(
+                "firmware SERVICE_UID mismatch after build: "
+                f"{uid_evidence!r}"
+            )
         state["firmware_sha256"] = fw_sha
         elf_path = BUILD / "temperature_sensor.elf"
         if elf_path.is_file():
