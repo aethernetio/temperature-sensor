@@ -903,7 +903,7 @@ def main() -> int:
         print(f"RECEIVER_UID={uid}", flush=True)
         stop_experiment_holders()
         vanilla.stop_stage1_serial_holders()
-        os.environ.setdefault("PPK2_PORT", PPK2_PORT)
+        os.environ["PPK2_PORT"] = PPK2_PORT
         ppk = vanilla.open_ppk_session()
         state["ppk2_port"] = PPK2_PORT
         ppk.set_on()
