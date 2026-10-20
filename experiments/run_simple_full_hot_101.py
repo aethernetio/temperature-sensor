@@ -344,6 +344,8 @@ def build_receiver() -> tuple[Path, str]:
         )
         time.sleep(1.5)
     exe = RX_BUILD / "aether_hot_tcp_receiver.exe"
+    if os.environ.get("SIMPLE_FULL_HOT_SKIP_RX_BUILD", "").strip() == "1" and exe.is_file():
+        return exe, file_sha256(exe)
     ps = (
         "$ErrorActionPreference='Stop'\n"
         '$vswhere = "${env:ProgramFiles(x86)}\\Microsoft Visual Studio\\Installer\\vswhere.exe"\n'
@@ -855,7 +857,8 @@ def main() -> int:
     serial_path = RESULTS / f"serial_{run_id}.log"
     result_path = RESULTS / f"result_{run_id}.json"
     latest_path = RESULTS / "LATEST.json"
-    session = HERE / f"simple_full_hot_101_rx_session_{run_id}"
+    session_env = os.environ.get("SIMPLE_FULL_HOT_RX_SESSION", "").strip()
+    session = Path(session_env) if session_env else HERE / f"simple_full_hot_101_rx_session_{run_id}"
     writer = ResultWriter(result_path, latest_path)
     aether_meta = vanilla.ensure_aether_patched()
     head = git_head()

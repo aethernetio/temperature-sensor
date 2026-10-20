@@ -205,8 +205,8 @@ void AppSetup() {
   g_select_sub = g_app->aether()
                      ->SelectClient(kParentUid, kBenchClientId)
                      .result_event()
-                     .Subscribe([](ae::Result<ae::Client::ptr, int> res) {
-                       g_client = std::move(res).value();
+                     .Subscribe([](ae::Result<ae::Client::ptr, int> const& res) {
+                       g_client = res.value();
                        auto loaded = g_client.Load();
                        auto handle =
                            loaded->message_stream_manager().CreatePort(kServiceUid);
