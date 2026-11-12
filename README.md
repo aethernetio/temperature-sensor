@@ -39,26 +39,48 @@ The desktop SDK revision is pinned in `main/CMakeLists.txt`. For local SDK
 integration work, configure with
 `-DCPM_aether-client-cpp_SOURCE=/path/to/aether-client-cpp`.
 
-The desktop target compiled and linked with MSVC 19.50 x64 Release against
-published SDK `08f61d92a795051fcb8c9383e5ba4c8c2c336f89` on 2026-11-12, using
-remote dependency checkouts and no local source overrides. This project registers no
-desktop CTest tests.
+Both desktop and ESP-IDF builds declare `aether-tele` from its `main` branch in
+`cmake/telemetry.cmake` before the SDK is configured. Numeric and misc dependencies
+are pinned to the revisions used by telemetry, so the embedded SDK cannot select
+an older codec first. Clean configurations therefore follow telemetry `main`;
+an existing CPM cache may require its normal update/reconfiguration flow.
+
+The desktop executable compiled and linked with MSVC 19.50 x64 Release on
+2026-11-12 at code revision `069577d3778096bc652331784df6cd1f06d1256c`, using
+remote SDK `59153adf1fb8baba088b28b50051fb961e8d6eaf`, Tele `main` resolved to
+`65eda03928030b8cc04432e2f98ba4e3242b6f27` and Objects
+`80fbb4c33bebd660c9bdf0687311cee30de74f39`. No local dependency source overrides
+were used.
+
+This project registers no desktop CTest tests. Its two Python host harnesses run
+without ESP hardware or ESP-IDF; they compile and execute small programs using
+stubbed platform functions:
+
+```bash
+python tests/test_esp_main_sleep.py --cc g++
+python tests/test_stcc4_ulp.py --cc gcc
+```
+
+Both passed on code revision `069577d3778096bc652331784df6cd1f06d1256c` on
+2026-11-12 using MinGW UCRT GCC/G++. They cover sleep deadlines, rejected sleep
+and timer errors, plus STCC4 conversions, all CRC words, I2C errors, recovery and
+optional output parameters. See [the test guide](tests/readme.md).
 
 Desktop compile checks do not validate sensor hardware, sleep/wake behavior,
 Wi-Fi lifecycle, or cloud delivery. The ESP-IDF main application retains its
 Wi-Fi lifecycle SDK revision `157aadbec8e7b852d0f89274307ff7cb8103e5f7` and pins
 its compatible libbcrypt revision `8aa32ad94ebe06b76853b0767c910c9fbf7ccef4` before
-the SDK is configured. That embedded SDK retains standalone Tele
-`7424eb5bdd49e78bd73aa1e453594d3660c111c4`; the desktop build uses the new telemetry
-integration. Updating telemetry inside that hardware lifecycle SDK is a separate
-backport. The C-only ULP coprocessor neither includes nor links the network SDK
-and does not fetch it.
+the SDK is configured. The consumer's telemetry declaration overrides that SDK's
+historical Tele pin without replacing its Wi-Fi/prepared-send/sleep implementation.
+The C-only ULP coprocessor neither includes nor links the network SDK and does not
+fetch it.
 
-Firmware CI at revision `d632134492779a5b26def3378ad0e50842327861` compiled all
+Firmware CI at code revision `069577d3778096bc652331784df6cd1f06d1256c` compiled all
 three configured boards (M5Stack, AetherC6 and NanoC6):
-[successful build run](https://github.com/aethernetio/temperature-sensor/actions/runs/43302614390).
-These embedded checks use the retained SDK/Tele revisions above. No physical
-sensor, sleep/wake, Wi-Fi or cloud-delivery test was run.
+[successful build run](https://github.com/aethernetio/temperature-sensor/actions/runs/43325254997).
+All three configurations resolved `aether-tele` from `main` and numeric revision
+`9d79bd79188420533bab07c437d617aedfaf6b1a`. No physical sensor, sleep/wake, Wi-Fi or
+cloud-delivery test was run.
 
 ## ESP-IDF
 
