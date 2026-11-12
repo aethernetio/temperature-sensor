@@ -40,13 +40,25 @@ integration work, configure with
 `-DCPM_aether-client-cpp_SOURCE=/path/to/aether-client-cpp`.
 
 The desktop target compiled and linked with MSVC 19.50 x64 Release against
-published SDK `a7ec61a5db9af36cf6dcc3dee95ef489a09e470b` on 2026-11-12, using
-a fresh CPM cache and no local source overrides. This project registers no
+published SDK `08f61d92a795051fcb8c9383e5ba4c8c2c336f89` on 2026-11-12, using
+remote dependency checkouts and no local source overrides. This project registers no
 desktop CTest tests.
 
 Desktop compile checks do not validate sensor hardware, sleep/wake behavior,
-Wi-Fi lifecycle, or cloud delivery. ESP-IDF and ULP builds retain their separate
-SDK revision until those embedded scenarios are revalidated.
+Wi-Fi lifecycle, or cloud delivery. The ESP-IDF main application retains its
+Wi-Fi lifecycle SDK revision `157aadbec8e7b852d0f89274307ff7cb8103e5f7` and pins
+its compatible libbcrypt revision `8aa32ad94ebe06b76853b0767c910c9fbf7ccef4` before
+the SDK is configured. That embedded SDK retains standalone Tele
+`7424eb5bdd49e78bd73aa1e453594d3660c111c4`; the desktop build uses the new telemetry
+integration. Updating telemetry inside that hardware lifecycle SDK is a separate
+backport. The C-only ULP coprocessor neither includes nor links the network SDK
+and does not fetch it.
+
+Firmware CI at revision `d632134492779a5b26def3378ad0e50842327861` compiled all
+three configured boards (M5Stack, AetherC6 and NanoC6):
+[successful build run](https://github.com/aethernetio/temperature-sensor/actions/runs/43302614390).
+These embedded checks use the retained SDK/Tele revisions above. No physical
+sensor, sleep/wake, Wi-Fi or cloud-delivery test was run.
 
 ## ESP-IDF
 
