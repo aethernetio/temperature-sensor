@@ -49,7 +49,7 @@ if(NOT CM_PLATFORM)
   include(../cmake/CPM.cmake)
 
   # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
-  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#a7ec61a5db9af36cf6dcc3dee95ef489a09e470b")
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#ef0ae48d0802ff90dc5a7e5e24e7b3a174a0082a")
 
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
   set(TARGET_NAME ${PROJECT_NAME})
@@ -82,8 +82,25 @@ else()
 
     set(TARGET_NAME "${COMPONENT_LIB}")
     include(../cmake/CPM.cmake)
-    # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
-    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
+    # Keep the embedded SDK lifecycle and its owned patches, while freezing the
+    # bcrypt source that those patches target. Upstream master changed entropy
+    # handling and no longer accepts the SDK's patch.
+    CPMAddPackage(
+      NAME aether-client-cpp
+      GITHUB_REPOSITORY aethernetio/aether-client-cpp
+      GIT_TAG 157aadbec8e7b852d0f89274307ff7cb8103e5f7
+      GIT_CONFIG core.autocrlf=false
+      DOWNLOAD_ONLY YES)
+    CPMDeclarePackage(libbcrypt
+      NAME libbcrypt
+      GIT_REPOSITORY https://github.com/rg3/libbcrypt.git
+      GIT_TAG 8aa32ad94ebe06b76853b0767c910c9fbf7ccef4
+      GIT_CONFIG core.autocrlf=false
+      PATCHES "${aether-client-cpp_SOURCE_DIR}/third_party/libbcrypt.patch"
+      OPTIONS "ENABLE_INSTALL OFF"
+      EXCLUDE_FROM_ALL FALSE)
+    add_subdirectory("${aether-client-cpp_SOURCE_DIR}"
+                     "${aether-client-cpp_BINARY_DIR}")
 
     target_link_libraries(${TARGET_NAME} PRIVATE aether)
 
