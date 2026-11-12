@@ -62,8 +62,8 @@ ulp_add_build_binary_targets(${ULP_APP_NAME})
 
 target_include_directories(${ULP_APP_NAME} PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../main")
 
-include(../cmake/CPM.cmake)
-CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#157aadbec8e7b852d0f89274307ff7cb8103e5f7")
+# The LP core compiles C sensor sources only. The network SDK belongs to the
+# main-CPU component; this target neither includes nor links it.
 
 if(NOT "${BOARD}" STREQUAL "")
     message(STATUS "--------------------------------------------------")
