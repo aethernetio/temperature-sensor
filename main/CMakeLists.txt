@@ -50,7 +50,7 @@ if(NOT CM_PLATFORM)
   include(../cmake/telemetry.cmake)
 
   # Pin exact SHA. Override locally with -DCPM_aether-client-cpp_SOURCE=<path>.
-  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#08f61d92a795051fcb8c9383e5ba4c8c2c336f89")
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#59153adf1fb8baba088b28b50051fb961e8d6eaf")
 
   add_executable(${PROJECT_NAME} ${src_list} ${sleeping_src} ${sensors_src})
   set(TARGET_NAME ${PROJECT_NAME})
