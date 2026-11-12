@@ -35,6 +35,19 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
+The desktop SDK revision is pinned in `main/CMakeLists.txt`. For local SDK
+integration work, configure with
+`-DCPM_aether-client-cpp_SOURCE=/path/to/aether-client-cpp`.
+
+The desktop target compiled and linked with MSVC 19.50 x64 Release against
+published SDK `a7ec61a5db9af36cf6dcc3dee95ef489a09e470b` on 2026-11-12, using
+a fresh CPM cache and no local source overrides. This project registers no
+desktop CTest tests.
+
+Desktop compile checks do not validate sensor hardware, sleep/wake behavior,
+Wi-Fi lifecycle, or cloud delivery. ESP-IDF and ULP builds retain their separate
+SDK revision until those embedded scenarios are revalidated.
+
 ## ESP-IDF
 
 Make sure `IDF_PATH` is configured, then replace the board and Wi-Fi placeholders:
